@@ -9,7 +9,7 @@ pub mod engine;
 pub mod form;
 pub mod interpret;
 
-pub use answers::{Answer, Answers};
+pub use answers::{Answer, Answers, EditChoice};
 pub use command::{FormCommand, build_command};
 pub use engine::{Advance, Awaiting, FormInput, FormState};
 pub use form::{Field, FormKind};

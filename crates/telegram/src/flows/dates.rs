@@ -1,6 +1,7 @@
-//! Dates typed in chat: `dd/mm`, `dd/mm/aa` or `dd/mm/aaaa`.
+//! Dates typed in chat: `dd/mm`, `dd/mm/aa` or `dd/mm/aaaa`; times as
+//! `21`, `21h`, `21:30` or `21h30`.
 
-use chrono::{Datelike, NaiveDate};
+use chrono::{Datelike, NaiveDate, NaiveTime};
 
 /// Parses a typed date; `dd/mm` uses the year of `today`.
 ///
@@ -30,6 +31,20 @@ fn full_year(raw: &str) -> Option<i32> {
         4 => Some(value),
         _ => None,
     }
+}
+
+/// Parses a typed time of day.
+///
+/// ```
+/// use chrono::NaiveTime;
+/// use telegram::flows::dates::parse_typed_time;
+/// assert_eq!(parse_typed_time("21h30"), NaiveTime::from_hms_opt(21, 30, 0));
+/// ```
+pub fn parse_typed_time(text: &str) -> Option<NaiveTime> {
+    let cleaned = text.trim().to_lowercase().replace('h', ":");
+    let (hours, minutes) = cleaned.split_once(':').unwrap_or((cleaned.as_str(), ""));
+    let minutes = if minutes.is_empty() { 0 } else { minutes.parse().ok()? };
+    NaiveTime::from_hms_opt(hours.trim().parse().ok()?, minutes, 0)
 }
 
 /// `dd/mm`, adding the year only when it differs from `today`'s.
@@ -62,6 +77,16 @@ mod tests {
         for text in ["31/02", "abc", "10", "1/2/3", "1/2/2024/5", "32/01", "1/13"] {
             assert_eq!(parse_typed_date(text, today), None, "{text}");
         }
+    }
+
+    #[test]
+    fn parses_times_of_day() {
+        let at = |hour, minute| NaiveTime::from_hms_opt(hour, minute, 0);
+        assert_eq!(parse_typed_time("21"), at(21, 0));
+        assert_eq!(parse_typed_time(" 21H "), at(21, 0));
+        assert_eq!(parse_typed_time("9:05"), at(9, 5));
+        assert_eq!(parse_typed_time("24:00"), None);
+        assert_eq!(parse_typed_time("noite"), None);
     }
 
     #[test]

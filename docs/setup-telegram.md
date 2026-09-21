@@ -54,15 +54,29 @@ Restart finbot. `/healthz` now shows a `telegram` check.
 /gasto       → valor, descrição, categoria, conta ou cartão, (parcelas), data
 /novocartao  → nome, dia de fechamento, dia de vencimento
 /recorrente  → salário todo dia 5, aluguel todo dia 10...
+/config      → dia em que o ciclo começa, horário do resumo diário
 /saldo, /resumo, /fatura
 ```
 
-The daily summary arrives at 21:00 (change it with the API's
-`PATCH /api/v1/settings`), and the closing of the financial month on the
-first day of each cycle.
+The daily summary arrives at 21:00 and the closing of the financial month
+on the first day of each cycle; change both with `/config` (or the API's
+`PATCH /api/v1/settings`).
 
-Each confirmation has a **↩️ Desfazer** button; only the person who
-recorded the entry can use it. `/desfazer` undoes your own last entry.
+## Fixing mistakes
+
+- Each confirmation has a **↩️ Desfazer** button; only the person who
+  recorded the entry can use it. `/desfazer` undoes your own last entry.
+- `/ultimos` lists the last 10 entries. **✏️** changes the value,
+  description, category or date; **🗑️** deletes. Only the author can change
+  an entry; automatic ones (from recurrences) can be changed by either of
+  you. Card installments are deleted as a whole purchase; to change one,
+  delete it and record it again.
+- `/ajuste` fixes an account whose balance drifted from the bank: pick the
+  account, type the real balance (`-50` if overdrawn), and the difference is
+  recorded as an adjustment. Adjustments never count as income or spending.
+- `/exportar` sends the current cycle as a CSV file that opens in Excel or
+  Google Sheets; `/exportar 02/2026` sends the cycle that starts in
+  February 2026.
 
 ## How the bot behaves
 

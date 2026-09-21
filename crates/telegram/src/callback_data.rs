@@ -9,6 +9,8 @@ use app::model::{
     RecurrenceKind, RecurrenceMode,
 };
 use chrono::NaiveDate;
+
+use crate::flows::EditChoice;
 use domain::{AccountKind, Cents};
 
 pub const MAX_CALLBACK_BYTES: usize = 64;
@@ -30,6 +32,7 @@ pub enum ButtonValue {
     Money(Cents),
     RecurrenceKind(RecurrenceKind),
     RecurrenceMode(RecurrenceMode),
+    EditChoice(EditChoice),
     Confirm,
     Cancel,
 }
@@ -50,6 +53,10 @@ pub enum CallbackPayload {
     SkipRecurrence(RecurrenceId, NaiveDate),
     /// [Desativar] in `/recorrentes`.
     DeactivateRecurrence(RecurrenceId),
+    /// [✏️] in `/ultimos`.
+    EditEntry(EntryId),
+    /// [🗑️] in `/ultimos`.
+    DeleteEntry(EntryId),
 }
 
 /// Short, per-flow tag: the random tail of the draft UUID.
@@ -87,6 +94,14 @@ pub fn deactivate_recurrence_button(recurrence: RecurrenceId) -> String {
     format!("rd|{recurrence}")
 }
 
+pub fn edit_entry_button(entry: EntryId) -> String {
+    format!("ee|{entry}")
+}
+
+pub fn delete_entry_button(entry: EntryId) -> String {
+    format!("ed|{entry}")
+}
+
 fn encode_value(value: ButtonValue) -> String {
     match value {
         ButtonValue::Skip => "s".into(),
@@ -103,6 +118,7 @@ fn encode_value(value: ButtonValue) -> String {
         ButtonValue::Money(amount) => format!("m:{}", amount.value()),
         ButtonValue::RecurrenceKind(kind) => format!("rk:{}", kind.as_str()),
         ButtonValue::RecurrenceMode(mode) => format!("rm:{}", mode.as_str()),
+        ButtonValue::EditChoice(choice) => format!("ec:{}", choice.code()),
         ButtonValue::Confirm => "ok".into(),
         ButtonValue::Cancel => "x".into(),
     }
@@ -115,6 +131,8 @@ pub fn parse(data: &str) -> Option<CallbackPayload> {
         "u" => return tail.parse().ok().map(CallbackPayload::Undo),
         "up" => return tail.parse().ok().map(CallbackPayload::UndoPurchase),
         "rd" => return tail.parse().ok().map(CallbackPayload::DeactivateRecurrence),
+        "ee" => return tail.parse().ok().map(CallbackPayload::EditEntry),
+        "ed" => return tail.parse().ok().map(CallbackPayload::DeleteEntry),
         "rr" | "rs" => return recurrence_payload(head, tail),
         _ => {}
     }
@@ -158,6 +176,7 @@ fn decode_tagged(code: &str) -> Option<ButtonValue> {
         "m" => value.parse().ok().map(|cents| ButtonValue::Money(Cents::new(cents))),
         "rk" => value.parse().ok().map(ButtonValue::RecurrenceKind),
         "rm" => value.parse().ok().map(ButtonValue::RecurrenceMode),
+        "ec" => EditChoice::from_code(value).map(ButtonValue::EditChoice),
         _ => None,
     }
 }
@@ -182,6 +201,7 @@ mod tests {
             ButtonValue::Money(Cents::new(123_456)),
             ButtonValue::RecurrenceKind(RecurrenceKind::Income),
             ButtonValue::RecurrenceMode(RecurrenceMode::Confirm),
+            ButtonValue::EditChoice(EditChoice::Category),
             ButtonValue::Confirm,
             ButtonValue::Cancel,
         ]

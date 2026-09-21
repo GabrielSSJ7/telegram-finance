@@ -5,12 +5,12 @@ use crate::error::Problem;
 
 #[derive(OpenApi)]
 #[openapi(
-    info(title = "finbot API", description = "Couple finance ledger: accounts, entries, goals, settings."),
+    info(title = "finbot API", description = "Couple finance ledger: accounts, cards, entries, goals, budgets, reports and exports."),
     components(schemas(Problem)),
     modifiers(&BearerSecurity),
     tags(
-        (name = "accounts"), (name = "budgets"), (name = "cards"), (name = "categories"), (name = "entries"),
-        (name = "goals"), (name = "recurrences"), (name = "reports"), (name = "settings"), (name = "health"),
+        (name = "accounts"), (name = "budgets"), (name = "cards"), (name = "categories"), (name = "entries"), (name = "exports"),
+        (name = "goals"), (name = "members"), (name = "recurrences"), (name = "reports"), (name = "settings"), (name = "health"),
     )
 )]
 pub struct ApiDoc;

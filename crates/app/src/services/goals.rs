@@ -100,7 +100,7 @@ impl GoalService {
     /// Moves money back out of the pot; the pot cannot go negative.
     pub async fn withdraw(&self, request: PotMove, origin: EntryOrigin) -> AppResult<LedgerEntry> {
         let goal = self.require_goal(request.goal_id).await?;
-        let saved = self.pot_balance(goal.pot.id).await?;
+        let saved = self.accounts.balance_of(goal.pot.id).await?;
         if request.amount > saved {
             let expected =
                 format!("at most the {} cents saved in {}", saved.value(), goal.pot.name);
@@ -115,12 +115,6 @@ impl GoalService {
             Some(goal) if !goal.pot.archived => Ok(goal),
             _ => Err(AppError::not_found("goal", id)),
         }
-    }
-
-    async fn pot_balance(&self, pot: AccountId) -> AppResult<Cents> {
-        let balances = self.accounts.balances().await?;
-        let found = balances.iter().find(|item| item.account.id == pot);
-        Ok(found.map_or(Cents::ZERO, |item| item.balance))
     }
 }
 

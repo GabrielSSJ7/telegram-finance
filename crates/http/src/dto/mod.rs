@@ -6,5 +6,6 @@ pub mod cards;
 pub mod categories;
 pub mod entries;
 pub mod goals;
+pub mod members;
 pub mod recurrences;
 pub mod settings;

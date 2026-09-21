@@ -16,6 +16,11 @@ pub enum FormKind {
     Refund,
     NewRecurrence,
     SetBudget,
+    /// Started from `/ultimos`, never by typing a command.
+    EditEntry,
+    /// Makes an account's balance match the bank.
+    Adjust,
+    Settings,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -59,15 +64,27 @@ pub enum Field {
     BudgetLimit,
     /// Optional; skipped means no deadline.
     GoalDeadline,
+    /// Filled in when the edit starts.
+    EditTarget,
+    EditFieldChoice,
+    /// The balance the bank shows; may be zero or negative.
+    ActualBalance,
+    /// Skippable, like `ReportTime`: skipped keeps the current value.
+    CycleStartDay,
+    ReportTime,
 }
 
 use Field::{
     AccountKind as KindField, AccountName, AlreadySaved, Amount, BudgetLimit, CardChoice, CardName,
-    ClosingDay, Date, Description, DueDay, ExpenseCategory, FromAccount, Goal, GoalDeadline,
-    GoalName, GoalTarget, IncomeCategory, InitialBalance, Installments, InvoiceChoice,
-    PaymentAccount, ReceivingAccount, RecurrenceDay, RecurrenceKindChoice, RecurrenceModeChoice,
-    RecurrenceName, RefundTarget, ToAccount,
+    ClosingDay, Date, Description, DueDay, EditFieldChoice, EditTarget, ExpenseCategory,
+    FromAccount, Goal, GoalDeadline, GoalName, GoalTarget, IncomeCategory, InitialBalance,
+    Installments, InvoiceChoice, PaymentAccount, ReceivingAccount, RecurrenceDay,
+    RecurrenceKindChoice, RecurrenceModeChoice, RecurrenceName, RefundTarget, ToAccount,
 };
+
+/// Only the field picked in `EditFieldChoice` applies.
+const EDIT_FIELDS: &[Field] =
+    &[EditTarget, EditFieldChoice, Amount, Description, ExpenseCategory, IncomeCategory, Date];
 
 /// Expense-only and income-only fields are skipped by `Field::applies`.
 const RECURRENCE_FIELDS: &[Field] = &[
@@ -83,7 +100,7 @@ const RECURRENCE_FIELDS: &[Field] = &[
 ];
 
 impl FormKind {
-    pub const ALL: [FormKind; 12] = [
+    pub const ALL: [FormKind; 15] = [
         FormKind::Expense,
         FormKind::Income,
         FormKind::Transfer,
@@ -96,6 +113,9 @@ impl FormKind {
         FormKind::Refund,
         FormKind::NewRecurrence,
         FormKind::SetBudget,
+        FormKind::EditEntry,
+        FormKind::Adjust,
+        FormKind::Settings,
     ];
 
     pub const fn fields(self) -> &'static [Field] {
@@ -114,6 +134,9 @@ impl FormKind {
             FormKind::Refund => &[Amount, Description, ExpenseCategory, RefundTarget, Date],
             FormKind::NewRecurrence => RECURRENCE_FIELDS,
             FormKind::SetBudget => &[ExpenseCategory, BudgetLimit],
+            FormKind::EditEntry => EDIT_FIELDS,
+            FormKind::Adjust => &[ReceivingAccount, Field::ActualBalance],
+            FormKind::Settings => &[Field::CycleStartDay, Field::ReportTime],
         }
     }
 
@@ -132,6 +155,9 @@ impl FormKind {
             FormKind::Refund => "estorno",
             FormKind::NewRecurrence => "recorrente",
             FormKind::SetBudget => "orcamento",
+            FormKind::EditEntry => "editar",
+            FormKind::Adjust => "ajuste",
+            FormKind::Settings => "config",
         }
     }
 
@@ -149,11 +175,17 @@ impl FormKind {
             FormKind::Refund => "Estorno",
             FormKind::NewRecurrence => "Nova recorrência",
             FormKind::SetBudget => "Orçamento mensal",
+            FormKind::EditEntry => "Editar lançamento",
+            FormKind::Adjust => "Ajustar saldo",
+            FormKind::Settings => "Configurações",
         }
     }
 
+    /// The form a typed command starts; the edit form needs an entry
+    /// and only starts from `/ultimos`.
     pub fn from_command(command: &str) -> Option<FormKind> {
-        FormKind::ALL.into_iter().find(|form| form.command() == command)
+        let typed = FormKind::ALL.into_iter().filter(|form| *form != FormKind::EditEntry);
+        typed.into_iter().find(|form| form.command() == command)
     }
 }
 
@@ -164,6 +196,7 @@ impl Field {
         use app::model::RecurrenceKind::{Expense, Income};
         let recurrence_kind = answers.recurrence_kind();
         match (form, self) {
+            (FormKind::EditEntry, field) => edit_applies(field, answers),
             (_, Field::Installments) => answers.card(Field::PaymentAccount).is_some(),
             (FormKind::NewRecurrence, Field::ExpenseCategory | Field::PaymentAccount) => {
                 recurrence_kind == Some(Expense)
@@ -176,17 +209,34 @@ impl Field {
     }
 }
 
+/// In an edit, only the picked field is asked; income picks income
+/// categories.
+fn edit_applies(field: Field, answers: &super::Answers) -> bool {
+    use super::EditChoice;
+    let income = answers.edited_entry().is_some_and(|(_, income)| income);
+    match (field, answers.edit_choice()) {
+        (Field::EditTarget | Field::EditFieldChoice, _)
+        | (Field::Amount, Some(EditChoice::Amount))
+        | (Field::Description, Some(EditChoice::Description))
+        | (Field::Date, Some(EditChoice::Date)) => true,
+        (Field::ExpenseCategory, Some(EditChoice::Category)) => !income,
+        (Field::IncomeCategory, Some(EditChoice::Category)) => income,
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn commands_round_trip() {
-        for form in FormKind::ALL {
+        for form in FormKind::ALL.into_iter().filter(|form| *form != FormKind::EditEntry) {
             assert_eq!(FormKind::from_command(form.command()), Some(form));
             assert!(!form.fields().is_empty() && !form.title().is_empty());
         }
         assert_eq!(FormKind::from_command("saldo"), None);
+        assert_eq!(FormKind::from_command("editar"), None);
     }
 
     #[test]

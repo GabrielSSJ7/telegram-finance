@@ -59,12 +59,22 @@ pub async fn start_flow(
     member: &Member,
     form: FormKind,
 ) -> Result<(), GatewayError> {
+    start_prepared_flow(context, chat_id, member, FormState::start(form)).await
+}
+
+/// Starts a flow whose first answers are already known.
+pub async fn start_prepared_flow(
+    context: &BotContext,
+    chat_id: i64,
+    member: &Member,
+    state: FormState,
+) -> Result<(), GatewayError> {
     let key = member_key(chat_id, member);
     let previous = load_session(context, key, member).await.map(|(session, _)| session);
     let card_message_id = previous.and_then(|session| session.card_message_id);
     let session =
         FlowSession { key, member: member.clone(), draft: DraftId::generate(), card_message_id };
-    present(context, session, FormState::start(form), Placement::NewCard, None).await
+    present(context, session, state, Placement::NewCard, None).await
 }
 
 /// The stored flow of `member` in `key.chat_id`, if any and readable.
@@ -244,13 +254,13 @@ async fn commit(
     }
 }
 
-/// Spending and budget changes may cross a budget threshold.
+/// Spending, edits and budget changes may cross a budget threshold.
 async fn after_commit(
     context: &BotContext,
     chat_id: i64,
     form: FormKind,
 ) -> Result<(), GatewayError> {
-    if matches!(form, FormKind::Expense | FormKind::SetBudget) {
+    if matches!(form, FormKind::Expense | FormKind::SetBudget | FormKind::EditEntry) {
         return announce_budget_alerts(context, chat_id).await;
     }
     Ok(())
@@ -285,12 +295,16 @@ async fn show_committed(
         today: context.clock.today(),
     };
     let html = committed_card(state, card, headline_for(state.form, committed));
-    let keyboard = undo_keyboard_for(committed);
+    let keyboard = undo_keyboard_for(state.form, committed);
     place(context, &mut session, html, keyboard, placement).await
 }
 
 /// [Desfazer] for what created ledger rows; setup commands have none.
-fn undo_keyboard_for(committed: &Committed) -> Option<Keyboard> {
+/// An edit has none either: undoing it would delete the edited entry.
+fn undo_keyboard_for(form: FormKind, committed: &Committed) -> Option<Keyboard> {
+    if form == FormKind::EditEntry {
+        return None;
+    }
     match committed {
         Committed::Entry(entry) => Some(undo_keyboard(undo_button(entry.id))),
         Committed::Purchase(purchase) => Some(undo_keyboard(undo_purchase_button(purchase.id))),

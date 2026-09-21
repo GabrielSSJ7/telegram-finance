@@ -1,7 +1,7 @@
 use app::model::{
-    AccountId, CardId, CategoryId, GoalId, InvoiceId, RecurrenceKind, RecurrenceMode,
+    AccountId, CardId, CategoryId, EntryId, GoalId, InvoiceId, RecurrenceKind, RecurrenceMode,
 };
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveTime};
 use domain::{AccountKind, Cents};
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +24,42 @@ pub enum Answer {
     Day(u8),
     RecurrenceKind(RecurrenceKind),
     RecurrenceMode(RecurrenceMode),
+    /// The entry being edited, with a short label for the card.
+    Entry {
+        id: EntryId,
+        income: bool,
+        label: String,
+    },
+    EditChoice(EditChoice),
+    Time(NaiveTime),
+}
+
+/// Which part of an entry `/ultimos` → ✏️ changes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EditChoice {
+    Amount,
+    Description,
+    Category,
+    Date,
+}
+
+impl EditChoice {
+    pub const ALL: [EditChoice; 4] =
+        [EditChoice::Amount, EditChoice::Description, EditChoice::Category, EditChoice::Date];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            EditChoice::Amount => "amount",
+            EditChoice::Description => "description",
+            EditChoice::Category => "category",
+            EditChoice::Date => "date",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<EditChoice> {
+        EditChoice::ALL.into_iter().find(|choice| choice.code() == code)
+    }
 }
 
 /// Answers given so far, in the order the fields were asked.
@@ -126,6 +162,13 @@ impl Answers {
         }
     }
 
+    pub fn time(&self, field: Field) -> Option<NaiveTime> {
+        match self.get(field) {
+            Some(Answer::Time(time)) => Some(*time),
+            _ => None,
+        }
+    }
+
     pub fn recurrence_kind(&self) -> Option<RecurrenceKind> {
         match self.get(Field::RecurrenceKindChoice) {
             Some(Answer::RecurrenceKind(kind)) => Some(*kind),
@@ -136,6 +179,21 @@ impl Answers {
     pub fn recurrence_mode(&self) -> Option<RecurrenceMode> {
         match self.get(Field::RecurrenceModeChoice) {
             Some(Answer::RecurrenceMode(mode)) => Some(*mode),
+            _ => None,
+        }
+    }
+
+    /// The edited entry and whether it is income.
+    pub fn edited_entry(&self) -> Option<(EntryId, bool)> {
+        match self.get(Field::EditTarget) {
+            Some(Answer::Entry { id, income, .. }) => Some((*id, *income)),
+            _ => None,
+        }
+    }
+
+    pub fn edit_choice(&self) -> Option<EditChoice> {
+        match self.get(Field::EditFieldChoice) {
+            Some(Answer::EditChoice(choice)) => Some(*choice),
             _ => None,
         }
     }
@@ -162,6 +220,12 @@ mod tests {
         assert_eq!(answers.money(Field::Amount), Some(Cents::new(2)));
         assert_eq!(answers.text(Field::Description), Some(String::new()));
         assert_eq!(answers.category(Field::Amount), None);
+        let nine = NaiveTime::from_hms_opt(21, 0, 0).unwrap();
+        answers.set(Field::ReportTime, Answer::Time(nine));
+        assert_eq!(
+            (answers.time(Field::ReportTime), answers.time(Field::Amount)),
+            (Some(nine), None)
+        );
         assert!(answers.has(Field::Amount) && !answers.has(Field::Date));
     }
 

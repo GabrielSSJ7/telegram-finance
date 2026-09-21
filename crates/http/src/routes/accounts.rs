@@ -1,13 +1,17 @@
+use app::model::AccountId;
+use app::services::{EntryOrigin, ReconcileBalance};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
+use domain::Cents;
 use uuid::Uuid;
 
 use crate::dto::accounts::{
-    AccountResponse, BalanceSheetResponse, ListAccountsQuery, OpenAccountBody,
+    AccountResponse, BalanceSheetResponse, ListAccountsQuery, OpenAccountBody, ReconcileBody,
 };
+use crate::dto::entries::EntryResponse;
 use crate::error::{ApiError, Problem};
-use crate::extract::{ApiJson, ApiPath, ApiQuery};
+use crate::extract::{ApiJson, ApiPath, ApiQuery, IdempotencyKey};
 use crate::state::ApiState;
 
 #[utoipa::path(get, path = "/accounts", tag = "accounts", params(ListAccountsQuery),
@@ -37,7 +41,7 @@ pub async fn archive_account(
     State(state): State<ApiState>,
     ApiPath(id): ApiPath<Uuid>,
 ) -> Result<StatusCode, ApiError> {
-    state.services.accounts.archive(app::model::AccountId(id)).await?;
+    state.services.accounts.archive(AccountId(id)).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -48,4 +52,25 @@ pub async fn balance_sheet(
 ) -> Result<Json<BalanceSheetResponse>, ApiError> {
     let sheet = state.services.position.balance_sheet().await?;
     Ok(Json(sheet.into()))
+}
+
+#[utoipa::path(post, path = "/accounts/{id}/reconcile", tag = "accounts", params(("id" = Uuid, Path),
+        ("Idempotency-Key" = Option<Uuid>, Header, description = "Retry-safe key; a repeat returns 409")),
+    request_body = ReconcileBody,
+    responses((status = 201, description = "The adjustment entry", body = EntryResponse), (status = 404, body = Problem),
+        (status = 422, body = Problem, description = "The balance already matches")),
+    security(("api_key" = [])))]
+pub async fn reconcile_account(
+    State(state): State<ApiState>,
+    ApiPath(id): ApiPath<Uuid>,
+    IdempotencyKey(draft): IdempotencyKey,
+    ApiJson(body): ApiJson<ReconcileBody>,
+) -> Result<(StatusCode, Json<EntryResponse>), ApiError> {
+    let request = ReconcileBalance {
+        account_id: AccountId(id),
+        actual_balance: Cents::new(body.actual_balance_cents),
+    };
+    let origin = EntryOrigin { created_by: None, draft };
+    let entry = state.services.adjustments.reconcile(request, origin).await?;
+    Ok((StatusCode::CREATED, Json(entry.into())))
 }

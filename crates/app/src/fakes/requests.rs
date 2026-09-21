@@ -1,10 +1,11 @@
 //! Short constructors for requests that tests build over and over.
 
-use chrono::NaiveDate;
-use domain::{AccountKind, Cents, DayOfMonth};
+use chrono::{NaiveDate, Utc};
+use domain::{AccountKind, Cents, DayOfMonth, EntryKind};
 
 use crate::model::{
-    AccountId, CardId, CategoryId, RecurrenceKind, RecurrenceMode, RecurrenceTarget,
+    AccountId, CardId, CategoryId, EntryId, LedgerEntry, RecurrenceKind, RecurrenceMode,
+    RecurrenceTarget,
 };
 use crate::services::{CardPurchaseRequest, CreateGoal, CreateRecurrence, OpenAccount, OpenCard};
 
@@ -79,4 +80,25 @@ pub fn confirming(request: CreateRecurrence, starts_on: NaiveDate) -> CreateRecu
 
 fn day(value: u8) -> DayOfMonth {
     DayOfMonth::new(value).unwrap_or(DayOfMonth::FIRST)
+}
+
+/// A stored entry with no category, account or author, for rendering
+/// tests; fill the rest with struct update syntax.
+pub fn bare_entry(kind: EntryKind, cents: i64, description: &str, date: NaiveDate) -> LedgerEntry {
+    LedgerEntry {
+        id: EntryId::generate(),
+        kind,
+        amount: Cents::new(cents),
+        description: description.into(),
+        category_id: None,
+        account_id: None,
+        counter_account_id: None,
+        card_purchase_id: None,
+        installment_no: None,
+        invoice_id: None,
+        accounting_date: date,
+        created_by: None,
+        created_at: Utc::now(),
+        deleted: false,
+    }
 }

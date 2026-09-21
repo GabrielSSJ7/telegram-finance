@@ -147,12 +147,14 @@ pub fn shape_to_new_entry(
 }
 
 /// Kinds this service may edit; card rows are edited through their purchase.
+/// Card rows change through their purchase, invoice payments through
+/// the invoice; everything else can be edited directly.
+pub const fn is_editable_kind(kind: EntryKind) -> bool {
+    !matches!(kind, EntryKind::CardInstallment | EntryKind::CardCredit | EntryKind::InvoicePayment)
+}
+
 pub fn ensure_editable_kind(kind: EntryKind) -> AppResult<()> {
-    let editable = !matches!(
-        kind,
-        EntryKind::CardInstallment | EntryKind::CardCredit | EntryKind::InvoicePayment
-    );
-    if editable {
+    if is_editable_kind(kind) {
         return Ok(());
     }
     Err(AppError::invalid(

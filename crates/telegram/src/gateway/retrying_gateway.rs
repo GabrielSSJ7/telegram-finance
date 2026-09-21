@@ -6,7 +6,9 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 
-use super::{GatewayError, IncomingUpdate, MessageEdit, OutgoingMessage, TelegramGateway};
+use super::{
+    GatewayError, IncomingUpdate, MessageEdit, OutgoingDocument, OutgoingMessage, TelegramGateway,
+};
 
 /// Waits longer than this are not worth holding the update loop for.
 const MAX_WAIT: Duration = Duration::from_secs(30);
@@ -64,6 +66,10 @@ impl TelegramGateway for RetryingGateway {
 
     async fn send_message(&self, message: &OutgoingMessage) -> Result<i64, GatewayError> {
         with_retry(|| self.inner.send_message(message)).await
+    }
+
+    async fn send_document(&self, document: &OutgoingDocument) -> Result<(), GatewayError> {
+        with_retry(|| self.inner.send_document(document)).await
     }
 
     async fn edit_message(&self, edit: &MessageEdit) -> Result<(), GatewayError> {

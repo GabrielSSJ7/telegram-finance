@@ -15,6 +15,8 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("orcamento", "Definir ou remover o limite de uma categoria"),
     ("orcamentos", "Orçamentos do ciclo"),
     ("desfazer", "Desfazer seu último lançamento"),
+    ("ultimos", "Últimos lançamentos, com editar e apagar"),
+    ("exportar", "Planilha (CSV) do ciclo; /exportar 03/2026 para outro"),
     ("novaconta", "Cadastrar uma conta"),
     ("novameta", "Criar uma meta de economia"),
     ("novocartao", "Cadastrar um cartão de crédito"),
@@ -23,6 +25,8 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("recorrentes", "Listar e desativar recorrentes"),
     ("contas", "Listar contas"),
     ("categorias", "Listar categorias"),
+    ("ajuste", "Acertar o saldo de uma conta com o do banco"),
+    ("config", "Dia de início do ciclo e horário do resumo"),
     ("cancelar", "Cancelar o que está preenchendo"),
     ("ajuda", "Mostrar os comandos"),
 ];

@@ -91,3 +91,11 @@ impl From<BalanceSheet> for BalanceSheetResponse {
         }
     }
 }
+
+/// What the bank shows for the account now; the difference becomes an
+/// adjustment entry.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct ReconcileBody {
+    #[schema(example = 95_000)]
+    pub actual_balance_cents: i64,
+}

@@ -80,6 +80,17 @@ impl AccountService {
         let flows = self.accounts.account_flows(self.clock.today()).await?;
         Ok(balances_from_flows(accounts, &flows))
     }
+
+    /// Current balance of one active account (pots included).
+    ///
+    /// ```ignore
+    /// let saved = accounts.balance_of(goal.pot.id).await?;
+    /// ```
+    pub async fn balance_of(&self, id: AccountId) -> AppResult<Cents> {
+        let balances = self.balances().await?;
+        let found = balances.iter().find(|item| item.account.id == id);
+        found.map(|item| item.balance).ok_or_else(|| AppError::not_found("account", id))
+    }
 }
 
 #[cfg(test)]
@@ -128,6 +139,15 @@ mod tests {
         assert!(service.list(false).await.unwrap().is_empty());
         assert!(matches!(service.archive(account.id).await, Err(AppError::NotFound { .. })));
         assert!(service.require_active(account.id).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn balance_of_one_account() {
+        let service = service();
+        let account = service.open(checking("Nubank", 150_000)).await.unwrap();
+        assert_eq!(service.balance_of(account.id).await.unwrap(), Cents::new(150_000));
+        let missing = service.balance_of(AccountId::generate()).await;
+        assert!(matches!(missing, Err(AppError::NotFound { .. })));
     }
 
     #[tokio::test]

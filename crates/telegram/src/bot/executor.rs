@@ -2,7 +2,8 @@
 
 use app::AppResult;
 use app::model::{
-    Account, Budget, CardPurchase, CategoryId, CreditCard, Goal, LedgerEntry, Recurrence,
+    Account, Budget, CardPurchase, CategoryId, CreditCard, Goal, HouseholdSettings, LedgerEntry,
+    Recurrence,
 };
 use app::services::{EntryOrigin, ServiceSet};
 use domain::Cents;
@@ -19,6 +20,7 @@ pub enum Committed {
     Recurrence(Recurrence),
     Budget(Budget),
     BudgetRemoved,
+    Settings(HouseholdSettings),
 }
 
 pub async fn execute(
@@ -26,6 +28,28 @@ pub async fn execute(
     command: FormCommand,
     origin: EntryOrigin,
 ) -> AppResult<Committed> {
+    match command {
+        FormCommand::CardPurchase(request) => {
+            services.cards.purchase(request, origin).await.map(Committed::Purchase)
+        }
+        FormCommand::EditEntry { entry, patch } => {
+            services.ledger.update(entry, patch).await.map(Committed::Entry)
+        }
+        FormCommand::Record(_)
+        | FormCommand::PotDeposit(_)
+        | FormCommand::PotWithdraw(_)
+        | FormCommand::CardCredit(_)
+        | FormCommand::PayInvoice(_)
+        | FormCommand::Reconcile(_) => {
+            record_money(services, command, origin).await.map(Committed::Entry)
+        }
+        setup => configure(services, setup).await,
+    }
+}
+
+/// Commands that create or change accounts, goals, cards, recurrences
+/// and budgets.
+async fn configure(services: &ServiceSet, command: FormCommand) -> AppResult<Committed> {
     match command {
         FormCommand::OpenAccount(request) => {
             services.accounts.open(request).await.map(Committed::Account)
@@ -37,11 +61,20 @@ pub async fn execute(
         FormCommand::CreateRecurrence(request) => {
             services.recurrences.create(request).await.map(Committed::Recurrence)
         }
+        limits => household_rules(services, limits).await,
+    }
+}
+
+/// Budgets and household settings.
+async fn household_rules(services: &ServiceSet, command: FormCommand) -> AppResult<Committed> {
+    match command {
         FormCommand::SetBudget { category, limit } => set_budget(services, category, limit).await,
-        FormCommand::CardPurchase(request) => {
-            services.cards.purchase(request, origin).await.map(Committed::Purchase)
+        FormCommand::UpdateSettings(patch) => {
+            services.settings.update(patch).await.map(Committed::Settings)
         }
-        money => record_money(services, money, origin).await.map(Committed::Entry),
+        other => {
+            Err(app::AppError::invalid("form command", format!("{other:?}"), "a setup command"))
+        }
     }
 }
 
@@ -69,6 +102,7 @@ async fn record_money(
         FormCommand::PotWithdraw(request) => services.goals.withdraw(request, origin).await,
         FormCommand::CardCredit(request) => services.cards.credit(request, origin).await,
         FormCommand::PayInvoice(request) => services.cards.pay_invoice(request, origin).await,
+        FormCommand::Reconcile(request) => services.adjustments.reconcile(request, origin).await,
         other => Err(app::AppError::invalid(
             "form command",
             format!("{other:?}"),
@@ -99,5 +133,8 @@ pub const fn headline(form: FormKind) -> &'static str {
         FormKind::Refund => "Estorno registrado",
         FormKind::NewRecurrence => "Recorrência criada",
         FormKind::SetBudget => "Orçamento salvo",
+        FormKind::EditEntry => "Lançamento alterado",
+        FormKind::Adjust => "Saldo ajustado",
+        FormKind::Settings => "Configuração salva",
     }
 }

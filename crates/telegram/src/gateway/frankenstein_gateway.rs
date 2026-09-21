@@ -8,10 +8,11 @@ use async_trait::async_trait;
 use frankenstein::AsyncTelegramApi;
 use frankenstein::ParseMode;
 use frankenstein::client_reqwest::Bot;
+use frankenstein::input_file::InputFile;
 use frankenstein::methods::{
     AnswerCallbackQueryParams, DeleteWebhookParams, EditMessageReplyMarkupParams,
-    EditMessageTextParams, GetUpdatesParams, LeaveChatParams, SendMessageParams,
-    SetMyCommandsParams,
+    EditMessageTextParams, GetUpdatesParams, LeaveChatParams, SendDocumentParams,
+    SendMessageParams, SetMyCommandsParams,
 };
 use frankenstein::response::ErrorResponse;
 use frankenstein::types::{
@@ -20,8 +21,8 @@ use frankenstein::types::{
 };
 
 use super::{
-    GatewayError, IncomingUpdate, Keyboard, MessageEdit, OutgoingMessage, TelegramGateway,
-    map_update,
+    GatewayError, IncomingUpdate, Keyboard, MessageEdit, OutgoingDocument, OutgoingMessage,
+    TelegramGateway, map_update,
 };
 
 /// Default wait when Telegram answers 429 without `retry_after`.
@@ -102,6 +103,19 @@ impl TelegramGateway for FrankensteinGateway {
         Ok(i64::from(sent.result.message_id))
     }
 
+    async fn send_document(&self, document: &OutgoingDocument) -> Result<(), GatewayError> {
+        let staged = StagedFile::write(document).await?;
+        let params = SendDocumentParams::builder()
+            .chat_id(document.chat_id)
+            .document(InputFile { path: staged.path.clone() })
+            .caption(document.caption_html.clone())
+            .parse_mode(ParseMode::Html)
+            .build();
+        let sent = self.bot.send_document(&params).await.map(|_| ()).map_err(gateway_error);
+        staged.remove().await;
+        sent
+    }
+
     async fn edit_message(&self, edit: &MessageEdit) -> Result<(), GatewayError> {
         let params = EditMessageTextParams::builder()
             .chat_id(edit.chat_id)
@@ -140,6 +154,34 @@ impl TelegramGateway for FrankensteinGateway {
     async fn leave_chat(&self, chat_id: i64) -> Result<(), GatewayError> {
         let params = LeaveChatParams::builder().chat_id(chat_id).build();
         self.bot.leave_chat(&params).await.map(|_| ()).map_err(gateway_error)
+    }
+}
+
+/// The client uploads from a path, so documents are written to a private
+/// temporary directory (named so the chat shows `file_name`) and removed
+/// after sending.
+struct StagedFile {
+    directory: std::path::PathBuf,
+    path: std::path::PathBuf,
+}
+
+impl StagedFile {
+    async fn write(document: &OutgoingDocument) -> Result<Self, GatewayError> {
+        let directory =
+            std::env::temp_dir().join(format!("finbot-{}", uuid::Uuid::now_v7().simple()));
+        let path = directory.join(&document.file_name);
+        let failure = |error: std::io::Error| {
+            GatewayError::Transport(format!("could not stage {}: {error}", path.display()))
+        };
+        tokio::fs::create_dir(&directory).await.map_err(failure)?;
+        tokio::fs::write(&path, &document.contents).await.map_err(failure)?;
+        Ok(Self { directory, path })
+    }
+
+    async fn remove(self) {
+        if let Err(error) = tokio::fs::remove_dir_all(&self.directory).await {
+            tracing::warn!(%error, directory = %self.directory.display(), "could not remove staged document");
+        }
     }
 }
 

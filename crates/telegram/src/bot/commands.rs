@@ -3,6 +3,8 @@
 use app::model::Member;
 
 use super::BotContext;
+use super::entry_actions::recent_entries;
+use super::export::export_entries;
 use super::flow_runner::{cancel_current, start_flow};
 use super::undo::undo_last;
 use crate::flows::FormKind;
@@ -33,12 +35,15 @@ pub async fn household_command(
     chat_id: i64,
     member: &Member,
     command: &str,
+    args: &str,
 ) -> Result<(), GatewayError> {
     if let Some(form) = FormKind::from_command(command) {
         return start_flow(context, chat_id, member, form).await;
     }
     match command {
         "desfazer" => undo_last(context, chat_id, member).await,
+        "exportar" => export_entries(context, chat_id, args).await,
+        "ultimos" => recent_entries(context, chat_id).await,
         "cancelar" => cancel_current(context, chat_id, member).await,
         "ajuda" | "start" | "help" => context.reply(chat_id, help_text()).await.map(|_| ()),
         report => report_command(context, chat_id, report).await,

@@ -12,8 +12,8 @@ use axum::http::StatusCode;
 use axum::routing::post;
 use serde_json::{Value, json};
 use telegram::gateway::{
-    Button, FrankensteinGateway, GatewayError, Keyboard, MessageEdit, OutgoingMessage,
-    TelegramGateway, UpdateKind,
+    Button, FrankensteinGateway, GatewayError, Keyboard, MessageEdit, OutgoingDocument,
+    OutgoingMessage, TelegramGateway, UpdateKind,
 };
 
 /// Records requests and answers each method with a canned response.
@@ -22,12 +22,15 @@ struct FakeBotApi {
     requests: Arc<Mutex<Vec<(String, Value)>>>,
 }
 
+/// JSON bodies are parsed; multipart uploads are kept as text so tests
+/// can look for the file inside.
 async fn answer(
     State(api): State<FakeBotApi>,
     Path(method): Path<String>,
-    body: Option<Json<Value>>,
+    body: axum::body::Bytes,
 ) -> (StatusCode, Json<Value>) {
-    let body = body.map_or(Value::Null, |Json(value)| value);
+    let body = serde_json::from_slice(&body)
+        .unwrap_or_else(|_| Value::String(String::from_utf8_lossy(&body).into_owned()));
     api.requests.lock().unwrap().push((method.clone(), body.clone()));
     canned(&method, &body)
 }
@@ -43,7 +46,7 @@ fn canned(method: &str, body: &Value) -> (StatusCode, Json<Value>) {
         }
         "getUpdates" => ok(&json!([{"update_id": 3, "message": {"message_id": 1, "date": 0,
             "chat": {"id": -1, "type": "group", "title": "Casa"}, "from": {"id": 11, "is_bot": false, "first_name": "Ana"}, "text": "/saldo"}}])),
-        "sendMessage" => ok(&message),
+        "sendMessage" | "sendDocument" => ok(&message),
         "editMessageText" if body["message_id"] == 404 => {
             error(400, "Bad Request: message to edit not found", &Value::Null)
         }
@@ -139,6 +142,29 @@ async fn other_methods_reach_the_api() {
             "leaveChat"
         ]
     );
+}
+
+#[tokio::test]
+async fn documents_are_uploaded_as_multipart_and_unstaged() {
+    let (api, gateway) = start_server().await;
+    let document = OutgoingDocument {
+        chat_id: -1,
+        file_name: "finbot-2026-03.csv".into(),
+        contents: b"data;valor\n05/03/2026;10,50\n".to_vec(),
+        caption_html: "<b>Março</b>".into(),
+    };
+    gateway.send_document(&document).await.unwrap();
+    let requests = api.requests.lock().unwrap().clone();
+    let (method, body) = requests.last().unwrap();
+    let upload = body.as_str().unwrap();
+    assert_eq!(method, "sendDocument");
+    assert!(
+        upload.contains("finbot-2026-03.csv") && upload.contains("05/03/2026;10,50"),
+        "{upload}"
+    );
+    let leftovers = std::fs::read_dir(std::env::temp_dir()).unwrap().filter_map(Result::ok);
+    let staged = leftovers.filter(|dir| dir.path().join("finbot-2026-03.csv").exists()).count();
+    assert_eq!(staged, 0, "the staged file must be removed after upload");
 }
 
 #[tokio::test]

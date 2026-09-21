@@ -7,7 +7,7 @@ use super::catalog::kind_name;
 use super::keyboards::question_keyboard;
 use super::reports::invoice_label;
 use crate::flows::dates::short_date;
-use crate::flows::{Answer, Awaiting, Field, FormKind, FormState};
+use crate::flows::{Answer, Awaiting, EditChoice, Field, FormKind, FormState};
 use crate::gateway::Keyboard;
 use crate::html::escape;
 
@@ -76,6 +76,9 @@ pub fn answer_value(answer: &Answer, context: CardContext<'_>) -> String {
         Answer::Day(day) => format!("dia {day}"),
         Answer::RecurrenceKind(kind) => recurrence_kind_name(*kind).to_owned(),
         Answer::RecurrenceMode(mode) => recurrence_mode_name(*mode).to_owned(),
+        Answer::Entry { label, .. } => label.clone(),
+        Answer::EditChoice(choice) => edit_choice_name(*choice).to_owned(),
+        Answer::Time(time) => time.format("%H:%M").to_string(),
         reference => referenced_name(reference, context.catalog),
     }
 }
@@ -91,6 +94,15 @@ fn referenced_name(answer: &Answer, catalog: &Catalog) -> String {
             catalog.invoice(*id).map_or_else(|| "fatura".to_owned(), |view| invoice_label(&view))
         }
         _ => String::new(),
+    }
+}
+
+pub const fn edit_choice_name(choice: EditChoice) -> &'static str {
+    match choice {
+        EditChoice::Amount => "Valor",
+        EditChoice::Description => "Descrição",
+        EditChoice::Category => "Categoria",
+        EditChoice::Date => "Data",
     }
 }
 
@@ -149,6 +161,11 @@ const FIELD_TEXT: &[(Field, &str, &str)] = &[
     (Field::RecurrenceModeChoice, "⚙️", "Registro"),
     (Field::BudgetLimit, "📐", "Limite"),
     (Field::GoalDeadline, "⏳", "Prazo"),
+    (Field::EditTarget, "🧾", "Lançamento"),
+    (Field::EditFieldChoice, "✏️", "Alterar"),
+    (Field::ActualBalance, "⚖️", "Saldo real"),
+    (Field::CycleStartDay, "🔄", "Ciclo começa"),
+    (Field::ReportTime, "⏰", "Resumo diário"),
 ];
 
 fn field_text(field: Field) -> (&'static str, &'static str) {
@@ -205,6 +222,15 @@ const QUESTIONS: &[(Option<FormKind>, Field, &str)] = &[
     (None, Field::RecurrenceDay, "Que dia do mês? (1 a 31)"),
     (None, Field::BudgetLimit, "Quanto pode gastar por ciclo nessa categoria? (0 remove)"),
     (None, Field::GoalDeadline, "Até quando? Digite dd/mm/aaaa ou toque em Sem prazo."),
+    (Some(FormKind::EditEntry), Field::Amount, "Qual o valor certo?"),
+    (Some(FormKind::EditEntry), Field::Description, "Qual a nova descrição? (Pular apaga)"),
+    (Some(FormKind::EditEntry), Field::Date, "Qual a data certa?"),
+    (None, Field::EditFieldChoice, "O que você quer alterar?"),
+    (None, Field::EditTarget, "Qual lançamento?"),
+    (Some(FormKind::Adjust), Field::ReceivingAccount, "Qual conta ajustar?"),
+    (None, Field::ActualBalance, "Qual o saldo real dela agora, no app do banco? (negativo: -50)"),
+    (None, Field::CycleStartDay, "Em que dia começa o ciclo? (1 a 31, ex.: dia do salário)"),
+    (None, Field::ReportTime, "Que horas mandar o resumo diário? (ex.: 21:00)"),
     (
         None,
         Field::RecurrenceModeChoice,

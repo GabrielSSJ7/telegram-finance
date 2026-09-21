@@ -6,7 +6,9 @@ pub mod budgets;
 pub mod cards;
 pub mod categories;
 pub mod entries;
+pub mod exports;
 pub mod goals;
+pub mod members;
 pub mod recurrences;
 pub mod reports;
 pub mod settings;
@@ -26,6 +28,7 @@ fn ledger_routes() -> OpenApiRouter<ApiState> {
         .routes(routes!(accounts::list_accounts, accounts::open_account))
         .routes(routes!(accounts::archive_account))
         .routes(routes!(accounts::balance_sheet))
+        .routes(routes!(accounts::reconcile_account))
         .routes(routes!(categories::list_categories, categories::create_category))
         .routes(routes!(categories::archive_category))
         .routes(routes!(entries::list_entries, entries::create_entry))
@@ -35,6 +38,7 @@ fn ledger_routes() -> OpenApiRouter<ApiState> {
         .routes(routes!(goals::deposit_to_goal))
         .routes(routes!(goals::withdraw_from_goal))
         .routes(routes!(settings::get_settings, settings::update_settings))
+        .routes(routes!(members::list_members))
 }
 
 fn card_routes() -> OpenApiRouter<ApiState> {
@@ -57,4 +61,5 @@ fn schedule_routes() -> OpenApiRouter<ApiState> {
         .routes(routes!(reports::cycle_report))
         .routes(routes!(budgets::list_budgets))
         .routes(routes!(budgets::set_budget, budgets::remove_budget))
+        .routes(routes!(exports::export_entries))
 }

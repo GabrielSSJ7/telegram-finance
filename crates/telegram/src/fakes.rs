@@ -9,7 +9,8 @@ use async_trait::async_trait;
 use tokio::sync::Notify;
 
 use crate::gateway::{
-    GatewayError, IncomingUpdate, Keyboard, MessageEdit, OutgoingMessage, TelegramGateway,
+    GatewayError, IncomingUpdate, Keyboard, MessageEdit, OutgoingDocument, OutgoingMessage,
+    TelegramGateway,
 };
 
 /// A message as the chat would show it now.
@@ -34,6 +35,7 @@ struct FakeTelegramState {
     offsets_requested: Vec<Option<i64>>,
     webhook_deleted: bool,
     commands: Vec<String>,
+    documents: Vec<OutgoingDocument>,
 }
 
 #[derive(Debug, Default)]
@@ -109,6 +111,10 @@ impl FakeTelegramGateway {
         self.lock().webhook_deleted
     }
 
+    pub fn documents(&self) -> Vec<OutgoingDocument> {
+        self.lock().documents.clone()
+    }
+
     pub fn commands(&self) -> Vec<String> {
         self.lock().commands.clone()
     }
@@ -159,6 +165,11 @@ impl TelegramGateway for FakeTelegramGateway {
         };
         state.messages.insert(message_id, stored);
         Ok(message_id)
+    }
+
+    async fn send_document(&self, document: &OutgoingDocument) -> Result<(), GatewayError> {
+        self.lock().documents.push(document.clone());
+        Ok(())
     }
 
     async fn edit_message(&self, edit: &MessageEdit) -> Result<(), GatewayError> {

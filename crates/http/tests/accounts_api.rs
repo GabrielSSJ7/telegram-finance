@@ -61,3 +61,23 @@ async fn malformed_json_and_unknown_kind_are_bad_requests() {
     let (status, _) = api.call(Method::DELETE, "/api/v1/accounts/not-a-uuid", None).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn reconcile_records_the_gap_once() {
+    let api = ApiHarness::new().await;
+    let checking = api.open_checking("Nubank", 100_000).await;
+    let uri = format!("/api/v1/accounts/{checking}/reconcile");
+    let (status, entry) = api.post(&uri, json!({"actual_balance_cents": 95_000})).await;
+    assert_eq!(status, StatusCode::CREATED, "{entry}");
+    assert_eq!(
+        (entry["kind"].as_str(), entry["amount_cents"].as_i64()),
+        (Some("adjust_out"), Some(5_000))
+    );
+    let (status, problem) = api.post(&uri, json!({"actual_balance_cents": 95_000})).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{problem}");
+    let missing = format!("/api/v1/accounts/{}/reconcile", uuid::Uuid::nil());
+    assert_eq!(
+        api.post(&missing, json!({"actual_balance_cents": 1})).await.0,
+        StatusCode::NOT_FOUND
+    );
+}

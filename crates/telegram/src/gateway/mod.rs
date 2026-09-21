@@ -90,6 +90,16 @@ pub struct OutgoingMessage {
     pub keyboard: Option<Keyboard>,
 }
 
+/// A file sent as a Telegram document.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OutgoingDocument {
+    pub chat_id: i64,
+    /// Name the chat shows, such as `finbot-2026-03.csv`.
+    pub file_name: String,
+    pub contents: Vec<u8>,
+    pub caption_html: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MessageEdit {
     pub chat_id: i64,
@@ -122,6 +132,7 @@ pub trait TelegramGateway: Send + Sync {
     ) -> Result<Vec<IncomingUpdate>, GatewayError>;
     /// Returns the id of the sent message.
     async fn send_message(&self, message: &OutgoingMessage) -> Result<i64, GatewayError>;
+    async fn send_document(&self, document: &OutgoingDocument) -> Result<(), GatewayError>;
     async fn edit_message(&self, edit: &MessageEdit) -> Result<(), GatewayError>;
     /// Drops the inline buttons of a message, keeping its text.
     async fn remove_keyboard(&self, chat_id: i64, message_id: i64) -> Result<(), GatewayError>;

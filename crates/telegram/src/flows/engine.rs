@@ -43,6 +43,13 @@ pub enum Advance {
 }
 
 impl FormState {
+    /// A form with some answers already known (the entry being edited).
+    pub fn with_answers(form: FormKind, answers: Answers) -> Self {
+        let mut state = Self { form, answers, awaiting: Awaiting::Confirmation };
+        state.awaiting = state.next_awaiting();
+        state
+    }
+
     pub fn start(form: FormKind) -> Self {
         let mut state =
             Self { form, answers: Answers::default(), awaiting: Awaiting::Confirmation };

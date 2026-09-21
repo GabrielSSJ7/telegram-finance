@@ -6,6 +6,7 @@ use app::model::Member;
 use super::BotContext;
 use super::access::{Audience, identify};
 use super::commands::{household_command, parse_command};
+use super::entry_actions::{delete_entry, edit_entry};
 use super::flow_runner::{Placement, continue_flow, load_session, member_key};
 use super::membership::on_membership;
 use super::recurrence_buttons::{deactivate_recurrence, record_recurrence, skip_recurrence};
@@ -38,26 +39,32 @@ async fn on_text(context: &BotContext, message: &TextMessage) -> Result<(), Gate
             Ok(audience) => audience,
             Err(error) => return context.reply_error(message.chat_id, &error).await,
         };
-    let command = parse_command(&message.text).map(|(name, _)| name);
-    dispatch_text(context, message, audience, command.as_deref()).await
+    let command = parse_command(&message.text);
+    dispatch_text(
+        context,
+        message,
+        audience,
+        command.as_ref().map(|(name, args)| (name.as_str(), args.as_str())),
+    )
+    .await
 }
 
 async fn dispatch_text(
     context: &BotContext,
     message: &TextMessage,
     audience: Audience,
-    command: Option<&str>,
+    command: Option<(&str, &str)>,
 ) -> Result<(), GatewayError> {
     let chat_id = message.chat_id;
     match (audience, command) {
-        (Audience::Household(member), Some(command)) => {
-            household_command(context, chat_id, &member, command).await
+        (Audience::Household(member), Some((command, args))) => {
+            household_command(context, chat_id, &member, command, args).await
         }
         (Audience::Household(member), None) => continue_with_text(context, message, &member).await,
-        (Audience::UnboundGroup(member), Some("start")) => {
+        (Audience::UnboundGroup(member), Some(("start", _))) => {
             bind_group(context, chat_id, &member).await
         }
-        (Audience::Private(member), Some(command)) => {
+        (Audience::Private(member), Some((command, _))) => {
             private_command(context, chat_id, &member, command).await
         }
         (Audience::Stranger, _) => context.reply(chat_id, PRIVATE_BOT).await.map(|_| ()),
@@ -145,6 +152,19 @@ async fn dispatch_button(
         CallbackPayload::UndoPurchase(purchase) => {
             undo_purchase_button(context, press, member, purchase).await
         }
+        CallbackPayload::EditEntry(id) => edit_entry(context, press, member, id).await,
+        CallbackPayload::DeleteEntry(id) => delete_entry(context, press, member, id).await,
+        recurrence => dispatch_recurrence_button(context, press, member, recurrence).await,
+    }
+}
+
+async fn dispatch_recurrence_button(
+    context: &BotContext,
+    press: &ButtonPress,
+    member: &Member,
+    payload: CallbackPayload,
+) -> Result<(), GatewayError> {
+    match payload {
         CallbackPayload::RecordRecurrence(id, date) => {
             record_recurrence(context, press, member, id, date).await
         }
@@ -154,6 +174,7 @@ async fn dispatch_button(
         CallbackPayload::DeactivateRecurrence(id) => {
             deactivate_recurrence(context, press, id).await
         }
+        _ => context.gateway.answer_button(&press.callback_id, Some(STALE_BUTTON)).await,
     }
 }
 

@@ -17,7 +17,7 @@ choose, such as payday). A REST API exposes the same data.
 | 5 | Credit cards and invoices | done |
 | 6 | Scheduler and reports | done |
 | 7 | Budgets and goals | done |
-| 8 | Edit flows, CSV export, hardening | next |
+| 8 | Edit and delete, CSV export, balance adjustment, settings in chat, hardening | done |
 
 ## Layout
 
@@ -52,7 +52,7 @@ make sqlx-prepare  # refresh .sqlx/ after changing a query
 ## CLI
 
 ```sh
-finbot serve                    # migrate, then serve the API (and bot, later)
+finbot serve                    # migrate, then run the API, the bot and the scheduler
 finbot migrate                  # apply migrations only
 finbot api-key create <name>    # prints the token once
 finbot api-key revoke <name>
@@ -108,11 +108,31 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/orcamento`, `/orcamentos` | Set (or remove) a category's limit per cycle; see how much of each is used. Alerts at 80% and 100% |
 | `/mes` | The current cycle so far |
 | `/desfazer` | Undo your own last entry |
+| `/ultimos` | Last 10 entries with ✏️ edit (value, description, category or date) and 🗑️ delete; only the author (or anyone, for automatic entries) |
+| `/ajuste` | Make an account match the bank: type the real balance, the difference is recorded as an adjustment (not income or spending) |
+| `/exportar [mm/aaaa]` | The cycle's entries as a CSV spreadsheet (`;`, decimal comma) |
+| `/config` | Day the cycle starts and time of the daily summary |
 | `/cancelar`, `/ajuda` | Cancel the current form, list commands |
 
 ## REST API
 
 `/api/v1/*` needs `Authorization: Bearer fbk_…`. Errors are
-`application/problem+json`. POSTs that create entries accept an
-`Idempotency-Key` (UUID): a retry with the same key returns 409 instead of
-saving twice. Amounts are integer cents.
+`application/problem+json`. POSTs that move money (entries, goal deposits
+and withdrawals, card purchases, credits and payments, reconciliations)
+accept an `Idempotency-Key` (UUID): a retry with the same key returns 409
+instead of saving twice. Amounts are integer cents; dates are ISO 8601.
+
+| Resource | Endpoints |
+|---|---|
+| Accounts | `GET/POST /accounts`, `DELETE /accounts/{id}`, `GET /accounts/balances`, `POST /accounts/{id}/reconcile` |
+| Entries | `GET/POST /entries` (filters: dates, kind, category, account, card), `GET/PATCH/DELETE /entries/{id}` |
+| Categories | `GET/POST /categories`, `DELETE /categories/{id}` |
+| Cards | `GET/POST /cards`, `DELETE /cards/{id}`, `GET /cards/summaries`, `GET /cards/{id}/invoices`, `POST /cards/{id}/purchases`, `DELETE /card-purchases/{id}`, `POST /cards/{id}/credits`, `POST /invoices/{id}/payments` |
+| Goals | `GET/POST /goals`, `PUT /goals/{id}/target`, `POST /goals/{id}/deposits`, `POST /goals/{id}/withdrawals` |
+| Planning | `GET/POST /recurrences`, `DELETE /recurrences/{id}`, `GET /budgets`, `PUT/DELETE /budgets/{category_id}` |
+| Reports | `GET /reports/daily?date=`, `GET /reports/cycle?date=` |
+| Exports | `GET /exports/entries.csv` (cycle containing `date`, default today; or `from` and `to`) |
+| Household | `GET/PATCH /settings`, `GET /members` |
+
+`GET /healthz` needs no token. With `SWAGGER_ENABLED=true`, the full
+OpenAPI document is browsable at `/docs`.

@@ -1,15 +1,17 @@
 //! Turns a confirmed form into the use-case request it stands for.
 
-use app::model::{CategoryId, RecurrenceKind, RecurrenceTarget};
+use app::model::{
+    CategoryId, EntryId, EntryPatch, RecurrenceKind, RecurrenceTarget, SettingsPatch,
+};
 use app::services::ledger::{AccountEntry, EntryRequest, TransferEntry};
 use app::services::{
     CardCreditRequest, CardPurchaseRequest, CreateGoal, CreateRecurrence, InvoicePaymentRequest,
-    OpenAccount, OpenCard, PotMove,
+    OpenAccount, OpenCard, PotMove, ReconcileBalance,
 };
 use domain::Cents;
 use domain::DayOfMonth;
 
-use super::{Answers, Field, FormKind, FormState};
+use super::{Answers, EditChoice, Field, FormKind, FormState};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FormCommand {
@@ -28,6 +30,12 @@ pub enum FormCommand {
         category: CategoryId,
         limit: Cents,
     },
+    EditEntry {
+        entry: EntryId,
+        patch: EntryPatch,
+    },
+    Reconcile(ReconcileBalance),
+    UpdateSettings(SettingsPatch),
 }
 
 /// `None` when a required answer is missing (the engine never confirms
@@ -45,8 +53,28 @@ pub fn build_command(state: &FormState) -> Option<FormCommand> {
         FormKind::PotDeposit => pot_move(answers, Field::FromAccount).map(FormCommand::PotDeposit),
         FormKind::PotWithdraw => pot_move(answers, Field::ToAccount).map(FormCommand::PotWithdraw),
         FormKind::PayInvoice => pay_invoice(answers).map(FormCommand::PayInvoice),
+        FormKind::EditEntry => edit_entry(answers),
+        FormKind::Adjust => reconcile(answers).map(FormCommand::Reconcile),
         setup => setup_command(setup, answers),
     }
+}
+
+/// Changes the one field picked in the edit form.
+fn edit_entry(answers: &Answers) -> Option<FormCommand> {
+    let (entry, _) = answers.edited_entry()?;
+    let mut patch = EntryPatch::default();
+    match answers.edit_choice()? {
+        EditChoice::Amount => patch.amount = Some(answers.money(Field::Amount)?),
+        EditChoice::Description => patch.description = Some(answers.text(Field::Description)?),
+        EditChoice::Date => patch.accounting_date = Some(answers.date()?),
+        EditChoice::Category => {
+            let category = answers
+                .category(Field::ExpenseCategory)
+                .or_else(|| answers.category(Field::IncomeCategory));
+            patch.category_id = Some(category?);
+        }
+    }
+    Some(FormCommand::EditEntry { entry, patch })
 }
 
 /// Forms that configure things rather than move money.
@@ -61,8 +89,25 @@ fn setup_command(form: FormKind, answers: &Answers) -> Option<FormCommand> {
                 (answers.category(Field::ExpenseCategory)?, answers.money(Field::BudgetLimit)?);
             Some(FormCommand::SetBudget { category, limit })
         }
+        FormKind::Settings => settings_patch(answers).map(FormCommand::UpdateSettings),
         _ => None,
     }
+}
+
+fn reconcile(answers: &Answers) -> Option<ReconcileBalance> {
+    Some(ReconcileBalance {
+        account_id: answers.account(Field::ReceivingAccount)?,
+        actual_balance: answers.money(Field::ActualBalance)?,
+    })
+}
+
+/// Skipped fields stay `None`, which keeps the current value.
+fn settings_patch(answers: &Answers) -> Option<SettingsPatch> {
+    if !(answers.has(Field::CycleStartDay) && answers.has(Field::ReportTime)) {
+        return None;
+    }
+    let day = answers.day(Field::CycleStartDay).and_then(|day| DayOfMonth::new(day).ok());
+    Some(SettingsPatch { cycle_start_day: day, daily_report_time: answers.time(Field::ReportTime) })
 }
 
 /// Card payments become card purchases; the rest are account expenses.

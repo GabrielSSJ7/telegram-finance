@@ -17,6 +17,10 @@ impl AllowedUsers {
     pub fn contains(&self, telegram_user_id: i64) -> bool {
         self.0.contains(&telegram_user_id)
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 pub struct MemberService {
@@ -58,6 +62,12 @@ mod tests {
 
     fn profile(id: i64, name: &str) -> MemberProfile {
         MemberProfile { telegram_user_id: id, display_name: name.into() }
+    }
+
+    #[test]
+    fn empty_allowlist_is_detectable() {
+        assert!(AllowedUsers::default().is_empty());
+        assert!(!AllowedUsers::new([10]).is_empty());
     }
 
     #[tokio::test]

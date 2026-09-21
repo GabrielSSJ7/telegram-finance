@@ -7,6 +7,7 @@ use domain::money_format::format_brl;
 use super::BotContext;
 use crate::gateway::{ButtonPress, GatewayError};
 use crate::html::escape;
+use crate::render::entries::entry_summary;
 
 pub async fn undo_last(
     context: &BotContext,
@@ -84,42 +85,4 @@ async fn toast(context: &BotContext, press: &ButtonPress, text: &str) -> Result<
 
 fn undone_html(entry: &LedgerEntry, member: &Member) -> String {
     format!("↩️ <s>{}</s>\nDesfeito por {}.", entry_summary(entry), escape(&member.display_name))
-}
-
-fn entry_summary(entry: &LedgerEntry) -> String {
-    let description = if entry.description.is_empty() {
-        String::new()
-    } else {
-        format!(" · {}", escape(&entry.description))
-    };
-    format!("{}{description}", format_brl(entry.amount))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::{NaiveDate, Utc};
-    use domain::{Cents, EntryKind};
-
-    #[test]
-    fn summary_escapes_description() {
-        let entry = LedgerEntry {
-            id: EntryId::generate(),
-            kind: EntryKind::Expense,
-            amount: Cents::new(1050),
-            description: "<pão>".into(),
-            category_id: None,
-            account_id: None,
-            counter_account_id: None,
-            card_purchase_id: None,
-            installment_no: None,
-            invoice_id: None,
-            accounting_date: NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
-            created_by: None,
-            created_at: Utc::now(),
-            deleted: false,
-        };
-        assert_eq!(entry_summary(&entry), "R$ 10,50 · &lt;pão&gt;");
-        assert_eq!(entry_summary(&LedgerEntry { description: String::new(), ..entry }), "R$ 10,50");
-    }
 }

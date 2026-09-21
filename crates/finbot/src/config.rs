@@ -65,7 +65,7 @@ impl AppConfig {
     /// Reads every setting; only malformed values fail here. Commands that
     /// need the database check `database_url` themselves.
     pub fn load(source: &dyn ConfigSource) -> Result<Self, ConfigError> {
-        Ok(Self {
+        let config = Self {
             database_url: secret(source, "DATABASE_URL")?,
             telegram_bot_token: secret(source, "TELEGRAM_BOT_TOKEN")?,
             telegram_api_base: telegram_api_base(source),
@@ -75,7 +75,9 @@ impl AppConfig {
             swagger: flag(source, "SWAGGER_ENABLED")?,
             backup_watch: flag(source, "BACKUP_WATCH_ENABLED")?,
             log_format: log_format(source)?,
-        })
+        };
+        ensure_bot_has_members(&config)?;
+        Ok(config)
     }
 
     pub fn require_database_url(&self) -> Result<&str, ConfigError> {
@@ -143,6 +145,19 @@ fn allowed_users(source: &dyn ConfigSource) -> Result<AllowedUsers, ConfigError>
     ids.map(AllowedUsers::new).map_err(|_| ConfigError { key, value: raw, expected })
 }
 
+/// A bot with nobody allowed refuses every message, which looks like a
+/// broken deploy; fail at startup instead.
+fn ensure_bot_has_members(config: &AppConfig) -> Result<(), ConfigError> {
+    if config.telegram_bot_token.is_none() || !config.allowed_users.is_empty() {
+        return Ok(());
+    }
+    Err(ConfigError {
+        key: "ALLOWED_TELEGRAM_USER_IDS",
+        value: String::new(),
+        expected: "at least one Telegram user id when TELEGRAM_BOT_TOKEN is set",
+    })
+}
+
 fn log_format(source: &dyn ConfigSource) -> Result<LogFormat, ConfigError> {
     match source.var("LOG_FORMAT").as_deref() {
         None | Some("json") => Ok(LogFormat::Json),
@@ -199,6 +214,14 @@ mod tests {
     }
 
     #[test]
+    fn bot_token_needs_allowed_users() {
+        let error = AppConfig::load(&source(&[("TELEGRAM_BOT_TOKEN", "123:abc")])).unwrap_err();
+        assert_eq!(error.key, "ALLOWED_TELEGRAM_USER_IDS");
+        let allowed = [("TELEGRAM_BOT_TOKEN", "123:abc"), ("ALLOWED_TELEGRAM_USER_IDS", "12")];
+        assert!(AppConfig::load(&source(&allowed)).is_ok());
+    }
+
+    #[test]
     fn reads_values_and_allowed_users() {
         let vars = [
             ("ALLOWED_TELEGRAM_USER_IDS", " 12, 34 ,"),
@@ -212,7 +235,8 @@ mod tests {
 
     #[test]
     fn reads_bot_token_and_never_prints_it() {
-        let config = AppConfig::load(&source(&[("TELEGRAM_BOT_TOKEN", "123:SECRET")])).unwrap();
+        let vars = [("TELEGRAM_BOT_TOKEN", "123:SECRET"), ("ALLOWED_TELEGRAM_USER_IDS", "12")];
+        let config = AppConfig::load(&source(&vars)).unwrap();
         assert_eq!(config.telegram_bot_token.as_ref().map(Secret::expose), Some("123:SECRET"));
         assert!(!format!("{config:?}").contains("SECRET"));
     }

@@ -7,7 +7,7 @@ use domain::installments::MAX_INSTALLMENTS;
 use domain::money_parse::parse_brl;
 use domain::{AccountKind, Cents};
 
-use super::dates::parse_typed_date;
+use super::dates::{parse_typed_date, parse_typed_time};
 use super::engine::FormInput;
 use super::{Answer, Field};
 use crate::callback_data::ButtonValue;
@@ -29,6 +29,9 @@ pub fn interpret(field: Field, input: &FormInput, today: NaiveDate) -> Result<In
         Field::Amount | Field::GoalTarget => positive_amount(input),
         Field::InitialBalance | Field::AlreadySaved | Field::BudgetLimit => amount_or_zero(input),
         Field::GoalDeadline => deadline(input, today),
+        Field::ActualBalance => signed_amount(input),
+        Field::CycleStartDay => keep_or(input, day_of_month),
+        Field::ReportTime => keep_or(input, report_time),
         Field::Description => description(input),
         Field::AccountName | Field::GoalName | Field::CardName | Field::RecurrenceName => {
             name(input)
@@ -87,6 +90,36 @@ fn amount_or_zero(input: &FormInput) -> Result<Answer, String> {
         FormInput::Text(text) if is_zero(text) => Ok(Answer::Money(Cents::ZERO)),
         other => positive_amount(other),
     }
+}
+
+/// A balance: `-` in front means overdrawn.
+fn signed_amount(input: &FormInput) -> Result<Answer, String> {
+    let FormInput::Text(text) = input else {
+        return amount_or_zero(input);
+    };
+    let Some(owed) = text.trim().strip_prefix('-') else {
+        return amount_or_zero(input);
+    };
+    parse_brl(owed).map(|amount| Answer::Money(-amount)).map_err(|_| BAD_AMOUNT.into())
+}
+
+/// Settings fields: the [Manter] button keeps the current value.
+fn keep_or(
+    input: &FormInput,
+    typed: fn(&FormInput) -> Result<Answer, String>,
+) -> Result<Answer, String> {
+    match input {
+        FormInput::Button(ButtonValue::Skip) => Ok(Answer::Skipped),
+        other => typed(other),
+    }
+}
+
+fn report_time(input: &FormInput) -> Result<Answer, String> {
+    let problem = || "Digite o horário, por exemplo 21:00.".to_owned();
+    let FormInput::Text(text) = input else {
+        return Err(problem());
+    };
+    parse_typed_time(text).map(Answer::Time).ok_or_else(problem)
 }
 
 fn is_zero(text: &str) -> bool {
@@ -156,13 +189,15 @@ fn button_choice(field: Field, input: &FormInput) -> Result<Answer, String> {
         ) => Answer::Card(id),
         (Field::InvoiceChoice, ButtonValue::Invoice(id)) => Answer::Invoice(id),
         (field, ButtonValue::Account(id)) if takes_account(field) => Answer::Account(id),
-        (field, value) => return recurrence_choice(field, value),
+        (field, value) => return option_choice(field, value),
     };
     Ok(answer)
 }
 
-fn recurrence_choice(field: Field, value: ButtonValue) -> Result<Answer, String> {
+/// Fields answered by picking one of a fixed set of options.
+fn option_choice(field: Field, value: ButtonValue) -> Result<Answer, String> {
     match (field, value) {
+        (Field::EditFieldChoice, ButtonValue::EditChoice(choice)) => Ok(Answer::EditChoice(choice)),
         (Field::RecurrenceKindChoice, ButtonValue::RecurrenceKind(kind)) => {
             Ok(Answer::RecurrenceKind(kind))
         }
@@ -287,6 +322,34 @@ mod tests {
         assert_eq!(typed(Field::ClosingDay, " 5 "), got(Answer::Day(5)));
         assert!(typed(Field::DueDay, "32").is_err() && typed(Field::DueDay, "dez").is_err());
         assert!(tap(Field::ClosingDay, ButtonValue::Skip).is_err());
+    }
+
+    #[test]
+    fn balances_may_be_negative_or_zero() {
+        assert_eq!(typed(Field::ActualBalance, "-50,10"), got(Answer::Money(Cents::new(-5010))));
+        assert_eq!(typed(Field::ActualBalance, "1.234"), got(Answer::Money(Cents::new(123_400))));
+        assert_eq!(tap(Field::ActualBalance, ButtonValue::Skip), got(Answer::Money(Cents::ZERO)));
+        assert_eq!(typed(Field::ActualBalance, "-abc"), Err(BAD_AMOUNT.into()));
+    }
+
+    #[test]
+    fn settings_fields_keep_or_take_typed_values() {
+        assert_eq!(tap(Field::CycleStartDay, ButtonValue::Skip), got(Answer::Skipped));
+        assert_eq!(typed(Field::CycleStartDay, "5"), got(Answer::Day(5)));
+        let nine = chrono::NaiveTime::from_hms_opt(21, 30, 0).unwrap();
+        assert_eq!(typed(Field::ReportTime, "21h30"), got(Answer::Time(nine)));
+        assert!(typed(Field::ReportTime, "tarde").is_err());
+        assert!(tap(Field::ReportTime, ButtonValue::Today).is_err());
+    }
+
+    #[test]
+    fn edit_choice_needs_an_edit_button() {
+        let choice = crate::flows::EditChoice::Date;
+        assert_eq!(
+            tap(Field::EditFieldChoice, ButtonValue::EditChoice(choice)),
+            got(Answer::EditChoice(choice))
+        );
+        assert_eq!(tap(Field::EditFieldChoice, ButtonValue::Skip), Err(PICK_A_BUTTON.into()));
     }
 
     #[test]

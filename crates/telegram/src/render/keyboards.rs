@@ -6,10 +6,11 @@ use domain::AccountKind;
 use domain::money_format::format_brl;
 
 use super::Catalog;
+use super::card::edit_choice_name;
 use super::catalog::{account_label, card_label, category_label, kind_name};
 use super::reports::invoice_label;
 use crate::callback_data::{ButtonValue, flow_button};
-use crate::flows::{Answers, Awaiting, Field, FormKind, FormState};
+use crate::flows::{Answers, Awaiting, EditChoice, Field, FormKind, FormState};
 use crate::gateway::{Button, Keyboard};
 
 type Choices = Vec<(ButtonValue, String)>;
@@ -37,13 +38,17 @@ fn field_choices(
             return Some(full_payment_choice(answers, catalog));
         }
         Field::Description => vec![(ButtonValue::Skip, "Pular".to_owned())],
-        Field::InitialBalance | Field::AlreadySaved => vec![(ButtonValue::Skip, "Zero".to_owned())],
+        Field::InitialBalance | Field::AlreadySaved | Field::ActualBalance => {
+            vec![(ButtonValue::Skip, "Zero".to_owned())]
+        }
+        Field::CycleStartDay | Field::ReportTime => vec![(ButtonValue::Skip, "Manter".to_owned())],
         Field::BudgetLimit => vec![(ButtonValue::Skip, "🗑️ Remover orçamento".to_owned())],
         Field::GoalDeadline => vec![(ButtonValue::Skip, "Sem prazo".to_owned())],
         Field::Date => date_choices(),
         Field::AccountKind => kind_choices(),
         Field::RecurrenceKindChoice => recurrence_kind_choices(),
         Field::RecurrenceModeChoice => recurrence_mode_choices(),
+        Field::EditFieldChoice => edit_choices(),
         field if typed_only(field) => return Some(Vec::new()),
         other => catalog_choices(form, other, answers, catalog),
     };
@@ -64,6 +69,7 @@ const fn typed_only(field: Field) -> bool {
             | Field::Installments
             | Field::RecurrenceName
             | Field::RecurrenceDay
+            | Field::EditTarget
     )
 }
 
@@ -142,6 +148,13 @@ fn recurrence_mode_choices() -> Choices {
         (ButtonValue::RecurrenceMode(RecurrenceMode::Auto), "🤖 Automático".to_owned()),
         (ButtonValue::RecurrenceMode(RecurrenceMode::Confirm), "🙋 Perguntar antes".to_owned()),
     ]
+}
+
+fn edit_choices() -> Choices {
+    EditChoice::ALL
+        .into_iter()
+        .map(|choice| (ButtonValue::EditChoice(choice), edit_choice_name(choice).to_owned()))
+        .collect()
 }
 
 fn installment_choices() -> Choices {

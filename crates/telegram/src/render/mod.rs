@@ -4,6 +4,7 @@
 
 pub mod card;
 pub mod catalog;
+pub mod entries;
 pub mod errors;
 pub mod help;
 pub mod keyboards;

@@ -46,6 +46,9 @@ services:
     # Longer than the 50s Telegram long poll.
     stop_grace_period: 70s
     read_only: true
+    # CSV exports are staged here before upload to Telegram.
+    tmpfs:
+      - /tmp:size=64m,mode=1777
     cap_drop: [ALL]
     depends_on:
       postgres:
