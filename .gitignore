@@ -1,0 +1,6 @@
+/target
+/secrets/
+.env
+*.dump
+*.age
+/backups/
