@@ -5,6 +5,7 @@
 mod accounts;
 mod api_keys;
 mod categories;
+mod chat_flows;
 mod drafts;
 mod entries;
 mod error_mapping;

@@ -1,0 +1,19 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into chat_flows (chat_id, user_id, flow, prompt_message_id, draft_id, expires_at)\nvalues ($1, $2, $3, $4, $5, $6)\non conflict (chat_id, user_id) do update set\n    flow = excluded.flow,\n    prompt_message_id = excluded.prompt_message_id,\n    draft_id = excluded.draft_id,\n    expires_at = excluded.expires_at\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Jsonb",
+        "Int8",
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "35b48db349c2cecd279835a8191bfd4a3b148fc0bdbb42996b7bba0b707a8023"
+}

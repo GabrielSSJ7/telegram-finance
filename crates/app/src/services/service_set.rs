@@ -8,8 +8,8 @@ use super::{
     MemberService, SettingsService,
 };
 use crate::ports::{
-    AccountStore, ApiKeyStore, CategoryStore, Clock, EntryStore, GoalStore, MemberStore,
-    SettingsStore, TokenSource,
+    AccountStore, ApiKeyStore, BotStateStore, CategoryStore, ChatFlowStore, Clock, EntryStore,
+    GoalStore, MemberStore, SettingsStore, TokenSource,
 };
 
 /// One handle per store port.
@@ -22,6 +22,8 @@ pub struct StorePorts {
     pub members: Arc<dyn MemberStore>,
     pub settings: Arc<dyn SettingsStore>,
     pub api_keys: Arc<dyn ApiKeyStore>,
+    pub flows: Arc<dyn ChatFlowStore>,
+    pub bot_state: Arc<dyn BotStateStore>,
 }
 
 impl StorePorts {
@@ -35,6 +37,8 @@ impl StorePorts {
             + MemberStore
             + SettingsStore
             + ApiKeyStore
+            + ChatFlowStore
+            + BotStateStore
             + 'static,
     {
         Self {
@@ -45,6 +49,8 @@ impl StorePorts {
             members: store.clone(),
             settings: store.clone(),
             api_keys: store.clone(),
+            flows: store.clone(),
+            bot_state: store.clone(),
         }
     }
 }

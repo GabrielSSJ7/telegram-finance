@@ -1,0 +1,66 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select flow, prompt_message_id, draft_id, expires_at from chat_flows\n             where chat_id = $1 and user_id = $2 and expires_at > $3",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "flow",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "chat_flows",
+            "name": "flow"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "prompt_message_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "chat_flows",
+            "name": "prompt_message_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "draft_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "chat_flows",
+            "name": "draft_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "expires_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "chat_flows",
+            "name": "expires_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "09a31e7739377ca1ab37d042b5dd3b8a4e6c63fc6c934a427841a3cd38f6c8ed"
+}

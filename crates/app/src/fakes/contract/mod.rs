@@ -12,6 +12,7 @@
 mod accounts;
 mod api_keys;
 mod categories;
+mod chat_flows;
 mod entries;
 mod goals;
 mod members;
@@ -23,6 +24,7 @@ mod memory_cases;
 pub use accounts::*;
 pub use api_keys::*;
 pub use categories::*;
+pub use chat_flows::*;
 pub use entries::*;
 pub use goals::*;
 pub use members::*;
@@ -57,6 +59,9 @@ macro_rules! store_contract_cases {
         $case!(member_upsert_find_list_dm);
         $case!(settings_update_and_bind_chat);
         $case!(api_key_create_find_revoke);
+        $case!(chat_flow_save_load_replace_clear);
+        $case!(chat_flow_expired_is_absent);
+        $case!(bot_offset_round_trip);
     };
 }
 

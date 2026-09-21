@@ -1,0 +1,93 @@
+//! Slash commands: guided forms start a flow; the rest answer at once.
+
+use app::model::Member;
+
+use super::BotContext;
+use super::flow_runner::{cancel_current, start_flow};
+use super::undo::undo_last;
+use crate::flows::FormKind;
+use crate::gateway::GatewayError;
+use crate::render::help::help_text;
+use crate::render::reports::{accounts_text, balance_text, categories_text, goals_text};
+
+/// `"/gasto@finbot resto"` → `("gasto", "resto")`. Not a command → `None`.
+///
+/// ```
+/// use telegram::bot::commands::parse_command;
+/// assert_eq!(parse_command("/Saldo@finbot"), Some(("saldo".to_owned(), String::new())));
+/// ```
+pub fn parse_command(text: &str) -> Option<(String, String)> {
+    let body = text.trim().strip_prefix('/')?;
+    let (head, rest) = body.split_once(char::is_whitespace).unwrap_or((body, ""));
+    let name = head.split('@').next().unwrap_or(head).to_lowercase();
+    (!name.is_empty()).then(|| (name, rest.trim().to_owned()))
+}
+
+/// Commands inside the household's group.
+pub async fn household_command(
+    context: &BotContext,
+    chat_id: i64,
+    member: &Member,
+    command: &str,
+) -> Result<(), GatewayError> {
+    if let Some(form) = FormKind::from_command(command) {
+        return start_flow(context, chat_id, member, form).await;
+    }
+    match command {
+        "saldo" => balances(context, chat_id).await,
+        "contas" => accounts(context, chat_id).await,
+        "metas" => goals(context, chat_id).await,
+        "categorias" => categories(context, chat_id).await,
+        "desfazer" => undo_last(context, chat_id, member).await,
+        "cancelar" => cancel_current(context, chat_id, member).await,
+        "ajuda" | "start" | "help" => context.reply(chat_id, help_text()).await.map(|_| ()),
+        other => {
+            context.reply(chat_id, format!("Não conheço /{other}. Veja /ajuda.")).await.map(|_| ())
+        }
+    }
+}
+
+async fn balances(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    match context.services.accounts.balance_sheet().await {
+        Ok(sheet) => context.reply(chat_id, balance_text(&sheet)).await.map(|_| ()),
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+async fn accounts(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    match context.services.accounts.balance_sheet().await {
+        Ok(sheet) => context.reply(chat_id, accounts_text(&sheet)).await.map(|_| ()),
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+async fn goals(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    match context.services.goals.list_progress().await {
+        Ok(progress) => context.reply(chat_id, goals_text(&progress)).await.map(|_| ()),
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+async fn categories(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    match context.services.categories.list(None).await {
+        Ok(found) => context.reply(chat_id, categories_text(&found)).await.map(|_| ()),
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_commands_with_bot_mentions_and_arguments() {
+        assert_eq!(parse_command("/gasto"), Some(("gasto".into(), String::new())));
+        assert_eq!(
+            parse_command(" /GASTO@FinBot  10 mercado "),
+            Some(("gasto".into(), "10 mercado".into()))
+        );
+        assert_eq!(parse_command("gasto"), None);
+        assert_eq!(parse_command("/"), None);
+        assert_eq!(parse_command("/@bot"), None);
+    }
+}

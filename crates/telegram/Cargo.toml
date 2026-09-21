@@ -1,0 +1,35 @@
+[package]
+name = "telegram"
+description = "finbot Telegram adapter: long-poll loop, access guard, guided flows, pt-BR rendering."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# FakeTelegramGateway for tests in other crates.
+test-support = []
+
+[dependencies]
+app.workspace = true
+domain.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+frankenstein = { version = "0.52.0", features = ["client-reqwest"] }
+
+[dev-dependencies]
+app = { workspace = true, features = ["test-support"] }
+axum = "0.8.9"
+tokio = { workspace = true, features = ["test-util", "net"] }
+telegram = { path = ".", features = ["test-support"] }
+
+[lints]
+workspace = true

@@ -4,15 +4,14 @@
 //! Runs the binary's commands against the test Postgres (`make test` sets
 //! `DATABASE_URL` to the throwaway server from `compose.test.yml`).
 
-use std::sync::Arc;
-
 use app::services::AllowedUsers;
 use finbot::cli::{ApiKeyCommand, Command};
 use finbot::commands::run;
+use finbot::commands::serve_until_shutdown;
 use finbot::config::{AppConfig, LogFormat};
-use finbot::health::{ServiceHealthProbe, probe_http_health};
-use finbot::server::serve_http;
-use finbot::wiring::{connect_store, service_set};
+use finbot::health::probe_http_health;
+use finbot::secret::Secret;
+use finbot::wiring::build_runtime;
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 
@@ -20,7 +19,10 @@ fn test_config() -> AppConfig {
     let database_url = std::env::var("DATABASE_URL")
         .expect("DATABASE_URL must point at the test Postgres (run `make test`)");
     AppConfig {
-        database_url: Some(database_url),
+        database_url: Some(finbot::secret::Secret::new(database_url)),
+        telegram_bot_token: None,
+        // Nothing listens on port 1: Telegram calls fail fast, offline.
+        telegram_api_base: "http://127.0.0.1:1".into(),
         http_bind: "127.0.0.1:0".parse().unwrap(),
         timezone: chrono_tz::America::Sao_Paulo,
         allowed_users: AllowedUsers::default(),
@@ -70,15 +72,37 @@ async fn missing_database_url_is_reported() {
 #[tokio::test]
 async fn serves_healthz_until_cancelled() {
     let config = test_config();
-    let store = connect_store(&config).await.unwrap();
-    let services = service_set(&store, &config);
+    let runtime = build_runtime(&config).await.unwrap();
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap().to_string();
     let shutdown = CancellationToken::new();
-    let health = Arc::new(ServiceHealthProbe::new(store));
-    let server = tokio::spawn(serve_http(listener, services, health, false, shutdown.clone()));
+    let server = tokio::spawn(async move {
+        serve_until_shutdown(&runtime, &config, listener, shutdown.clone()).await
+    });
     probe_http_health(&address).await.unwrap();
-    run(Command::Healthcheck { address }, config).await.unwrap();
-    shutdown.cancel();
-    server.await.unwrap().unwrap();
+    run(Command::Healthcheck { address: address.clone() }, test_config()).await.unwrap();
+    server.abort();
+}
+
+#[tokio::test]
+async fn serves_with_bot_enabled_and_stops_cleanly() {
+    // The poller cannot reach the (unreachable) API base and keeps backing
+    // off, which must not block shutdown or the health endpoint.
+    let config = AppConfig { telegram_bot_token: Some(Secret::new("0:fake")), ..test_config() };
+    let runtime = build_runtime(&config).await.unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap().to_string();
+    let shutdown = CancellationToken::new();
+    let stopper = shutdown.clone();
+    let server =
+        tokio::spawn(
+            async move { serve_until_shutdown(&runtime, &config, listener, shutdown).await },
+        );
+    probe_http_health(&address).await.unwrap();
+    stopper.cancel();
+    tokio::time::timeout(std::time::Duration::from_secs(10), server)
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
 }

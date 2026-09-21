@@ -12,6 +12,7 @@ app.workspace = true
 domain.workspace = true
 pg.workspace = true
 http-api.workspace = true
+telegram.workspace = true
 anyhow = "1.0.104"
 async-trait.workspace = true
 axum = "0.8.9"
@@ -26,6 +27,7 @@ tracing.workspace = true
 tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
 
 [dev-dependencies]
+app = { workspace = true, features = ["test-support"] }
 sqlx.workspace = true
 
 [lints]

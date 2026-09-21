@@ -7,6 +7,8 @@ use app::services::AllowedUsers;
 use chrono_tz::Tz;
 use thiserror::Error;
 
+use crate::secret::Secret;
+
 /// Where configuration values come from; tests pass a map.
 pub trait ConfigSource {
     fn var(&self, key: &str) -> Option<String>;
@@ -27,6 +29,8 @@ impl ConfigSource for ProcessEnvironment {
     }
 }
 
+pub const DEFAULT_TELEGRAM_API_BASE: &str = "https://api.telegram.org";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogFormat {
     Json,
@@ -43,7 +47,11 @@ pub struct ConfigError {
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {
-    pub database_url: Option<String>,
+    pub database_url: Option<Secret>,
+    /// Without a token the bot is off and only the REST API runs.
+    pub telegram_bot_token: Option<Secret>,
+    /// Bot API server; tests and self-hosted API servers override it.
+    pub telegram_api_base: String,
     pub http_bind: SocketAddr,
     pub timezone: Tz,
     pub allowed_users: AllowedUsers,
@@ -57,18 +65,10 @@ impl AppConfig {
     pub fn load(source: &dyn ConfigSource) -> Result<Self, ConfigError> {
         Ok(Self {
             database_url: secret(source, "DATABASE_URL")?,
-            http_bind: parse_or(
-                source,
-                "HTTP_BIND",
-                "0.0.0.0:8080",
-                "a socket address like 0.0.0.0:8080",
-            )?,
-            timezone: parse_or(
-                source,
-                "HOUSEHOLD_TIMEZONE",
-                "America/Sao_Paulo",
-                "an IANA timezone",
-            )?,
+            telegram_bot_token: secret(source, "TELEGRAM_BOT_TOKEN")?,
+            telegram_api_base: telegram_api_base(source),
+            http_bind: http_bind(source)?,
+            timezone: timezone(source)?,
             allowed_users: allowed_users(source)?,
             swagger: flag(source, "SWAGGER_ENABLED")?,
             log_format: log_format(source)?,
@@ -77,7 +77,7 @@ impl AppConfig {
 
     pub fn require_database_url(&self) -> Result<&str, ConfigError> {
         let expected = "a postgres:// URL in DATABASE_URL or a file path in DATABASE_URL_FILE";
-        self.database_url.as_deref().ok_or(ConfigError {
+        self.database_url.as_ref().map(Secret::expose).ok_or(ConfigError {
             key: "DATABASE_URL",
             value: String::new(),
             expected,
@@ -86,17 +86,29 @@ impl AppConfig {
 }
 
 /// `KEY_FILE` wins over `KEY`; file contents are trimmed.
-fn secret(source: &dyn ConfigSource, key: &'static str) -> Result<Option<String>, ConfigError> {
+fn secret(source: &dyn ConfigSource, key: &'static str) -> Result<Option<Secret>, ConfigError> {
     let file_key = format!("{key}_FILE");
     let Some(path) = source.var(&file_key) else {
-        return Ok(source.var(key));
+        return Ok(source.var(key).map(Secret::new));
     };
     let contents = source.read_file(&path).map_err(|_| ConfigError {
         key,
         value: path,
         expected: "a readable file",
     })?;
-    Ok(Some(contents.trim().to_owned()))
+    Ok(Some(Secret::new(contents.trim())))
+}
+
+fn telegram_api_base(source: &dyn ConfigSource) -> String {
+    source.var("TELEGRAM_API_BASE").unwrap_or_else(|| DEFAULT_TELEGRAM_API_BASE.to_owned())
+}
+
+fn http_bind(source: &dyn ConfigSource) -> Result<SocketAddr, ConfigError> {
+    parse_or(source, "HTTP_BIND", "0.0.0.0:8080", "a socket address like 0.0.0.0:8080")
+}
+
+fn timezone(source: &dyn ConfigSource) -> Result<Tz, ConfigError> {
+    parse_or(source, "HOUSEHOLD_TIMEZONE", "America/Sao_Paulo", "an IANA timezone")
 }
 
 fn parse_or<T: std::str::FromStr>(
@@ -176,7 +188,8 @@ mod tests {
         assert_eq!(config.http_bind.to_string(), "0.0.0.0:8080");
         assert_eq!(config.timezone, chrono_tz::America::Sao_Paulo);
         assert_eq!((config.swagger, config.log_format), (false, LogFormat::Json));
-        assert_eq!(config.database_url, None);
+        assert!(config.database_url.is_none() && config.telegram_bot_token.is_none());
+        assert_eq!(config.telegram_api_base, DEFAULT_TELEGRAM_API_BASE);
         assert!(
             config.require_database_url().unwrap_err().to_string().contains("DATABASE_URL_FILE")
         );
@@ -192,6 +205,13 @@ mod tests {
         let config = AppConfig::load(&source(&vars)).unwrap();
         assert!(config.allowed_users.contains(12) && config.allowed_users.contains(34));
         assert_eq!((config.swagger, config.log_format), (true, LogFormat::Pretty));
+    }
+
+    #[test]
+    fn reads_bot_token_and_never_prints_it() {
+        let config = AppConfig::load(&source(&[("TELEGRAM_BOT_TOKEN", "123:SECRET")])).unwrap();
+        assert_eq!(config.telegram_bot_token.as_ref().map(Secret::expose), Some("123:SECRET"));
+        assert!(!format!("{config:?}").contains("SECRET"));
     }
 
     #[test]

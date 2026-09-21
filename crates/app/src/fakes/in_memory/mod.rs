@@ -5,12 +5,13 @@
 mod accounts;
 mod api_keys;
 mod categories;
+mod chat_flows;
 mod entries;
 mod goals;
 mod members;
 mod settings;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use chrono::{DateTime, NaiveTime, Utc};
@@ -20,7 +21,7 @@ use crate::model::{
     Account, AccountId, ApiKey, Category, CategoryId, CategoryKind, DraftId, GoalId, GoalTarget,
     HouseholdSettings, LedgerEntry, Member, NewAccount,
 };
-use crate::ports::StoreError;
+use crate::ports::{ChatUserKey, StoreError, StoredFlow};
 
 #[derive(Debug)]
 struct GoalRow {
@@ -46,6 +47,8 @@ struct MemoryState {
     members: Vec<Member>,
     settings: HouseholdSettings,
     api_keys: Vec<ApiKeyRow>,
+    flows: HashMap<ChatUserKey, StoredFlow>,
+    update_offset: Option<i64>,
 }
 
 #[derive(Debug)]
@@ -77,6 +80,8 @@ impl InMemoryStore {
             members: Vec::new(),
             settings,
             api_keys: Vec::new(),
+            flows: HashMap::new(),
+            update_offset: None,
         };
         Self { state: Mutex::new(state) }
     }

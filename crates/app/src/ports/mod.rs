@@ -4,6 +4,7 @@
 pub mod account_store;
 pub mod api_key_store;
 pub mod category_store;
+pub mod chat_flow_store;
 pub mod clock;
 pub mod entry_store;
 pub mod goal_store;
@@ -15,6 +16,7 @@ pub mod token_source;
 pub use account_store::AccountStore;
 pub use api_key_store::ApiKeyStore;
 pub use category_store::CategoryStore;
+pub use chat_flow_store::{BotStateStore, ChatFlowStore, ChatUserKey, StoredFlow};
 pub use clock::{Clock, SystemClock};
 pub use entry_store::EntryStore;
 pub use goal_store::GoalStore;

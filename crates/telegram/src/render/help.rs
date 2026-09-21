@@ -1,0 +1,41 @@
+/// Commands shown by `/ajuda` and registered in the bot menu.
+pub const COMMANDS: &[(&str, &str)] = &[
+    ("gasto", "Registrar um gasto"),
+    ("entrada", "Registrar uma entrada (salário, extra...)"),
+    ("transferir", "Mover dinheiro entre contas"),
+    ("guardar", "Guardar dinheiro numa meta"),
+    ("resgatar", "Tirar dinheiro de uma meta"),
+    ("saldo", "Saldo das contas e disponível"),
+    ("metas", "Progresso das metas"),
+    ("desfazer", "Desfazer seu último lançamento"),
+    ("novaconta", "Cadastrar uma conta"),
+    ("novameta", "Criar uma meta de economia"),
+    ("contas", "Listar contas"),
+    ("categorias", "Listar categorias"),
+    ("cancelar", "Cancelar o que está preenchendo"),
+    ("ajuda", "Mostrar os comandos"),
+];
+
+pub fn help_text() -> String {
+    let lines: Vec<String> = COMMANDS
+        .iter()
+        .map(|(command, description)| format!("/{command} — {description}"))
+        .collect();
+    format!("<b>Comandos</b>\n{}", lines.join("\n"))
+}
+
+pub fn welcome_text() -> String {
+    format!("Olá! 👋 Vou registrar as finanças de vocês aqui.\n\n{}", help_text())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn help_lists_every_command() {
+        let text = help_text();
+        assert!(COMMANDS.iter().all(|(command, _)| text.contains(&format!("/{command} "))));
+        assert!(welcome_text().starts_with("Olá!"));
+    }
+}

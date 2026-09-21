@@ -12,8 +12,8 @@ choose, such as payday). A REST API exposes the same data.
 |---|---|---|
 | 1 | Workspace and domain rules (money, cycles, card invoices, installments, balances) | done |
 | 2 | Postgres schema, core services, REST API | done |
-| 3 | Telegram bot MVP | next |
-| 4 | Docker, Caddy, backups, deploy | |
+| 3 | Telegram bot MVP | done |
+| 4 | Docker, Caddy, backups, deploy | next |
 | 5 | Credit cards and invoices | |
 | 6 | Scheduler and reports | |
 | 7 | Budgets and goals | |
@@ -28,6 +28,8 @@ crates/
             ships the in-memory fake and the store contract suite
   pg/       Postgres adapter (sqlx), migrations/, queries/
   http/     REST API (axum, problem+json errors, OpenAPI)
+  telegram/ bot: long-poll loop, guided flows (pure state machines),
+            pt-BR cards, frankenstein client behind a project trait
   finbot/   binary: config, wiring, CLI
 ```
 
@@ -60,6 +62,20 @@ finbot healthcheck              # exit 0 when /healthz answers 200
 ## Configuration
 
 See `.env.example`. Any secret `X` can be given as `X_FILE` (Docker secrets).
+Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
+
+## Bot commands
+
+| Command | What it does |
+|---|---|
+| `/gasto` | Guided expense: value, description, category, account, date |
+| `/entrada` | Guided income |
+| `/transferir` | Move money between accounts |
+| `/guardar`, `/resgatar` | Move money into or out of a goal's pot |
+| `/novaconta`, `/novameta` | Create an account or a savings goal |
+| `/saldo`, `/contas`, `/metas`, `/categorias` | Reports |
+| `/desfazer` | Undo your own last entry |
+| `/cancelar`, `/ajuda` | Cancel the current form, list commands |
 
 ## REST API
 
