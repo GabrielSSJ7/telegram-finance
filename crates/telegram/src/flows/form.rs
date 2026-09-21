@@ -15,6 +15,7 @@ pub enum FormKind {
     PayInvoice,
     Refund,
     NewRecurrence,
+    SetBudget,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -54,14 +55,18 @@ pub enum Field {
     RecurrenceName,
     RecurrenceDay,
     RecurrenceModeChoice,
+    /// Zero (or the remove button) removes the budget.
+    BudgetLimit,
+    /// Optional; skipped means no deadline.
+    GoalDeadline,
 }
 
 use Field::{
-    AccountKind as KindField, AccountName, AlreadySaved, Amount, CardChoice, CardName, ClosingDay,
-    Date, Description, DueDay, ExpenseCategory, FromAccount, Goal, GoalName, GoalTarget,
-    IncomeCategory, InitialBalance, Installments, InvoiceChoice, PaymentAccount, ReceivingAccount,
-    RecurrenceDay, RecurrenceKindChoice, RecurrenceModeChoice, RecurrenceName, RefundTarget,
-    ToAccount,
+    AccountKind as KindField, AccountName, AlreadySaved, Amount, BudgetLimit, CardChoice, CardName,
+    ClosingDay, Date, Description, DueDay, ExpenseCategory, FromAccount, Goal, GoalDeadline,
+    GoalName, GoalTarget, IncomeCategory, InitialBalance, Installments, InvoiceChoice,
+    PaymentAccount, ReceivingAccount, RecurrenceDay, RecurrenceKindChoice, RecurrenceModeChoice,
+    RecurrenceName, RefundTarget, ToAccount,
 };
 
 /// Expense-only and income-only fields are skipped by `Field::applies`.
@@ -78,7 +83,7 @@ const RECURRENCE_FIELDS: &[Field] = &[
 ];
 
 impl FormKind {
-    pub const ALL: [FormKind; 11] = [
+    pub const ALL: [FormKind; 12] = [
         FormKind::Expense,
         FormKind::Income,
         FormKind::Transfer,
@@ -90,6 +95,7 @@ impl FormKind {
         FormKind::PayInvoice,
         FormKind::Refund,
         FormKind::NewRecurrence,
+        FormKind::SetBudget,
     ];
 
     pub const fn fields(self) -> &'static [Field] {
@@ -102,11 +108,12 @@ impl FormKind {
             FormKind::PotDeposit => &[Goal, Amount, FromAccount],
             FormKind::PotWithdraw => &[Goal, Amount, ToAccount],
             FormKind::NewAccount => &[AccountName, KindField, InitialBalance],
-            FormKind::NewGoal => &[GoalName, GoalTarget, AlreadySaved],
+            FormKind::NewGoal => &[GoalName, GoalTarget, AlreadySaved, GoalDeadline],
             FormKind::NewCard => &[CardName, ClosingDay, DueDay],
             FormKind::PayInvoice => &[CardChoice, InvoiceChoice, Amount, FromAccount, Date],
             FormKind::Refund => &[Amount, Description, ExpenseCategory, RefundTarget, Date],
             FormKind::NewRecurrence => RECURRENCE_FIELDS,
+            FormKind::SetBudget => &[ExpenseCategory, BudgetLimit],
         }
     }
 
@@ -124,6 +131,7 @@ impl FormKind {
             FormKind::PayInvoice => "pagarfatura",
             FormKind::Refund => "estorno",
             FormKind::NewRecurrence => "recorrente",
+            FormKind::SetBudget => "orcamento",
         }
     }
 
@@ -140,6 +148,7 @@ impl FormKind {
             FormKind::PayInvoice => "Pagar fatura",
             FormKind::Refund => "Estorno",
             FormKind::NewRecurrence => "Nova recorrência",
+            FormKind::SetBudget => "Orçamento mensal",
         }
     }
 

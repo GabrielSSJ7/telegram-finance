@@ -1,0 +1,30 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into budget_alerts (budget_id, cycle_start, threshold_pct) values ($1, $2, $3)\n             on conflict do nothing returning budget_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "budget_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "budget_alerts",
+            "name": "budget_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Int2"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "56b4e7413d4e96096f5181af56af7eced48dd8f5c274dd7879a7f4830e46f094"
+}

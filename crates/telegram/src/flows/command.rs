@@ -1,11 +1,12 @@
 //! Turns a confirmed form into the use-case request it stands for.
 
-use app::model::{RecurrenceKind, RecurrenceTarget};
+use app::model::{CategoryId, RecurrenceKind, RecurrenceTarget};
 use app::services::ledger::{AccountEntry, EntryRequest, TransferEntry};
 use app::services::{
     CardCreditRequest, CardPurchaseRequest, CreateGoal, CreateRecurrence, InvoicePaymentRequest,
     OpenAccount, OpenCard, PotMove,
 };
+use domain::Cents;
 use domain::DayOfMonth;
 
 use super::{Answers, Field, FormKind, FormState};
@@ -22,6 +23,11 @@ pub enum FormCommand {
     PayInvoice(InvoicePaymentRequest),
     OpenCard(OpenCard),
     CreateRecurrence(CreateRecurrence),
+    /// A zero limit removes the budget.
+    SetBudget {
+        category: CategoryId,
+        limit: Cents,
+    },
 }
 
 /// `None` when a required answer is missing (the engine never confirms
@@ -30,6 +36,7 @@ pub fn build_command(state: &FormState) -> Option<FormCommand> {
     let answers = &state.answers;
     match state.form {
         FormKind::Expense => expense(answers),
+        FormKind::Refund => refund(answers),
         FormKind::Income => account_entry(answers, Field::IncomeCategory, Field::ReceivingAccount)
             .map(|entry| FormCommand::Record(EntryRequest::Income(entry))),
         FormKind::Transfer => {
@@ -37,12 +44,24 @@ pub fn build_command(state: &FormState) -> Option<FormCommand> {
         }
         FormKind::PotDeposit => pot_move(answers, Field::FromAccount).map(FormCommand::PotDeposit),
         FormKind::PotWithdraw => pot_move(answers, Field::ToAccount).map(FormCommand::PotWithdraw),
+        FormKind::PayInvoice => pay_invoice(answers).map(FormCommand::PayInvoice),
+        setup => setup_command(setup, answers),
+    }
+}
+
+/// Forms that configure things rather than move money.
+fn setup_command(form: FormKind, answers: &Answers) -> Option<FormCommand> {
+    match form {
         FormKind::NewAccount => open_account(answers).map(FormCommand::OpenAccount),
         FormKind::NewGoal => create_goal(answers).map(FormCommand::CreateGoal),
         FormKind::NewCard => open_card(answers).map(FormCommand::OpenCard),
-        FormKind::PayInvoice => pay_invoice(answers).map(FormCommand::PayInvoice),
-        FormKind::Refund => refund(answers),
         FormKind::NewRecurrence => create_recurrence(answers).map(FormCommand::CreateRecurrence),
+        FormKind::SetBudget => {
+            let (category, limit) =
+                (answers.category(Field::ExpenseCategory)?, answers.money(Field::BudgetLimit)?);
+            Some(FormCommand::SetBudget { category, limit })
+        }
+        _ => None,
     }
 }
 
@@ -166,7 +185,7 @@ fn create_goal(answers: &Answers) -> Option<CreateGoal> {
     Some(CreateGoal {
         name: answers.text(Field::GoalName)?,
         target: answers.money(Field::GoalTarget)?,
-        target_date: None,
+        target_date: answers.deadline().flatten(),
         already_saved: answers.money(Field::AlreadySaved)?,
     })
 }

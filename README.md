@@ -16,8 +16,8 @@ choose, such as payday). A REST API exposes the same data.
 | 4 | Docker, Caddy, backups, deploy | done |
 | 5 | Credit cards and invoices | done |
 | 6 | Scheduler and reports | done |
-| 7 | Budgets and goals | next |
-| 8 | Edit flows, CSV export, hardening | |
+| 7 | Budgets and goals | done |
+| 8 | Edit flows, CSV export, hardening | next |
 
 ## Layout
 
@@ -102,9 +102,11 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/pagarfatura` | Pay (part of) a card invoice from an account |
 | `/estorno` | Refund back to an account or a card invoice |
 | `/fatura`, `/cartoes` | Card invoices (open, due, future installments); cards |
-| `/novaconta`, `/novameta`, `/novocartao` | Create an account, a savings goal or a card |
+| `/novaconta`, `/novameta`, `/novocartao` | Create an account, a savings goal (optional deadline shows the monthly pace) or a card |
 | `/saldo`, `/resumo`, `/contas`, `/metas`, `/categorias` | Reports (`/resumo` is the daily report on demand) |
 | `/recorrente`, `/recorrentes` | Create a monthly entry (salary, rent, subscription); list and deactivate |
+| `/orcamento`, `/orcamentos` | Set (or remove) a category's limit per cycle; see how much of each is used. Alerts at 80% and 100% |
+| `/mes` | The current cycle so far |
 | `/desfazer` | Undo your own last entry |
 | `/cancelar`, `/ajuda` | Cancel the current form, list commands |
 

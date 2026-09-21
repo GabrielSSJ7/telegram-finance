@@ -2,6 +2,7 @@
 //! calls one service method and converts the result back.
 
 pub mod accounts;
+pub mod budgets;
 pub mod cards;
 pub mod categories;
 pub mod entries;
@@ -54,4 +55,6 @@ fn schedule_routes() -> OpenApiRouter<ApiState> {
         .routes(routes!(recurrences::deactivate_recurrence))
         .routes(routes!(reports::daily_report))
         .routes(routes!(reports::cycle_report))
+        .routes(routes!(budgets::list_budgets))
+        .routes(routes!(budgets::set_budget, budgets::remove_budget))
 }

@@ -1,7 +1,8 @@
 //! pt-BR text of the daily and cycle reports.
 
 use app::model::{
-    Category, CategoryId, CycleReport, DailyReport, LedgerEntry, Member, MemberId, PeriodTotals,
+    BudgetStatus, Category, CategoryId, CycleReport, DailyReport, LedgerEntry, Member, MemberId,
+    PeriodTotals,
 };
 use chrono::{Datelike, NaiveDate, Weekday};
 use domain::Cents;
@@ -10,8 +11,12 @@ use domain::money_format::format_brl;
 use domain::spend::PeriodSummary;
 
 use super::catalog::category_label;
+use super::notices::budget_line;
 use super::reports::{balance_text, goals_text, invoices_text};
 use crate::html::escape;
+
+/// The daily report lists budgets from 80% on.
+const WARNING_BP: i64 = 8_000;
 
 /// Categories listed in the cycle report before "outros".
 const TOP_CATEGORIES: usize = 8;
@@ -25,8 +30,11 @@ pub fn daily_report_text(report: &DailyReport) -> String {
     if !report.cards.is_empty() {
         sections.push(invoices_text(&report.cards));
     }
+    if let Some(budgets) = budgets_section(&report.budgets, WARNING_BP) {
+        sections.push(budgets);
+    }
     if !report.goals.is_empty() {
-        sections.push(goals_text(&report.goals));
+        sections.push(goals_text(&report.goals, report.date));
     }
     if !report.upcoming.is_empty() {
         sections.push(upcoming_section(report));
@@ -35,9 +43,22 @@ pub fn daily_report_text(report: &DailyReport) -> String {
 }
 
 pub fn cycle_report_text(report: &CycleReport) -> String {
+    let header = format!("<b>🗓️ Fechamento do ciclo {}</b>", cycle_range(report.cycle));
+    cycle_body(report, header)
+}
+
+/// `/mes`: the same sections for the cycle still running.
+pub fn month_report_text(report: &CycleReport, today: NaiveDate) -> String {
+    let days_left = (report.cycle.end_exclusive - today).num_days() - 1;
+    let header =
+        format!("<b>📅 Ciclo atual {}</b> (faltam {days_left} dias)", cycle_range(report.cycle));
+    cycle_body(report, header)
+}
+
+fn cycle_body(report: &CycleReport, header: String) -> String {
     let names = Names { categories: &report.categories, members: &report.members };
     let summary = &report.totals.summary;
-    let mut sections = vec![format!("<b>🗓️ Fechamento do ciclo {}</b>", cycle_range(report.cycle))];
+    let mut sections = vec![header];
     sections.push(cycle_totals(summary, &report.previous, report.saved_in_pots));
     sections.push(category_breakdown(&report.totals, &names));
     sections.push(member_line(&report.totals, &names));
@@ -45,10 +66,20 @@ pub fn cycle_report_text(report: &CycleReport) -> String {
     if !report.cards.is_empty() {
         sections.push(invoices_text(&report.cards));
     }
+    if let Some(budgets) = budgets_section(&report.budgets, 0) {
+        sections.push(budgets);
+    }
     if !report.goals.is_empty() {
-        sections.push(goals_text(&report.goals));
+        sections.push(goals_text(&report.goals, report.cycle.last_day()));
     }
     sections.join("\n\n")
+}
+
+/// Budgets at or above `min_used_bp`; `None` when there are none.
+fn budgets_section(budgets: &[BudgetStatus], min_used_bp: i64) -> Option<String> {
+    let lines: Vec<String> =
+        budgets.iter().filter(|status| status.used_bp >= min_used_bp).map(budget_line).collect();
+    (!lines.is_empty()).then(|| format!("<b>Orçamentos</b>\n{}", lines.join("\n")))
 }
 
 /// Category and member names carried by a report.

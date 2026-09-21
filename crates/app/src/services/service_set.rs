@@ -3,17 +3,18 @@
 
 use std::sync::Arc;
 
+use super::budgets::BudgetSources;
 use super::recurrences::RecurrenceDependencies;
 use super::reports::ReportSources;
 use super::{
-    AccountService, AllowedUsers, ApiKeyService, CardService, CategoryService, GoalService,
-    LedgerService, MemberService, PositionService, RecurrenceService, ReportService,
+    AccountService, AllowedUsers, ApiKeyService, BudgetService, CardService, CategoryService,
+    GoalService, LedgerService, MemberService, PositionService, RecurrenceService, ReportService,
     SettingsService,
 };
 use crate::ports::{
-    AccountStore, ApiKeyStore, BotStateStore, CardStore, CategoryStore, ChatFlowStore, Clock,
-    EntryStore, GoalStore, JobRunStore, MemberStore, RecurrenceStore, ReportStore, SettingsStore,
-    TokenSource,
+    AccountStore, ApiKeyStore, BotStateStore, BudgetStore, CardStore, CategoryStore, ChatFlowStore,
+    Clock, EntryStore, GoalStore, JobRunStore, MemberStore, RecurrenceStore, ReportStore,
+    SettingsStore, TokenSource,
 };
 
 /// One handle per store port.
@@ -32,6 +33,7 @@ pub struct StorePorts {
     pub recurrences: Arc<dyn RecurrenceStore>,
     pub job_runs: Arc<dyn JobRunStore>,
     pub reports: Arc<dyn ReportStore>,
+    pub budgets: Arc<dyn BudgetStore>,
 }
 
 impl StorePorts {
@@ -51,6 +53,7 @@ impl StorePorts {
             + RecurrenceStore
             + JobRunStore
             + ReportStore
+            + BudgetStore
             + 'static,
     {
         Self {
@@ -67,6 +70,7 @@ impl StorePorts {
             recurrences: store.clone(),
             job_runs: store.clone(),
             reports: store.clone(),
+            budgets: store.clone(),
         }
     }
 }
@@ -92,6 +96,7 @@ pub struct ServiceSet {
     pub position: Arc<PositionService>,
     pub recurrences: Arc<RecurrenceService>,
     pub reports: Arc<ReportService>,
+    pub budgets: Arc<BudgetService>,
     /// The household clock, for callers that need "today".
     pub clock: Arc<dyn Clock>,
 }
@@ -106,8 +111,7 @@ impl ServiceSet {
         let clock = environment.clock.clone();
         let money = MoneyServices::wire(stores, &environment.clock);
         let people = PeopleServices::wire(stores, environment);
-        let recurrences = Arc::new(money.recurrences(stores));
-        let reports = Arc::new(money.reports(stores, &people, &recurrences));
+        let planning = money.planning(stores, &people);
         Self {
             accounts: money.accounts,
             categories: money.categories,
@@ -118,8 +122,9 @@ impl ServiceSet {
             members: people.members,
             settings: people.settings,
             api_keys: people.api_keys,
-            recurrences,
-            reports,
+            recurrences: planning.recurrences,
+            reports: planning.reports,
+            budgets: planning.budgets,
             clock,
         }
     }
@@ -180,11 +185,28 @@ impl MoneyServices {
         RecurrenceService::new(stores.recurrences.clone(), dependencies, self.clock.clone())
     }
 
+    fn planning(&self, stores: &StorePorts, people: &PeopleServices) -> PlanningServices {
+        let recurrences = Arc::new(self.recurrences(stores));
+        let budgets = Arc::new(self.budgets(stores, people));
+        let reports = Arc::new(self.reports(stores, people, &recurrences, &budgets));
+        PlanningServices { recurrences, budgets, reports }
+    }
+
+    fn budgets(&self, stores: &StorePorts, people: &PeopleServices) -> BudgetService {
+        let sources = BudgetSources {
+            reports: stores.reports.clone(),
+            categories: self.categories.clone(),
+            settings: people.settings.clone(),
+        };
+        BudgetService::new(stores.budgets.clone(), sources, self.clock.clone())
+    }
+
     fn reports(
         &self,
         stores: &StorePorts,
         people: &PeopleServices,
         recurrences: &Arc<RecurrenceService>,
+        budgets: &Arc<BudgetService>,
     ) -> ReportService {
         let sources = ReportSources {
             position: self.position.clone(),
@@ -195,9 +217,17 @@ impl MoneyServices {
             members: people.members.clone(),
             settings: people.settings.clone(),
             ledger: self.ledger.clone(),
+            budgets: budgets.clone(),
         };
         ReportService::new(stores.reports.clone(), sources)
     }
+}
+
+/// Recurrences, budgets and the reports that read them.
+struct PlanningServices {
+    recurrences: Arc<RecurrenceService>,
+    budgets: Arc<BudgetService>,
+    reports: Arc<ReportService>,
 }
 
 /// Services the others are built on.

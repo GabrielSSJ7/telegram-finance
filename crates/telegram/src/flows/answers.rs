@@ -81,6 +81,15 @@ impl Answers {
         }
     }
 
+    /// The optional goal deadline; `Some(None)` when skipped.
+    pub fn deadline(&self) -> Option<Option<NaiveDate>> {
+        match self.get(Field::GoalDeadline) {
+            Some(Answer::Date(date)) => Some(Some(*date)),
+            Some(Answer::Skipped) => Some(None),
+            _ => None,
+        }
+    }
+
     pub fn date(&self) -> Option<NaiveDate> {
         match self.get(Field::Date) {
             Some(Answer::Date(date)) => Some(*date),

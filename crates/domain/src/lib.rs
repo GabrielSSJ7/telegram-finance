@@ -3,6 +3,7 @@
 
 pub mod account_kind;
 pub mod balance;
+pub mod budget;
 pub mod calendar;
 pub mod cycle;
 pub mod day_of_month;

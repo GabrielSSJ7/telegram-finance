@@ -70,7 +70,7 @@ async fn cycle_report_and_resumo_command() {
     assert!(report.starts_with("<b>🗓️ Fechamento do ciclo 01/02 → 28/02</b>"), "{report}");
     assert!(report.contains("Nenhum gasto no ciclo."), "{report}");
     harness.say(BIA, "/resumo").await;
-    assert!(harness.last_html().contains("Nenhum lançamento hoje."), "{}", harness.last_html());
+    harness.expect_last("Nenhum lançamento hoje.");
 }
 
 #[tokio::test]
@@ -78,15 +78,11 @@ async fn confirm_recurrence_can_be_registered_once() {
     let mut harness = BotHarness::bound().await.with_basics().await;
     light_bill(&harness, RecurrenceMode::Confirm).await;
     runner(&harness).run(JobKind::Recurrences, date(3, 10)).await.unwrap();
-    assert!(
-        harness.last_html().contains("Conta de luz</b> (dia 05/03)"),
-        "{}",
-        harness.last_html()
-    );
+    harness.expect_last("Conta de luz</b> (dia 05/03)");
     let (message_id, data) = harness.gateway.find_button(GROUP, "Registrar").unwrap();
     harness.press(BIA, message_id, &data).await;
     harness.press(BIA, message_id, &data).await;
-    assert!(harness.last_html().contains("Já estava registrado"), "{}", harness.last_html());
+    harness.expect_last("Já estava registrado");
     assert_eq!(harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap().len(), 1);
 }
 
@@ -126,15 +122,11 @@ async fn new_recurrence_flow_and_deactivation() {
     harness.say(ANA, "5").await;
     harness.tap(ANA, "Automático").await;
     harness.tap(ANA, "Confirmar").await;
-    assert!(harness.last_html().contains("Recorrência criada"), "{}", harness.last_html());
+    harness.expect_last("Recorrência criada");
     harness.say(BIA, "/recorrentes").await;
-    assert!(
-        harness.last_html().contains("💰 Salário: R$ 8.000,00, todo dia 5"),
-        "{}",
-        harness.last_html()
-    );
+    harness.expect_last("💰 Salário: R$ 8.000,00, todo dia 5");
     harness.tap(BIA, "Desativar Salário").await;
-    assert!(harness.last_html().contains("Nenhuma recorrência ativa"), "{}", harness.last_html());
+    harness.expect_last("Nenhuma recorrência ativa");
 }
 
 #[tokio::test]

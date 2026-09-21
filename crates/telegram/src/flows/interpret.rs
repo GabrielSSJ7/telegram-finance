@@ -27,7 +27,8 @@ pub fn interpret(field: Field, input: &FormInput, today: NaiveDate) -> Result<In
     let answer = match field {
         Field::Date => return date(input, today),
         Field::Amount | Field::GoalTarget => positive_amount(input),
-        Field::InitialBalance | Field::AlreadySaved => amount_or_zero(input),
+        Field::InitialBalance | Field::AlreadySaved | Field::BudgetLimit => amount_or_zero(input),
+        Field::GoalDeadline => deadline(input, today),
         Field::Description => description(input),
         Field::AccountName | Field::GoalName | Field::CardName | Field::RecurrenceName => {
             name(input)
@@ -91,6 +92,18 @@ fn amount_or_zero(input: &FormInput) -> Result<Answer, String> {
 fn is_zero(text: &str) -> bool {
     let digits = text.trim().trim_start_matches("R$").trim();
     !digits.is_empty() && digits.chars().all(|character| matches!(character, '0' | ',' | '.'))
+}
+
+fn deadline(input: &FormInput, today: NaiveDate) -> Result<Answer, String> {
+    match input {
+        FormInput::Button(ButtonValue::Skip) => Ok(Answer::Skipped),
+        FormInput::Text(text) => match parse_typed_date(text, today) {
+            Some(date) if date > today => Ok(Answer::Date(date)),
+            Some(_) => Err("O prazo precisa ser uma data futura.".into()),
+            None => Err(BAD_DATE.into()),
+        },
+        FormInput::Button(_) => Err("Digite a data (dd/mm/aaaa) ou toque em Sem prazo.".into()),
+    }
 }
 
 fn description(input: &FormInput) -> Result<Answer, String> {
@@ -254,6 +267,19 @@ mod tests {
             tap(Field::Amount, ButtonValue::Money(Cents::new(500))),
             got(Answer::Money(Cents::new(500)))
         );
+    }
+
+    #[test]
+    fn goal_deadline() {
+        let later = NaiveDate::from_ymd_opt(2030, 12, 31).unwrap();
+        assert_eq!(typed(Field::GoalDeadline, "31/12/2030"), got(Answer::Date(later)));
+        assert_eq!(tap(Field::GoalDeadline, ButtonValue::Skip), got(Answer::Skipped));
+        assert!(
+            typed(Field::GoalDeadline, "01/01/2020").is_err()
+                && typed(Field::GoalDeadline, "logo").is_err()
+        );
+        assert!(tap(Field::GoalDeadline, ButtonValue::Today).is_err());
+        assert_eq!(tap(Field::BudgetLimit, ButtonValue::Skip), got(Answer::Money(Cents::ZERO)));
     }
 
     #[test]

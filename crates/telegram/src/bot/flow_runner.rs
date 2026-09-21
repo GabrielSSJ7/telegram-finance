@@ -12,7 +12,8 @@ use app::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
 
 use super::BotContext;
-use super::executor::{Committed, execute, headline};
+use super::budget_alerts::announce_budget_alerts;
+use super::executor::{Committed, execute, headline_for};
 use crate::callback_data::{nonce_of, undo_button, undo_purchase_button};
 use crate::flows::{Advance, FormInput, FormKind, FormState, build_command};
 use crate::gateway::{Button, GatewayError, Keyboard};
@@ -235,10 +236,24 @@ async fn commit(
     match execute(&context.services, command, origin).await {
         Ok(committed) => {
             clear(context, &session).await;
-            show_committed(context, session, &state, &committed, placement).await
+            let chat_id = session.key.chat_id;
+            show_committed(context, session, &state, &committed, placement).await?;
+            after_commit(context, chat_id, state.form).await
         }
         Err(error) => commit_failed(context, &session, &error).await,
     }
+}
+
+/// Spending and budget changes may cross a budget threshold.
+async fn after_commit(
+    context: &BotContext,
+    chat_id: i64,
+    form: FormKind,
+) -> Result<(), GatewayError> {
+    if matches!(form, FormKind::Expense | FormKind::SetBudget) {
+        return announce_budget_alerts(context, chat_id).await;
+    }
+    Ok(())
 }
 
 async fn commit_failed(
@@ -269,7 +284,7 @@ async fn show_committed(
         nonce: "",
         today: context.clock.today(),
     };
-    let html = committed_card(state, card, headline(state.form));
+    let html = committed_card(state, card, headline_for(state.form, committed));
     let keyboard = undo_keyboard_for(committed);
     place(context, &mut session, html, keyboard, placement).await
 }
@@ -279,10 +294,7 @@ fn undo_keyboard_for(committed: &Committed) -> Option<Keyboard> {
     match committed {
         Committed::Entry(entry) => Some(undo_keyboard(undo_button(entry.id))),
         Committed::Purchase(purchase) => Some(undo_keyboard(undo_purchase_button(purchase.id))),
-        Committed::Account(_)
-        | Committed::Goal(_)
-        | Committed::Card(_)
-        | Committed::Recurrence(_) => None,
+        _ => None,
     }
 }
 

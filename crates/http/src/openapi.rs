@@ -9,7 +9,7 @@ use crate::error::Problem;
     components(schemas(Problem)),
     modifiers(&BearerSecurity),
     tags(
-        (name = "accounts"), (name = "cards"), (name = "categories"), (name = "entries"),
+        (name = "accounts"), (name = "budgets"), (name = "cards"), (name = "categories"), (name = "entries"),
         (name = "goals"), (name = "recurrences"), (name = "reports"), (name = "settings"), (name = "health"),
     )
 )]

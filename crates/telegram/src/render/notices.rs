@@ -1,9 +1,10 @@
 //! One-off messages from scheduled jobs.
 
-use app::model::{CreditCard, InvoiceView, Recurrence};
+use app::model::{BudgetAlert, BudgetStatus, CreditCard, InvoiceView, Recurrence};
 use chrono::{DateTime, NaiveDate, Utc};
 use domain::money_format::format_brl;
 
+use super::catalog::category_label;
 use crate::html::escape;
 
 pub fn invoice_closed_text(card: &CreditCard, invoice: &InvoiceView) -> String {
@@ -39,6 +40,29 @@ pub fn recurrence_confirm_text(recurrence: &Recurrence, date: NaiveDate) -> Stri
         escape(&recurrence.description),
         date.format("%d/%m"),
         format_brl(recurrence.amount)
+    )
+}
+
+pub fn budget_alert_text(alert: &BudgetAlert) -> String {
+    let status = &alert.status;
+    let (name, percent) = (category_label(&status.category), status.used_bp / 100);
+    let (spent, limit) = (format_brl(status.spent), format_brl(status.budget.limit));
+    if alert.threshold >= 100 {
+        return format!(
+            "🚨 Orçamento de <b>{name}</b> estourado: {spent} de {limit} ({percent}%)."
+        );
+    }
+    format!("⚠️ Orçamento de <b>{name}</b> em {percent}%: {spent} de {limit} neste ciclo.")
+}
+
+/// `🛒 mercado ▓▓▓▓▓▓▓▓░░ 85% (R$ 850,00 de R$ 1.000,00)`.
+pub fn budget_line(status: &BudgetStatus) -> String {
+    let bar = super::reports::progress_bar(status.used_bp);
+    let (spent, limit) = (format_brl(status.spent), format_brl(status.budget.limit));
+    format!(
+        "{} {bar} {}% ({spent} de {limit})",
+        category_label(&status.category),
+        status.used_bp / 100
     )
 }
 

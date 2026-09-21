@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use thiserror::Error;
 
-use crate::model::{CreditCard, CycleReport, DailyReport, InvoiceView, Recurrence};
+use crate::model::{BudgetAlert, CreditCard, CycleReport, DailyReport, InvoiceView, Recurrence};
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[error("could not notify the household: {0}")]
@@ -37,6 +37,8 @@ pub trait HouseholdNotifier: Send + Sync {
         recurrence: &Recurrence,
         date: NaiveDate,
     ) -> Result<(), NotifyError>;
+    /// Budgets that just crossed 80% or 100% this cycle.
+    async fn budget_alerts(&self, alerts: &[BudgetAlert]) -> Result<(), NotifyError>;
     /// Sent to each member's private chat.
     async fn backup_missing(&self, last_success: Option<DateTime<Utc>>) -> Result<(), NotifyError>;
 }

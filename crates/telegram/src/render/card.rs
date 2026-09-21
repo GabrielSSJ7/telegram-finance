@@ -147,6 +147,8 @@ const FIELD_TEXT: &[(Field, &str, &str)] = &[
     (Field::RecurrenceName, "✏️", "Nome"),
     (Field::RecurrenceDay, "📆", "Todo dia"),
     (Field::RecurrenceModeChoice, "⚙️", "Registro"),
+    (Field::BudgetLimit, "📐", "Limite"),
+    (Field::GoalDeadline, "⏳", "Prazo"),
 ];
 
 fn field_text(field: Field) -> (&'static str, &'static str) {
@@ -201,6 +203,8 @@ const QUESTIONS: &[(Option<FormKind>, Field, &str)] = &[
     (None, Field::RecurrenceKindChoice, "É um gasto ou uma entrada?"),
     (None, Field::RecurrenceName, "Nome? (ex.: Aluguel, Salário, Netflix)"),
     (None, Field::RecurrenceDay, "Que dia do mês? (1 a 31)"),
+    (None, Field::BudgetLimit, "Quanto pode gastar por ciclo nessa categoria? (0 remove)"),
+    (None, Field::GoalDeadline, "Até quando? Digite dd/mm/aaaa ou toque em Sem prazo."),
     (
         None,
         Field::RecurrenceModeChoice,

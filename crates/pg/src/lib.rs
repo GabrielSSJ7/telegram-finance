@@ -4,6 +4,7 @@
 
 mod accounts;
 mod api_keys;
+mod budgets;
 mod card_rows;
 mod cards;
 mod categories;

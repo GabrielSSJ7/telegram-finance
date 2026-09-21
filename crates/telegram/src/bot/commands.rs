@@ -8,10 +8,10 @@ use super::undo::undo_last;
 use crate::flows::FormKind;
 use crate::gateway::GatewayError;
 use crate::render::help::help_text;
-use crate::render::report_text::daily_report_text;
+use crate::render::report_text::{daily_report_text, month_report_text};
 use crate::render::reports::{
-    accounts_text, balance_text, cards_text, categories_text, goals_text, invoices_text,
-    recurrences_view,
+    accounts_text, balance_text, budgets_text, cards_text, categories_text, goals_text,
+    invoices_text, recurrences_view,
 };
 
 /// `"/gasto@finbot resto"` → `("gasto", "resto")`. Not a command → `None`.
@@ -60,6 +60,8 @@ async fn report_command(
         "cartoes" => cards(context, chat_id).await,
         "recorrentes" => recurrences(context, chat_id).await,
         "resumo" => summary(context, chat_id).await,
+        "mes" => month(context, chat_id).await,
+        "orcamentos" => budgets(context, chat_id).await,
         other => {
             context.reply(chat_id, format!("Não conheço /{other}. Veja /ajuda.")).await.map(|_| ())
         }
@@ -82,7 +84,9 @@ async fn accounts(context: &BotContext, chat_id: i64) -> Result<(), GatewayError
 
 async fn goals(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
     match context.services.goals.list_progress().await {
-        Ok(progress) => context.reply(chat_id, goals_text(&progress)).await.map(|_| ()),
+        Ok(progress) => {
+            context.reply(chat_id, goals_text(&progress, context.clock.today())).await.map(|_| ())
+        }
         Err(error) => context.reply_error(chat_id, &error).await,
     }
 }
@@ -115,6 +119,34 @@ async fn recurrences(context: &BotContext, chat_id: i64) -> Result<(), GatewayEr
 async fn summary(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
     match context.services.reports.daily(context.clock.today()).await {
         Ok(report) => context.reply(chat_id, daily_report_text(&report)).await.map(|_| ()),
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+/// `/mes`: the current cycle so far.
+async fn month(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    let reports = &context.services.reports;
+    let report = match reports.cycle_of(context.clock.today()).await {
+        Ok(cycle) => reports.cycle(cycle).await,
+        Err(error) => Err(error),
+    };
+    match report {
+        Ok(report) => context
+            .reply(chat_id, month_report_text(&report, context.clock.today()))
+            .await
+            .map(|_| ()),
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+async fn budgets(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    let budgets = &context.services.budgets;
+    let statuses = match budgets.current_cycle().await {
+        Ok(cycle) => budgets.statuses(cycle).await,
+        Err(error) => Err(error),
+    };
+    match statuses {
+        Ok(statuses) => context.reply(chat_id, budgets_text(&statuses)).await.map(|_| ()),
         Err(error) => context.reply_error(chat_id, &error).await,
     }
 }

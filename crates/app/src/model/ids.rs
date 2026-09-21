@@ -36,6 +36,7 @@ macro_rules! define_id {
 }
 
 define_id!(AccountId);
+define_id!(BudgetId);
 define_id!(CardId);
 define_id!(InvoiceId);
 define_id!(PurchaseId);

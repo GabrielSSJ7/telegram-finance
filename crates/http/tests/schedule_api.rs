@@ -53,3 +53,21 @@ async fn daily_and_cycle_reports() {
         "{cycle}"
     );
 }
+
+#[tokio::test]
+async fn budgets_set_list_remove() {
+    let api = ApiHarness::new().await;
+    let groceries = api.category("mercado", "expense").await;
+    let uri = format!("/api/v1/budgets/{groceries}");
+    let (status, _) = api.call(Method::PUT, &uri, Some(json!({"limit_cents": 150_000}))).await;
+    assert_eq!(status, StatusCode::NO_CONTENT);
+    let (_, budgets) = api.get("/api/v1/budgets").await;
+    assert_eq!(
+        (budgets[0]["category_name"].as_str(), budgets[0]["used_bp"].as_i64()),
+        (Some("mercado"), Some(0))
+    );
+    let (status, _) = api.call(Method::PUT, &uri, Some(json!({"limit_cents": 0}))).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert_eq!(api.call(Method::DELETE, &uri, None).await.0, StatusCode::NO_CONTENT);
+    assert_eq!(api.call(Method::DELETE, &uri, None).await.0, StatusCode::NOT_FOUND);
+}

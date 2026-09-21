@@ -38,6 +38,8 @@ fn field_choices(
         }
         Field::Description => vec![(ButtonValue::Skip, "Pular".to_owned())],
         Field::InitialBalance | Field::AlreadySaved => vec![(ButtonValue::Skip, "Zero".to_owned())],
+        Field::BudgetLimit => vec![(ButtonValue::Skip, "🗑️ Remover orçamento".to_owned())],
+        Field::GoalDeadline => vec![(ButtonValue::Skip, "Sem prazo".to_owned())],
         Field::Date => date_choices(),
         Field::AccountKind => kind_choices(),
         Field::RecurrenceKindChoice => recurrence_kind_choices(),

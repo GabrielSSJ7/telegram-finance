@@ -3,6 +3,7 @@
 
 pub mod account;
 pub mod api_key;
+pub mod budget;
 pub mod card;
 pub mod category;
 pub mod entry;
@@ -15,6 +16,7 @@ pub mod settings;
 
 pub use account::{Account, AccountBalance, BalanceSheet, NewAccount};
 pub use api_key::{ApiKey, IssuedApiKey};
+pub use budget::{Budget, BudgetAlert, BudgetStatus};
 pub use card::{
     CardPurchase, CardSummary, CreditCard, Invoice, InvoiceView, NewCard, NewCardPurchase,
 };
@@ -22,8 +24,8 @@ pub use category::{Category, CategoryKind, NewCategory};
 pub use entry::{EntryFilter, EntryPatch, LedgerEntry, NewEntry};
 pub use goal::{Goal, GoalProgress, GoalTarget};
 pub use ids::{
-    AccountId, ApiKeyId, CardId, CategoryId, DraftId, EntryId, GoalId, InvoiceId, MemberId,
-    PurchaseId, RecurrenceId,
+    AccountId, ApiKeyId, BudgetId, CardId, CategoryId, DraftId, EntryId, GoalId, InvoiceId,
+    MemberId, PurchaseId, RecurrenceId,
 };
 pub use member::{Member, MemberProfile};
 pub use recurrence::{NewRecurrence, Recurrence, RecurrenceKind, RecurrenceMode, RecurrenceTarget};

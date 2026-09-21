@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use app::model::{CreditCard, CycleReport, DailyReport, InvoiceView, Recurrence};
+use app::model::{BudgetAlert, CreditCard, CycleReport, DailyReport, InvoiceView, Recurrence};
 use app::ports::{HouseholdNotifier, NotifyError};
 use app::services::ServiceSet;
 use async_trait::async_trait;
@@ -13,8 +13,8 @@ use domain::money_format::format_brl;
 use crate::callback_data::{record_recurrence_button, skip_recurrence_button};
 use crate::gateway::{Button, Keyboard, OutgoingMessage, TelegramGateway};
 use crate::render::notices::{
-    backup_missing_text, invoice_closed_text, invoice_due_text, recurrence_confirm_text,
-    recurrence_recorded_text,
+    backup_missing_text, budget_alert_text, invoice_closed_text, invoice_due_text,
+    recurrence_confirm_text, recurrence_recorded_text,
 };
 use crate::render::report_text::{cycle_report_text, daily_report_text};
 
@@ -103,6 +103,11 @@ impl HouseholdNotifier for TelegramNotifier {
         };
         let keyboard = Keyboard { rows: vec![vec![record, skip]] };
         self.to_household(recurrence_confirm_text(recurrence, date), Some(keyboard)).await
+    }
+
+    async fn budget_alerts(&self, alerts: &[BudgetAlert]) -> Result<(), NotifyError> {
+        let lines: Vec<String> = alerts.iter().map(budget_alert_text).collect();
+        self.to_household(lines.join("\n"), None).await
     }
 
     async fn backup_missing(&self, last_success: Option<DateTime<Utc>>) -> Result<(), NotifyError> {

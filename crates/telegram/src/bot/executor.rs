@@ -1,8 +1,11 @@
 //! Runs a confirmed form against the services.
 
 use app::AppResult;
-use app::model::{Account, CardPurchase, CreditCard, Goal, LedgerEntry, Recurrence};
+use app::model::{
+    Account, Budget, CardPurchase, CategoryId, CreditCard, Goal, LedgerEntry, Recurrence,
+};
 use app::services::{EntryOrigin, ServiceSet};
+use domain::Cents;
 
 use crate::flows::{FormCommand, FormKind};
 
@@ -14,6 +17,8 @@ pub enum Committed {
     Goal(Goal),
     Card(CreditCard),
     Recurrence(Recurrence),
+    Budget(Budget),
+    BudgetRemoved,
 }
 
 pub async fn execute(
@@ -32,11 +37,24 @@ pub async fn execute(
         FormCommand::CreateRecurrence(request) => {
             services.recurrences.create(request).await.map(Committed::Recurrence)
         }
+        FormCommand::SetBudget { category, limit } => set_budget(services, category, limit).await,
         FormCommand::CardPurchase(request) => {
             services.cards.purchase(request, origin).await.map(Committed::Purchase)
         }
         money => record_money(services, money, origin).await.map(Committed::Entry),
     }
+}
+
+/// A zero limit removes the budget.
+async fn set_budget(
+    services: &ServiceSet,
+    category: CategoryId,
+    limit: Cents,
+) -> AppResult<Committed> {
+    if limit.is_positive() {
+        return services.budgets.set(category, limit).await.map(Committed::Budget);
+    }
+    services.budgets.remove(category).await.map(|()| Committed::BudgetRemoved)
 }
 
 /// Commands that become one ledger row.
@@ -59,6 +77,14 @@ async fn record_money(
     }
 }
 
+/// Headline of the confirmation card; removals read as such.
+pub const fn headline_for(form: FormKind, committed: &Committed) -> &'static str {
+    if matches!(committed, Committed::BudgetRemoved) {
+        return "Orçamento removido";
+    }
+    headline(form)
+}
+
 pub const fn headline(form: FormKind) -> &'static str {
     match form {
         FormKind::Expense => "Gasto registrado",
@@ -72,5 +98,6 @@ pub const fn headline(form: FormKind) -> &'static str {
         FormKind::PayInvoice => "Pagamento registrado",
         FormKind::Refund => "Estorno registrado",
         FormKind::NewRecurrence => "Recorrência criada",
+        FormKind::SetBudget => "Orçamento salvo",
     }
 }

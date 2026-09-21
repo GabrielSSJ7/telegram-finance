@@ -30,6 +30,7 @@ pub struct ReportSources {
     pub members: Arc<MemberService>,
     pub settings: Arc<SettingsService>,
     pub ledger: Arc<LedgerService>,
+    pub budgets: Arc<super::BudgetService>,
 }
 
 pub struct ReportService {
@@ -60,19 +61,14 @@ impl ReportService {
     pub async fn daily(&self, date: NaiveDate) -> AppResult<DailyReport> {
         let cycle = self.cycle_of(date).await?;
         let tomorrow = date.checked_add_days(Days::new(1)).unwrap_or(date);
-        let filter = EntryFilter {
-            from: Some(date),
-            to_inclusive: Some(date),
-            limit: 100,
-            ..EntryFilter::default()
-        };
         let today = DailyParts {
             date,
             cycle,
-            entries_today: self.sources.ledger.list(&filter).await?,
+            entries_today: self.sources.ledger.list(&entries_on(date)).await?,
             today: self.totals(date, tomorrow).await?,
             cycle_to_date: self.totals(cycle.start, tomorrow).await?,
             upcoming: self.sources.recurrences.upcoming(date, UPCOMING_DAYS).await?,
+            budgets: self.sources.budgets.statuses(cycle).await?,
         };
         Ok(today.into_report(self.snapshot().await?))
     }
@@ -86,6 +82,7 @@ impl ReportService {
             totals: self.totals(cycle.start, cycle.end_exclusive).await?,
             previous: self.totals(previous.start, previous.end_exclusive).await?.summary,
             saved_in_pots: self.store.pot_net_inflow(cycle.start, cycle.end_exclusive).await?,
+            budgets: self.sources.budgets.statuses(cycle).await?,
             balances: snapshot.balances,
             cards: snapshot.cards,
             goals: snapshot.goals,
@@ -110,6 +107,10 @@ impl ReportService {
     }
 }
 
+fn entries_on(date: NaiveDate) -> EntryFilter {
+    EntryFilter { from: Some(date), to_inclusive: Some(date), limit: 100, ..EntryFilter::default() }
+}
+
 /// The day-specific half of a daily report.
 struct DailyParts {
     date: NaiveDate,
@@ -118,6 +119,7 @@ struct DailyParts {
     today: PeriodTotals,
     cycle_to_date: PeriodTotals,
     upcoming: Vec<(crate::model::Recurrence, NaiveDate)>,
+    budgets: Vec<crate::model::BudgetStatus>,
 }
 
 impl DailyParts {
@@ -129,6 +131,7 @@ impl DailyParts {
             today: self.today,
             cycle_to_date: self.cycle_to_date,
             upcoming: self.upcoming,
+            budgets: self.budgets,
             balances: snapshot.balances,
             cards: snapshot.cards,
             goals: snapshot.goals,

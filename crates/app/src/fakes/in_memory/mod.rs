@@ -4,6 +4,7 @@
 
 mod accounts;
 mod api_keys;
+mod budgets;
 mod cards;
 mod categories;
 mod chat_flows;
@@ -21,9 +22,9 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use chrono::{DateTime, NaiveDate, Utc};
 
 use crate::model::{
-    Account, AccountId, ApiKey, CardPurchase, Category, CategoryId, CategoryKind, CreditCard,
-    DraftId, GoalId, GoalTarget, HouseholdSettings, Invoice, LedgerEntry, Member, NewAccount,
-    Recurrence,
+    Account, AccountId, ApiKey, Budget, BudgetId, CardPurchase, Category, CategoryId, CategoryKind,
+    CreditCard, DraftId, GoalId, GoalTarget, HouseholdSettings, Invoice, LedgerEntry, Member,
+    NewAccount, Recurrence,
 };
 use crate::ports::{ChatUserKey, StoreError, StoredFlow};
 
@@ -58,6 +59,8 @@ struct MemoryState {
     purchases: Vec<CardPurchase>,
     recurrences: Vec<Recurrence>,
     job_runs: HashMap<(String, NaiveDate), JobRunRow>,
+    budgets: Vec<Budget>,
+    budget_alerts: HashSet<(BudgetId, NaiveDate, u8)>,
 }
 
 #[derive(Debug, Clone, Copy)]

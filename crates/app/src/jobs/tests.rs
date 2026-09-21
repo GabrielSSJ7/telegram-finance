@@ -168,3 +168,15 @@ async fn invoice_events_on_closing_and_due_dates() {
         assert_eq!(fixture.notifier.notices().len(), notices, "day {day}");
     }
 }
+
+#[tokio::test]
+async fn recurring_rent_can_trigger_a_budget_alert() {
+    let fixture = fixture().await;
+    fixture.set.services.budgets.set(fixture.rent, domain::Cents::new(200_000)).await.unwrap();
+    fixture.set.services.recurrences.create(fixture.rent()).await.unwrap();
+    fixture.set.clock.set_local_noon(date(3, 5));
+    fixture.runner.run(JobKind::Recurrences, date(3, 5)).await.unwrap();
+    assert_eq!(fixture.count(|notice| matches!(notice, Notice::BudgetAlert(_, 100))), 1);
+    fixture.runner.run(JobKind::DailyReport, date(3, 5)).await.unwrap();
+    assert_eq!(fixture.count(|notice| matches!(notice, Notice::BudgetAlert(..))), 1);
+}

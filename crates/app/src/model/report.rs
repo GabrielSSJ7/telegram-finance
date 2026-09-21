@@ -8,8 +8,8 @@ use domain::{Cents, EntryKind};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    BalanceSheet, CardSummary, Category, CategoryId, GoalProgress, LedgerEntry, Member, MemberId,
-    Recurrence,
+    BalanceSheet, BudgetStatus, CardSummary, Category, CategoryId, GoalProgress, LedgerEntry,
+    Member, MemberId, Recurrence,
 };
 
 /// Live entry totals for one (category, author, kind) inside a period.
@@ -42,6 +42,7 @@ pub struct DailyReport {
     pub cards: Vec<CardSummary>,
     pub goals: Vec<GoalProgress>,
     pub upcoming: Vec<(Recurrence, NaiveDate)>,
+    pub budgets: Vec<BudgetStatus>,
     pub categories: Vec<Category>,
     pub members: Vec<Member>,
 }
@@ -57,6 +58,7 @@ pub struct CycleReport {
     pub balances: BalanceSheet,
     pub cards: Vec<CardSummary>,
     pub goals: Vec<GoalProgress>,
+    pub budgets: Vec<BudgetStatus>,
     pub categories: Vec<Category>,
     pub members: Vec<Member>,
 }

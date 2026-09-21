@@ -52,9 +52,7 @@ impl JobRunner {
         match kind {
             JobKind::Recurrences => self.recurrences(date).await,
             JobKind::InvoiceEvents => self.invoice_events(date).await,
-            JobKind::DailyReport => {
-                Ok(self.notifier.daily_report(&self.services.reports.daily(date).await?).await?)
-            }
+            JobKind::DailyReport => self.daily_report(date).await,
             JobKind::CycleReport => self.cycle_report(date).await,
             JobKind::BackupWatch => self.backup_watch().await,
         }
@@ -67,7 +65,21 @@ impl JobRunner {
                 self.services.recurrences.mark_generated(recurrence.id, due).await?;
             }
         }
-        Ok(())
+        self.budget_alerts().await
+    }
+
+    /// Entries from the API or recurrences may have crossed a budget.
+    async fn budget_alerts(&self) -> Result<(), JobError> {
+        let alerts = self.services.budgets.new_alerts().await?;
+        if alerts.is_empty() {
+            return Ok(());
+        }
+        Ok(self.notifier.budget_alerts(&alerts).await?)
+    }
+
+    async fn daily_report(&self, date: NaiveDate) -> Result<(), JobError> {
+        self.budget_alerts().await?;
+        Ok(self.notifier.daily_report(&self.services.reports.daily(date).await?).await?)
     }
 
     async fn occurrence(&self, recurrence: &Recurrence, date: NaiveDate) -> Result<(), JobError> {

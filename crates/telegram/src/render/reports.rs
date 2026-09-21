@@ -61,25 +61,36 @@ pub fn accounts_text(sheet: &BalanceSheet) -> String {
     format!("<b>🏦 Contas</b>\n{}\n\nNova conta: /novaconta", lines.join("\n"))
 }
 
-/// `/metas`: progress bar per goal.
-pub fn goals_text(goals: &[GoalProgress]) -> String {
+/// `/metas`: progress bar per goal, and the monthly pace for goals with
+/// a deadline.
+pub fn goals_text(goals: &[GoalProgress], today: chrono::NaiveDate) -> String {
     if goals.is_empty() {
         return "Nenhuma meta ainda. Crie uma com /novameta.".into();
     }
-    let blocks: Vec<String> = goals.iter().map(goal_block).collect();
+    let blocks: Vec<String> = goals.iter().map(|goal| goal_block(goal, today)).collect();
     format!("<b>🎯 Metas</b>\n\n{}", blocks.join("\n\n"))
 }
 
-fn goal_block(progress: &GoalProgress) -> String {
+fn goal_block(progress: &GoalProgress, today: chrono::NaiveDate) -> String {
     let percent = progress.progress_bp / 100;
     let saved = format_brl(progress.saved);
     let target = format_brl(progress.goal.target.target);
     let name = escape(&progress.goal.pot.name);
     let remaining = format_brl(progress.remaining);
-    format!(
-        "<b>{name}</b>: {saved} de {target} ({percent}%)\n{} faltam {remaining}",
-        progress_bar(progress.progress_bp)
-    )
+    let bar = progress_bar(progress.progress_bp);
+    let pace = pace_line(progress, today);
+    format!("<b>{name}</b>: {saved} de {target} ({percent}%)\n{bar} faltam {remaining}{pace}")
+}
+
+/// A line like "Guardar R$ 500,00/mês até 12/2030" for goals with a deadline.
+fn pace_line(progress: &GoalProgress, today: chrono::NaiveDate) -> String {
+    let Some(deadline) = progress.goal.target.target_date else {
+        return String::new();
+    };
+    let needed = domain::goal_progress::monthly_needed(progress.remaining, today, deadline);
+    let pace =
+        |amount| format!("\nGuardar {}/mês até {}", format_brl(amount), deadline.format("%m/%Y"));
+    needed.map_or_else(String::new, pace)
 }
 
 /// Ten-slot bar: `▓▓▓░░░░░░░`.
@@ -170,6 +181,15 @@ fn recurrence_line(recurrence: &Recurrence) -> String {
     format!("{sign} {name}: {amount}, todo dia {}{mode}", recurrence.day.get())
 }
 
+/// `/orcamentos`: every budget of the current cycle.
+pub fn budgets_text(budgets: &[app::model::BudgetStatus]) -> String {
+    if budgets.is_empty() {
+        return "Nenhum orçamento ainda. Defina um com /orcamento.".into();
+    }
+    let lines: Vec<String> = budgets.iter().map(super::notices::budget_line).collect();
+    format!("<b>📐 Orçamentos do ciclo</b>\n{}\n\nAlterar: /orcamento", lines.join("\n"))
+}
+
 /// `/categorias`: expense and income categories.
 pub fn categories_text(categories: &[Category]) -> String {
     let list = |kind| {
@@ -247,23 +267,35 @@ mod tests {
         assert!(accounts_text(&sheet(vec![], 0, 0)).contains("/novaconta"));
     }
 
-    #[test]
-    fn goals_show_bar_and_remaining() {
-        let goal = Goal {
-            id: GoalId::generate(),
-            pot: account("Casa própria", AccountKind::Pot),
-            target: GoalTarget { target: Cents::new(10_000_000), target_date: None },
-        };
-        let progress = GoalProgress {
+    fn house(target_date: Option<NaiveDate>) -> GoalProgress {
+        let target = GoalTarget { target: Cents::new(10_000_000), target_date };
+        let goal =
+            Goal {
+                id: GoalId::generate(), pot: account("Casa própria", AccountKind::Pot), target
+            };
+        GoalProgress {
             goal,
             saved: Cents::new(2_000_000),
             remaining: Cents::new(8_000_000),
             progress_bp: 2000,
-        };
-        let text = goals_text(&[progress]);
+        }
+    }
+
+    #[test]
+    fn goals_show_bar_and_remaining() {
+        let today = NaiveDate::from_ymd_opt(2026, 3, 10).unwrap();
+        let text = goals_text(&[house(None)], today);
         assert!(text.contains("<b>Casa própria</b>: R$ 20.000,00 de R$ 100.000,00 (20%)\n▓▓░░░░░░░░ faltam R$ 80.000,00"), "{text}");
-        assert!(goals_text(&[]).contains("/novameta"));
+        assert!(!text.contains("Guardar"), "{text}");
+        assert!(goals_text(&[], today).contains("/novameta"));
         assert_eq!(progress_bar(15_000), "▓".repeat(10));
+    }
+
+    #[test]
+    fn goals_with_deadline_show_monthly_pace() {
+        let today = NaiveDate::from_ymd_opt(2026, 3, 10).unwrap();
+        let text = goals_text(&[house(NaiveDate::from_ymd_opt(2026, 12, 31))], today);
+        assert!(text.ends_with("Guardar R$ 8.000,00/mês até 12/2026"), "{text}");
     }
 
     #[test]

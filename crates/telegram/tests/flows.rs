@@ -20,7 +20,7 @@ async fn expense_until_confirmation(harness: &mut BotHarness, user: i64) {
 async fn expense_flow_records_entry_and_shows_card() {
     let mut harness = BotHarness::bound().await.with_basics().await;
     expense_until_confirmation(&mut harness, ANA).await;
-    assert!(harness.last_html().contains("Tudo certo?"), "{}", harness.last_html());
+    harness.expect_last("Tudo certo?");
     harness.tap(ANA, "Confirmar").await;
     let entries = harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap();
     assert_eq!(
@@ -52,7 +52,7 @@ async fn undo_button_only_works_for_author() {
     harness.tap(BIA, "Desfazer").await;
     assert_eq!(harness.last_toast().as_deref(), Some("Só quem registrou pode desfazer."));
     harness.tap(ANA, "Desfazer").await;
-    assert!(harness.last_html().contains("Desfeito por Ana"), "{}", harness.last_html());
+    harness.expect_last("Desfeito por Ana");
     assert!(harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap().is_empty());
 }
 
@@ -60,7 +60,7 @@ async fn undo_button_only_works_for_author() {
 async fn desfazer_command_removes_my_last_entry() {
     let mut harness = BotHarness::bound().await.with_basics().await;
     harness.say(ANA, "/desfazer").await;
-    assert!(harness.last_html().contains("não tem lançamentos"));
+    harness.expect_last("não tem lançamentos");
     expense_until_confirmation(&mut harness, ANA).await;
     harness.tap(ANA, "Confirmar").await;
     harness.say(ANA, "/desfazer").await;
@@ -102,7 +102,7 @@ async fn bad_amount_asks_again_with_warning() {
     harness.say(ANA, "dez reais").await;
     assert!(harness.last_html().starts_with("⚠️ Não entendi o valor"), "{}", harness.last_html());
     harness.say(ANA, "10").await;
-    assert!(harness.last_html().contains("Descrição?"));
+    harness.expect_last("Descrição?");
 }
 
 #[tokio::test]
@@ -115,7 +115,7 @@ async fn other_date_accepts_typed_date() {
     harness.tap(ANA, "Nubank").await;
     harness.tap(ANA, "Outra data").await;
     harness.say(ANA, "01/03").await;
-    assert!(harness.last_html().contains("📅 Data: 01/03"), "{}", harness.last_html());
+    harness.expect_last("📅 Data: 01/03");
     harness.tap(ANA, "Confirmar").await;
     let entries = harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap();
     assert_eq!(entries[0].description, "padaria");
@@ -149,29 +149,37 @@ async fn flows_stop_when_prerequisites_are_missing() {
     harness.say(ANA, "10").await;
     harness.tap(ANA, "Pular").await;
     harness.tap(ANA, "mercado").await;
-    assert!(harness.last_html().contains("/novaconta"), "{}", harness.last_html());
+    harness.expect_last("/novaconta");
     harness.say(ANA, "/guardar").await;
-    assert!(harness.last_html().contains("/novameta"), "{}", harness.last_html());
+    harness.expect_last("/novameta");
     harness.open_account("Nubank", AccountKind::Checking, 0).await;
     harness.say(ANA, "/transferir").await;
     harness.say(ANA, "10").await;
     harness.tap(ANA, "Nubank").await;
-    assert!(harness.last_html().contains("duas contas"), "{}", harness.last_html());
+    harness.expect_last("duas contas");
 }
 
 #[tokio::test]
-async fn new_account_and_goal_flows_then_deposit() {
+async fn new_account_flow_creates_account() {
     let mut harness = BotHarness::bound().await.with_basics().await;
     harness.say(ANA, "/novaconta").await;
     harness.say(ANA, "Carteira").await;
     harness.tap(ANA, "Dinheiro").await;
     harness.say(ANA, "50").await;
     harness.tap(ANA, "Confirmar").await;
-    assert!(harness.last_html().contains("Conta criada"));
+    harness.expect_last("Conta criada");
+    harness.say(ANA, "/contas").await;
+    harness.expect_last("Carteira (Dinheiro): R$ 50,00");
+}
+
+#[tokio::test]
+async fn new_goal_with_deadline_then_deposit() {
+    let mut harness = BotHarness::bound().await.with_basics().await;
     harness.say(BIA, "/novameta").await;
     harness.say(BIA, "Casa própria").await;
     harness.say(BIA, "100.000").await;
     harness.tap(BIA, "Zero").await;
+    harness.say(BIA, "31/12/2030").await;
     harness.tap(BIA, "Confirmar").await;
     harness.say(BIA, "/guardar").await;
     harness.tap(BIA, "Casa própria").await;
@@ -179,5 +187,6 @@ async fn new_account_and_goal_flows_then_deposit() {
     harness.tap(BIA, "Nubank").await;
     harness.tap(BIA, "Confirmar").await;
     harness.say(ANA, "/metas").await;
-    assert!(harness.last_html().contains("R$ 200,00 de R$ 100.000,00"), "{}", harness.last_html());
+    harness.expect_last("R$ 200,00 de R$ 100.000,00");
+    harness.expect_last("/mês até 12/2030");
 }

@@ -11,6 +11,7 @@
 
 mod accounts;
 mod api_keys;
+mod budgets;
 mod cards;
 mod categories;
 mod chat_flows;
@@ -25,6 +26,7 @@ mod memory_cases;
 
 pub use accounts::*;
 pub use api_keys::*;
+pub use budgets::*;
 pub use cards::*;
 pub use categories::*;
 pub use chat_flows::*;
@@ -79,6 +81,8 @@ macro_rules! store_contract_cases {
         $case!(job_stale_run_is_reclaimed);
         $case!(report_flows_group_by_category_author_and_kind);
         $case!(report_pot_net_inflow_counts_both_directions);
+        $case!(budget_set_replace_list_remove);
+        $case!(budget_alert_claimed_once_per_cycle_and_threshold);
     };
 }
 

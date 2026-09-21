@@ -3,6 +3,7 @@
 
 pub mod account_store;
 pub mod api_key_store;
+pub mod budget_store;
 pub mod card_store;
 pub mod category_store;
 pub mod chat_flow_store;
@@ -20,6 +21,7 @@ pub mod token_source;
 
 pub use account_store::AccountStore;
 pub use api_key_store::ApiKeyStore;
+pub use budget_store::BudgetStore;
 pub use card_store::CardStore;
 pub use category_store::CategoryStore;
 pub use chat_flow_store::{BotStateStore, ChatFlowStore, ChatUserKey, StoredFlow};

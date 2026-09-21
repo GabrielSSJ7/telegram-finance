@@ -37,13 +37,9 @@ async fn new_card_flow_registers_card() {
     harness.say(ANA, "25").await;
     harness.say(ANA, "5").await;
     harness.tap(ANA, "Confirmar").await;
-    assert!(harness.last_html().contains("Cartão cadastrado"));
+    harness.expect_last("Cartão cadastrado");
     harness.say(BIA, "/cartoes").await;
-    assert!(
-        harness.last_html().contains("Itaú Click: fecha dia 25, vence dia 5"),
-        "{}",
-        harness.last_html()
-    );
+    harness.expect_last("Itaú Click: fecha dia 25, vence dia 5");
 }
 
 #[tokio::test]
@@ -68,7 +64,7 @@ async fn account_expense_skips_installments() {
     harness.tap(ANA, "Pular").await;
     harness.tap(ANA, "mercado").await;
     harness.tap(ANA, "Nubank").await;
-    assert!(harness.last_html().contains("Quando foi?"), "{}", harness.last_html());
+    harness.expect_last("Quando foi?");
 }
 
 #[tokio::test]
@@ -86,11 +82,7 @@ async fn typed_installments_and_purchase_undo() {
     harness.tap(BIA, "Desfazer").await;
     assert_eq!(harness.last_toast().as_deref(), Some("Só quem registrou pode desfazer."));
     harness.tap(ANA, "Desfazer").await;
-    assert!(
-        harness.last_html().contains("R$ 1.800,00 em 18x no cartão"),
-        "{}",
-        harness.last_html()
-    );
+    harness.expect_last("R$ 1.800,00 em 18x no cartão");
     assert!(harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap().is_empty());
 }
 
@@ -106,20 +98,20 @@ async fn pay_closed_invoice_in_full() {
     harness.tap(BIA, "Nubank").await;
     harness.tap(BIA, "Hoje").await;
     harness.tap(BIA, "Confirmar").await;
-    assert!(harness.last_html().contains("Pagamento registrado"), "{}", harness.last_html());
+    harness.expect_last("Pagamento registrado");
     harness.say(ANA, "/saldo").await;
-    assert!(harness.last_html().contains("Disponível: R$ 500,00"), "{}", harness.last_html());
+    harness.expect_last("Disponível: R$ 500,00");
 }
 
 #[tokio::test]
 async fn pay_invoice_blocks_without_cards_or_debt() {
     let mut harness = BotHarness::bound().await.with_basics().await;
     harness.say(ANA, "/pagarfatura").await;
-    assert!(harness.last_html().contains("/novocartao"), "{}", harness.last_html());
+    harness.expect_last("/novocartao");
     let mut harness = card_harness().await;
     harness.say(ANA, "/pagarfatura").await;
     harness.tap(ANA, "Roxinho").await;
-    assert!(harness.last_html().contains("não tem fatura"), "{}", harness.last_html());
+    harness.expect_last("não tem fatura");
 }
 
 #[tokio::test]
@@ -148,5 +140,5 @@ async fn refund_to_account_is_an_account_refund() {
     harness.tap(ANA, "Hoje").await;
     harness.tap(ANA, "Confirmar").await;
     harness.say(ANA, "/saldo").await;
-    assert!(harness.last_html().contains("Disponível: R$ 1.050,00"), "{}", harness.last_html());
+    harness.expect_last("Disponível: R$ 1.050,00");
 }

@@ -141,6 +141,13 @@ impl BotHarness {
         self.gateway.last_message(GROUP).map(|message| message.html).unwrap_or_default()
     }
 
+    /// Asserts that the newest group message contains `fragment`.
+    #[track_caller]
+    pub fn expect_last(&self, fragment: &str) {
+        let html = self.last_html();
+        assert!(html.contains(fragment), "expected {fragment:?} in the last message:\n{html}");
+    }
+
     pub fn last_toast(&self) -> Option<String> {
         self.gateway.answers().last().and_then(|(_, toast)| toast.clone())
     }

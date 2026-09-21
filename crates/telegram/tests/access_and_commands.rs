@@ -67,17 +67,17 @@ async fn private_start_registers_backup_chat() {
 async fn instant_reports_render() {
     let mut harness = BotHarness::bound().await.with_basics().await;
     harness.say(ANA, "/saldo").await;
-    assert!(harness.last_html().contains("Disponível: R$ 1.000,00"), "{}", harness.last_html());
+    harness.expect_last("Disponível: R$ 1.000,00");
     harness.say(BIA, "/contas").await;
-    assert!(harness.last_html().contains("Nubank (Conta corrente)"));
+    harness.expect_last("Nubank (Conta corrente)");
     harness.say(ANA, "/metas").await;
-    assert!(harness.last_html().contains("/novameta"));
+    harness.expect_last("/novameta");
     harness.say(ANA, "/categorias").await;
-    assert!(harness.last_html().contains("mercado"));
+    harness.expect_last("mercado");
     harness.say(ANA, "/ajuda").await;
-    assert!(harness.last_html().contains("/desfazer"));
+    harness.expect_last("/desfazer");
     harness.say(ANA, "/voar").await;
-    assert!(harness.last_html().contains("Não conheço /voar"));
+    harness.expect_last("Não conheço /voar");
 }
 
 #[tokio::test]
@@ -94,7 +94,7 @@ async fn plain_text_without_flow_is_ignored() {
 async fn membership_greets_household_and_leaves_strangers() {
     let mut harness = BotHarness::new();
     harness.membership(GROUP, ANA).await;
-    assert!(harness.last_html().contains("/start"));
+    harness.expect_last("/start");
     harness.membership(-777, STRANGER).await;
     assert_eq!(harness.gateway.left_chats(), vec![-777]);
     harness.say(ANA, "/start").await;

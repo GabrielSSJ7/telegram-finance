@@ -3,6 +3,7 @@
 //! ([`flow_runner`]) against the `app` services ([`executor`]).
 
 pub mod access;
+pub mod budget_alerts;
 pub mod commands;
 pub mod context;
 pub mod executor;

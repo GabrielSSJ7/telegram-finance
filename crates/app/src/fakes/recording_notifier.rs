@@ -5,7 +5,8 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 
 use crate::model::{
-    CardId, CreditCard, CycleReport, DailyReport, InvoiceId, InvoiceView, Recurrence, RecurrenceId,
+    BudgetAlert, BudgetId, CardId, CreditCard, CycleReport, DailyReport, InvoiceId, InvoiceView,
+    Recurrence, RecurrenceId,
 };
 use crate::ports::{HouseholdNotifier, NotifyError};
 
@@ -19,6 +20,7 @@ pub enum Notice {
     RecurrenceRecorded(RecurrenceId, NaiveDate),
     RecurrenceToConfirm(RecurrenceId, NaiveDate),
     BackupMissing(Option<DateTime<Utc>>),
+    BudgetAlert(BudgetId, u8),
 }
 
 /// Keeps every notice; can be told to fail to test retries.
@@ -87,6 +89,13 @@ impl HouseholdNotifier for RecordingNotifier {
         date: NaiveDate,
     ) -> Result<(), NotifyError> {
         self.push(Notice::RecurrenceToConfirm(recurrence.id, date))
+    }
+
+    async fn budget_alerts(&self, alerts: &[BudgetAlert]) -> Result<(), NotifyError> {
+        for alert in alerts {
+            self.push(Notice::BudgetAlert(alert.status.budget.id, alert.threshold))?;
+        }
+        Ok(())
     }
 
     async fn backup_missing(&self, last_success: Option<DateTime<Utc>>) -> Result<(), NotifyError> {
