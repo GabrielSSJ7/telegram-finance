@@ -53,7 +53,16 @@ pub async fn authorized_member(
     };
     match context.services.members.authorize(profile).await {
         Ok(member) => Ok(Some(member)),
-        Err(AppError::Forbidden(_)) => Ok(None),
+        Err(AppError::Forbidden(_)) => {
+            // Logged so a new spouse's id can be read from the logs and
+            // added to ALLOWED_TELEGRAM_USER_IDS; the bot itself stays silent.
+            tracing::info!(
+                user_id = sender.user_id,
+                name = %sender.display_name,
+                "message from a user not in ALLOWED_TELEGRAM_USER_IDS"
+            );
+            Ok(None)
+        }
         Err(other) => Err(other),
     }
 }
