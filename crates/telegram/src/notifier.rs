@@ -3,7 +3,9 @@
 
 use std::sync::Arc;
 
-use app::model::{BudgetAlert, CreditCard, CycleReport, DailyReport, InvoiceView, Recurrence};
+use app::model::{
+    BudgetAlert, CreditCard, CycleReport, DailyReport, InvoiceView, Recurrence, ReportDay,
+};
 use app::ports::{HouseholdNotifier, NotifyError};
 use app::services::ServiceSet;
 use async_trait::async_trait;
@@ -55,8 +57,8 @@ impl TelegramNotifier {
 
 #[async_trait]
 impl HouseholdNotifier for TelegramNotifier {
-    async fn daily_report(&self, report: &DailyReport) -> Result<(), NotifyError> {
-        self.to_household(daily_report_text(report), None).await
+    async fn daily_report(&self, report: &DailyReport, day: ReportDay) -> Result<(), NotifyError> {
+        self.to_household(daily_report_text(report, day), None).await
     }
 
     async fn cycle_report(&self, report: &CycleReport) -> Result<(), NotifyError> {

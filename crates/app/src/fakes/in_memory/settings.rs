@@ -15,8 +15,11 @@ impl SettingsStore for InMemoryStore {
         if let Some(day) = patch.cycle_start_day {
             state.settings.cycle_start_day = day;
         }
-        if let Some(time) = patch.daily_report_time {
-            state.settings.daily_report_time = time;
+        if let Some(time) = patch.yesterday_report_time {
+            state.settings.yesterday_report_time = time;
+        }
+        if let Some(time) = patch.today_report_time {
+            state.settings.today_report_time = time;
         }
         Ok(state.settings)
     }

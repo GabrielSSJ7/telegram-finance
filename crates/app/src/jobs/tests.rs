@@ -7,7 +7,7 @@ use crate::fakes::requests::{
     card_purchase, confirming, monthly_expense, open_card, open_checking,
 };
 use crate::fakes::{FakeServiceSet, Notice, RecordingNotifier};
-use crate::model::{AccountId, CategoryId, CategoryKind, EntryFilter};
+use crate::model::{AccountId, CategoryId, CategoryKind, EntryFilter, ReportDay};
 use crate::ports::JobRunStore;
 use crate::services::{AllowedUsers, CreateRecurrence, EntryOrigin};
 
@@ -83,12 +83,34 @@ async fn each_job_runs_once_per_day() {
         vec![
             JobKind::Recurrences,
             JobKind::InvoiceEvents,
-            JobKind::DailyReport,
+            JobKind::TodayReport,
+            JobKind::YesterdayReport,
             JobKind::BackupWatch
         ]
     );
     assert!(fixture.scheduler.tick().await.unwrap().is_empty());
-    assert_eq!(fixture.count(|notice| matches!(notice, Notice::Daily(_))), 1);
+    assert_eq!(fixture.count(|notice| matches!(notice, Notice::Daily(..))), 2);
+}
+
+#[tokio::test]
+async fn morning_brings_yesterday_and_evening_brings_today() {
+    let fixture = fixture().await;
+    at_local(&fixture.set, date(3, 2), 10);
+    let ran: Vec<JobKind> =
+        fixture.scheduler.tick().await.unwrap().into_iter().map(|(kind, _)| kind).collect();
+    assert!(ran.contains(&JobKind::YesterdayReport) && !ran.contains(&JobKind::TodayReport));
+    at_local(&fixture.set, date(3, 2), 21);
+    fixture.scheduler.tick().await.unwrap();
+    let days: Vec<(NaiveDate, ReportDay)> = fixture
+        .notifier
+        .notices()
+        .into_iter()
+        .filter_map(|notice| match notice {
+            Notice::Daily(report, day) => Some((report.date, day)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(days, vec![(date(3, 1), ReportDay::Yesterday), (date(3, 2), ReportDay::Today)]);
 }
 
 #[tokio::test]
@@ -124,9 +146,9 @@ async fn failed_job_is_retried_on_the_next_tick() {
     let fixture = fixture().await;
     at_local(&fixture.set, date(3, 2), 22);
     fixture.notifier.set_failing(true);
-    assert!(fixture.scheduler.tick().await.unwrap().contains(&(JobKind::DailyReport, false)));
+    assert!(fixture.scheduler.tick().await.unwrap().contains(&(JobKind::TodayReport, false)));
     fixture.notifier.set_failing(false);
-    assert!(fixture.scheduler.tick().await.unwrap().contains(&(JobKind::DailyReport, true)));
+    assert!(fixture.scheduler.tick().await.unwrap().contains(&(JobKind::TodayReport, true)));
 }
 
 #[tokio::test]
@@ -177,6 +199,6 @@ async fn recurring_rent_can_trigger_a_budget_alert() {
     fixture.set.clock.set_local_noon(date(3, 5));
     fixture.runner.run(JobKind::Recurrences, date(3, 5)).await.unwrap();
     assert_eq!(fixture.count(|notice| matches!(notice, Notice::BudgetAlert(_, 100))), 1);
-    fixture.runner.run(JobKind::DailyReport, date(3, 5)).await.unwrap();
+    fixture.runner.run(JobKind::TodayReport, date(3, 5)).await.unwrap();
     assert_eq!(fixture.count(|notice| matches!(notice, Notice::BudgetAlert(..))), 1);
 }

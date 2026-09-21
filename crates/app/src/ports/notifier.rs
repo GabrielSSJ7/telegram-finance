@@ -5,7 +5,9 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use thiserror::Error;
 
-use crate::model::{BudgetAlert, CreditCard, CycleReport, DailyReport, InvoiceView, Recurrence};
+use crate::model::{
+    BudgetAlert, CreditCard, CycleReport, DailyReport, InvoiceView, Recurrence, ReportDay,
+};
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[error("could not notify the household: {0}")]
@@ -13,7 +15,8 @@ pub struct NotifyError(pub String);
 
 #[async_trait]
 pub trait HouseholdNotifier: Send + Sync {
-    async fn daily_report(&self, report: &DailyReport) -> Result<(), NotifyError>;
+    /// `day` says whether `report` covers today or yesterday.
+    async fn daily_report(&self, report: &DailyReport, day: ReportDay) -> Result<(), NotifyError>;
     async fn cycle_report(&self, report: &CycleReport) -> Result<(), NotifyError>;
     async fn invoice_closed(
         &self,

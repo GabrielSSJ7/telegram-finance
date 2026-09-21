@@ -106,9 +106,8 @@ fn start_bot(
 
 /// Runs one job immediately, bypassing the once-a-day bookkeeping.
 async fn run_job(name: &str, date: Option<NaiveDate>, config: &AppConfig) -> anyhow::Result<()> {
-    let kind = JobKind::from_name(name).ok_or_else(|| {
-        anyhow!("unknown job {name:?}: expected recurrences, invoice-events, daily-report, cycle-report or backup-watch")
-    })?;
+    let kind = JobKind::from_name(name)
+        .ok_or_else(|| anyhow!("unknown job {name:?}: expected one of {}", JobKind::cli_names()))?;
     let token = config
         .telegram_bot_token
         .as_ref()

@@ -9,7 +9,8 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("estorno", "Registrar um estorno ou reembolso"),
     ("fatura", "Faturas dos cartões"),
     ("saldo", "Saldo das contas e disponível"),
-    ("resumo", "Resumo do dia e do ciclo"),
+    ("resumo", "Resumo de hoje e do ciclo"),
+    ("ontem", "Resumo de ontem"),
     ("metas", "Progresso das metas"),
     ("mes", "Como está o ciclo até agora"),
     ("orcamento", "Definir ou remover o limite de uma categoria"),
@@ -26,7 +27,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("contas", "Listar contas"),
     ("categorias", "Listar categorias"),
     ("ajuste", "Acertar o saldo de uma conta com o do banco"),
-    ("config", "Dia de início do ciclo e horário do resumo"),
+    ("config", "Dia de início do ciclo e horários dos resumos"),
     ("cancelar", "Cancelar o que está preenchendo"),
     ("ajuda", "Mostrar os comandos"),
 ];

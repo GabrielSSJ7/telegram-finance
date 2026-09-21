@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "update household set\n                 cycle_start_day = coalesce($1, cycle_start_day),\n                 daily_report_time = coalesce($2, daily_report_time)\n             where id = 1\n             returning telegram_chat_id, cycle_start_day, daily_report_time",
+  "query": "select telegram_chat_id, cycle_start_day, yesterday_report_time, today_report_time\n             from household where id = 1",
   "describe": {
     "columns": [
       {
@@ -27,27 +27,36 @@
       },
       {
         "ordinal": 2,
-        "name": "daily_report_time",
+        "name": "yesterday_report_time",
         "type_info": "Time",
         "origin": {
           "Table": {
             "table": "household",
-            "name": "daily_report_time"
+            "name": "yesterday_report_time"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "today_report_time",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "household",
+            "name": "today_report_time"
           }
         }
       }
     ],
     "parameters": {
-      "Left": [
-        "Int2",
-        "Time"
-      ]
+      "Left": []
     },
     "nullable": [
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "83b6568dc56f6a364403581611ed9a0c8878800a3230f9a391c2ab777c74502b"
+  "hash": "782fce07257e7e766328f58c59a3ddd30b45c74935c14634e317bef45e6f6f38"
 }

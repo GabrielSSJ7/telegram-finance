@@ -221,9 +221,9 @@ mod tests {
         assert_eq!(answers.text(Field::Description), Some(String::new()));
         assert_eq!(answers.category(Field::Amount), None);
         let nine = NaiveTime::from_hms_opt(21, 0, 0).unwrap();
-        answers.set(Field::ReportTime, Answer::Time(nine));
+        answers.set(Field::TodayReportTime, Answer::Time(nine));
         assert_eq!(
-            (answers.time(Field::ReportTime), answers.time(Field::Amount)),
+            (answers.time(Field::TodayReportTime), answers.time(Field::Amount)),
             (Some(nine), None)
         );
         assert!(answers.has(Field::Amount) && !answers.has(Field::Date));

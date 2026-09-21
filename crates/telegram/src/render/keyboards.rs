@@ -33,17 +33,13 @@ fn field_choices(
     answers: &Answers,
     catalog: &Catalog,
 ) -> Option<Choices> {
+    if let Some(label) = skip_label(field) {
+        return Some(vec![(ButtonValue::Skip, label.to_owned())]);
+    }
     let choices = match field {
         Field::Amount if form == FormKind::PayInvoice => {
             return Some(full_payment_choice(answers, catalog));
         }
-        Field::Description => vec![(ButtonValue::Skip, "Pular".to_owned())],
-        Field::InitialBalance | Field::AlreadySaved | Field::ActualBalance => {
-            vec![(ButtonValue::Skip, "Zero".to_owned())]
-        }
-        Field::CycleStartDay | Field::ReportTime => vec![(ButtonValue::Skip, "Manter".to_owned())],
-        Field::BudgetLimit => vec![(ButtonValue::Skip, "🗑️ Remover orçamento".to_owned())],
-        Field::GoalDeadline => vec![(ButtonValue::Skip, "Sem prazo".to_owned())],
         Field::Date => date_choices(),
         Field::AccountKind => kind_choices(),
         Field::RecurrenceKindChoice => recurrence_kind_choices(),
@@ -53,6 +49,21 @@ fn field_choices(
         other => catalog_choices(form, other, answers, catalog),
     };
     (!choices.is_empty()).then_some(choices)
+}
+
+/// Typed fields that can also be answered with one button meaning
+/// "nothing" or "no change".
+const fn skip_label(field: Field) -> Option<&'static str> {
+    match field {
+        Field::Description => Some("Pular"),
+        Field::InitialBalance | Field::AlreadySaved | Field::ActualBalance => Some("Zero"),
+        Field::BudgetLimit => Some("🗑️ Remover orçamento"),
+        Field::GoalDeadline => Some("Sem prazo"),
+        Field::CycleStartDay | Field::YesterdayReportTime | Field::TodayReportTime => {
+            Some("Manter")
+        }
+        _ => None,
+    }
 }
 
 /// Fields answered by typing; they only get the cancel button.

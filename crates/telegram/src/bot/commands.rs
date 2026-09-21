@@ -10,6 +10,8 @@ use super::undo::undo_last;
 use crate::flows::FormKind;
 use crate::gateway::GatewayError;
 use crate::render::help::help_text;
+use app::model::ReportDay;
+
 use crate::render::report_text::{daily_report_text, month_report_text};
 use crate::render::reports::{
     accounts_text, balance_text, budgets_text, cards_text, categories_text, goals_text,
@@ -64,7 +66,8 @@ async fn report_command(
         "fatura" | "faturas" => invoices(context, chat_id).await,
         "cartoes" => cards(context, chat_id).await,
         "recorrentes" => recurrences(context, chat_id).await,
-        "resumo" => summary(context, chat_id).await,
+        "resumo" => summary(context, chat_id, ReportDay::Today).await,
+        "ontem" => summary(context, chat_id, ReportDay::Yesterday).await,
         "mes" => month(context, chat_id).await,
         "orcamentos" => budgets(context, chat_id).await,
         other => {
@@ -120,10 +123,15 @@ async fn recurrences(context: &BotContext, chat_id: i64) -> Result<(), GatewayEr
     }
 }
 
-/// `/resumo`: today's report on demand.
-async fn summary(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
-    match context.services.reports.daily(context.clock.today()).await {
-        Ok(report) => context.reply(chat_id, daily_report_text(&report)).await.map(|_| ()),
+/// `/resumo` and `/ontem`: today's or yesterday's summary on demand.
+async fn summary(context: &BotContext, chat_id: i64, day: ReportDay) -> Result<(), GatewayError> {
+    let today = context.clock.today();
+    let date = match day {
+        ReportDay::Today => today,
+        ReportDay::Yesterday => today.pred_opt().unwrap_or(today),
+    };
+    match context.services.reports.daily(date).await {
+        Ok(report) => context.reply(chat_id, daily_report_text(&report, day)).await.map(|_| ()),
         Err(error) => context.reply_error(chat_id, &error).await,
     }
 }

@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use super::JobKind;
 use crate::AppError;
-use crate::model::{CreditCard, InvoiceView, Recurrence, RecurrenceMode};
+use crate::model::{CreditCard, InvoiceView, Recurrence, RecurrenceMode, ReportDay};
 use crate::ports::{Clock, HouseholdNotifier, JobRunStore, NotifyError};
 use crate::services::ServiceSet;
 
@@ -52,7 +52,8 @@ impl JobRunner {
         match kind {
             JobKind::Recurrences => self.recurrences(date).await,
             JobKind::InvoiceEvents => self.invoice_events(date).await,
-            JobKind::DailyReport => self.daily_report(date).await,
+            JobKind::TodayReport => self.today_report(date).await,
+            JobKind::YesterdayReport => self.yesterday_report(date).await,
             JobKind::CycleReport => self.cycle_report(date).await,
             JobKind::BackupWatch => self.backup_watch().await,
         }
@@ -77,9 +78,16 @@ impl JobRunner {
         Ok(self.notifier.budget_alerts(&alerts).await?)
     }
 
-    async fn daily_report(&self, date: NaiveDate) -> Result<(), JobError> {
+    async fn today_report(&self, date: NaiveDate) -> Result<(), JobError> {
         self.budget_alerts().await?;
-        Ok(self.notifier.daily_report(&self.services.reports.daily(date).await?).await?)
+        let report = self.services.reports.daily(date).await?;
+        Ok(self.notifier.daily_report(&report, ReportDay::Today).await?)
+    }
+
+    async fn yesterday_report(&self, date: NaiveDate) -> Result<(), JobError> {
+        let yesterday = date.pred_opt().unwrap_or(date);
+        let report = self.services.reports.daily(yesterday).await?;
+        Ok(self.notifier.daily_report(&report, ReportDay::Yesterday).await?)
     }
 
     async fn occurrence(&self, recurrence: &Recurrence, date: NaiveDate) -> Result<(), JobError> {

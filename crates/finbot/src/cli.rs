@@ -23,7 +23,8 @@ pub enum Command {
     ApiKey(ApiKeyCommand),
     /// Run one scheduled job now (sends real Telegram messages).
     RunJob {
-        /// recurrences, invoice-events, daily-report, cycle-report or backup-watch
+        /// recurrences, invoice-events, today-report, yesterday-report,
+        /// cycle-report or backup-watch
         job: String,
         /// Local date to run for (YYYY-MM-DD); defaults to today.
         #[arg(long)]
@@ -57,9 +58,9 @@ mod tests {
         );
         let create = parse(&["api-key", "create", "dashboard"]);
         assert_eq!(create, Command::ApiKey(ApiKeyCommand::Create { name: "dashboard".into() }));
-        let job = parse(&["run-job", "daily-report", "--date", "2026-10-05"]);
+        let job = parse(&["run-job", "today-report", "--date", "2026-10-05"]);
         let date = chrono::NaiveDate::from_ymd_opt(2026, 10, 5);
-        assert_eq!(job, Command::RunJob { job: "daily-report".into(), date });
+        assert_eq!(job, Command::RunJob { job: "today-report".into(), date });
         let revoke = parse(&["api-key", "revoke", "dashboard"]);
         assert_eq!(revoke, Command::ApiKey(ApiKeyCommand::Revoke { name: "dashboard".into() }));
     }

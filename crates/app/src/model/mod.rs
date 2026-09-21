@@ -29,5 +29,5 @@ pub use ids::{
 };
 pub use member::{Member, MemberProfile};
 pub use recurrence::{NewRecurrence, Recurrence, RecurrenceKind, RecurrenceMode, RecurrenceTarget};
-pub use report::{CycleReport, DailyReport, PeriodFlow, PeriodTotals};
+pub use report::{CycleReport, DailyReport, PeriodFlow, PeriodTotals, ReportDay};
 pub use settings::{HouseholdSettings, SettingsPatch};

@@ -1,6 +1,7 @@
 //! Reads one input (typed text or a tapped button) as the answer to one
 //! field. Problems come back as pt-BR text for the chat.
 
+use app::services::settings::{EARLIEST_TODAY_REPORT, is_evening_report_time};
 use app::services::text_rules::{clean_description, clean_name};
 use chrono::{Days, NaiveDate};
 use domain::installments::MAX_INSTALLMENTS;
@@ -31,7 +32,8 @@ pub fn interpret(field: Field, input: &FormInput, today: NaiveDate) -> Result<In
         Field::GoalDeadline => deadline(input, today),
         Field::ActualBalance => signed_amount(input),
         Field::CycleStartDay => keep_or(input, day_of_month),
-        Field::ReportTime => keep_or(input, report_time),
+        Field::YesterdayReportTime => keep_or(input, report_time),
+        Field::TodayReportTime => keep_or(input, evening_report_time),
         Field::Description => description(input),
         Field::AccountName | Field::GoalName | Field::CardName | Field::RecurrenceName => {
             name(input)
@@ -120,6 +122,17 @@ fn report_time(input: &FormInput) -> Result<Answer, String> {
         return Err(problem());
     };
     parse_typed_time(text).map(Answer::Time).ok_or_else(problem)
+}
+
+/// Today's summary only makes sense once most of the day is over.
+fn evening_report_time(input: &FormInput) -> Result<Answer, String> {
+    match report_time(input)? {
+        Answer::Time(time) if !is_evening_report_time(time) => Err(format!(
+            "O resumo de hoje só pode ser a partir das {}.",
+            EARLIEST_TODAY_REPORT.format("%H:%M")
+        )),
+        answer => Ok(answer),
+    }
 }
 
 fn is_zero(text: &str) -> bool {
@@ -337,9 +350,14 @@ mod tests {
         assert_eq!(tap(Field::CycleStartDay, ButtonValue::Skip), got(Answer::Skipped));
         assert_eq!(typed(Field::CycleStartDay, "5"), got(Answer::Day(5)));
         let nine = chrono::NaiveTime::from_hms_opt(21, 30, 0).unwrap();
-        assert_eq!(typed(Field::ReportTime, "21h30"), got(Answer::Time(nine)));
-        assert!(typed(Field::ReportTime, "tarde").is_err());
-        assert!(tap(Field::ReportTime, ButtonValue::Today).is_err());
+        assert_eq!(typed(Field::TodayReportTime, "21h30"), got(Answer::Time(nine)));
+        assert!(typed(Field::YesterdayReportTime, "tarde").is_err());
+        assert!(tap(Field::YesterdayReportTime, ButtonValue::Today).is_err());
+        let early = chrono::NaiveTime::from_hms_opt(8, 0, 0).unwrap();
+        assert_eq!(typed(Field::YesterdayReportTime, "8h"), got(Answer::Time(early)));
+        let refused = typed(Field::TodayReportTime, "18:59").unwrap_err();
+        assert!(refused.contains("19:00"), "{refused}");
+        assert_eq!(tap(Field::TodayReportTime, ButtonValue::Skip), got(Answer::Skipped));
     }
 
     #[test]

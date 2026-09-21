@@ -70,11 +70,13 @@ a message:
 |---|---|---|
 | recurrences | 06:00 | Records due recurring entries (backfills up to 3 months); bills set to "ask first" get [Registrar] [Pular] buttons |
 | invoice_events | 09:00 | Invoice closed today; unpaid invoice due in 3 days or today |
-| daily_report | report time (default 21:00) | Today's entries, the cycle so far, balances, cards, goals, what is coming |
-| cycle_report | report time, first day of a cycle | Closing of the financial month: income, spending, savings rate, categories, per person |
+| yesterday_report | yesterday's summary time, any hour (default 09:00) | All of yesterday's entries, the cycle so far, balances, cards, goals, what is coming |
+| today_report | today's summary time, 19:00 or later (default 21:00) | The same for the day that is ending, once most of it is recorded |
+| cycle_report | yesterday's summary time, first day of a cycle | Closing of the financial month: income, spending, savings rate, categories, per person |
 | backup_watch | 10:00 | Private-chat warning when no backup succeeded in 26 hours |
 
-`finbot run-job daily-report --date 2026-10-05` runs one job immediately.
+`finbot run-job today-report --date 2026-10-05` runs one job immediately.
+Both summary times are set with `/config` in the group.
 
 ## Deploy
 
@@ -105,7 +107,7 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/estorno` | Refund back to an account or a card invoice |
 | `/fatura`, `/cartoes` | Card invoices (open, due, future installments); cards |
 | `/novaconta`, `/novameta`, `/novocartao` | Create an account, a savings goal (optional deadline shows the monthly pace) or a card |
-| `/saldo`, `/resumo`, `/contas`, `/metas`, `/categorias` | Reports (`/resumo` is the daily report on demand) |
+| `/saldo`, `/resumo`, `/ontem`, `/contas`, `/metas`, `/categorias` | Reports (`/resumo` and `/ontem` are today's and yesterday's summaries on demand) |
 | `/recorrente`, `/recorrentes` | Create a monthly entry (salary, rent, subscription); list and deactivate |
 | `/orcamento`, `/orcamentos` | Set (or remove) a category's limit per cycle; see how much of each is used. Alerts at 80% and 100% |
 | `/mes` | The current cycle so far |
@@ -113,7 +115,7 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/ultimos` | Last 10 entries with ✏️ edit (value, description, category or date) and 🗑️ delete; only the author (or anyone, for automatic entries) |
 | `/ajuste` | Make an account match the bank: type the real balance, the difference is recorded as an adjustment (not income or spending) |
 | `/exportar [mm/aaaa]` | The cycle's entries as a CSV spreadsheet (`;`, decimal comma) |
-| `/config` | Day the cycle starts and time of the daily summary |
+| `/config` | Day the cycle starts; times of yesterday's summary (any hour) and today's (19:00 or later) |
 | `/cancelar`, `/ajuda` | Cancel the current form, list commands |
 
 ## REST API

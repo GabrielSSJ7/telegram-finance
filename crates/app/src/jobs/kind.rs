@@ -9,19 +9,23 @@ pub enum JobKind {
     Recurrences,
     /// Invoice closed today, or due in 3 days or today (09:00).
     InvoiceEvents,
-    /// The evening summary (household report time).
-    DailyReport,
-    /// Closing of the financial month, on the first day of a new cycle.
+    /// Summary of the day so far (household evening time, 19:00 or later).
+    TodayReport,
+    /// Summary of the whole previous day (household time, any hour).
+    YesterdayReport,
+    /// Closing of the financial month, on the first day of a new cycle,
+    /// sent with yesterday's summary: both describe finished periods.
     CycleReport,
     /// Warns when the nightly backup has not succeeded for a day (10:00).
     BackupWatch,
 }
 
 impl JobKind {
-    pub const ALL: [JobKind; 5] = [
+    pub const ALL: [JobKind; 6] = [
         JobKind::Recurrences,
         JobKind::InvoiceEvents,
-        JobKind::DailyReport,
+        JobKind::TodayReport,
+        JobKind::YesterdayReport,
         JobKind::CycleReport,
         JobKind::BackupWatch,
     ];
@@ -30,13 +34,22 @@ impl JobKind {
         match self {
             JobKind::Recurrences => "recurrences",
             JobKind::InvoiceEvents => "invoice_events",
-            JobKind::DailyReport => "daily_report",
+            JobKind::TodayReport => "today_report",
+            JobKind::YesterdayReport => "yesterday_report",
             JobKind::CycleReport => "cycle_report",
             JobKind::BackupWatch => "backup_watch",
         }
     }
 
-    /// Accepts `daily_report` or `daily-report`.
+    /// Every job name as typed on the command line, for help and errors:
+    /// `recurrences, invoice-events, ...`.
+    pub fn cli_names() -> String {
+        let names: Vec<String> =
+            JobKind::ALL.iter().map(|kind| kind.name().replace('_', "-")).collect();
+        names.join(", ")
+    }
+
+    /// Accepts `today_report` or `today-report`.
     pub fn from_name(name: &str) -> Option<JobKind> {
         let normalized = name.replace('-', "_");
         JobKind::ALL.into_iter().find(|kind| kind.name() == normalized)
@@ -49,7 +62,8 @@ impl JobKind {
             JobKind::Recurrences => at(6),
             JobKind::InvoiceEvents => at(9),
             JobKind::BackupWatch => at(10),
-            JobKind::DailyReport | JobKind::CycleReport => settings.daily_report_time,
+            JobKind::TodayReport => settings.today_report_time,
+            JobKind::YesterdayReport | JobKind::CycleReport => settings.yesterday_report_time,
         }
     }
 
@@ -81,15 +95,16 @@ mod tests {
             assert_eq!(JobKind::from_name(&kind.name().replace('_', "-")), Some(kind));
         }
         assert_eq!(JobKind::from_name("nope"), None);
+        assert!(JobKind::cli_names().contains("today-report, yesterday-report"));
     }
 
     #[test]
     fn reports_follow_settings_time() {
         let settings = settings(1);
-        assert_eq!(
-            JobKind::DailyReport.due_time(&settings),
-            NaiveTime::from_hms_opt(21, 0, 0).unwrap()
-        );
+        let at = |hour| NaiveTime::from_hms_opt(hour, 0, 0).unwrap();
+        assert_eq!(JobKind::TodayReport.due_time(&settings), at(21));
+        assert_eq!(JobKind::YesterdayReport.due_time(&settings), at(9));
+        assert_eq!(JobKind::CycleReport.due_time(&settings), at(9));
         assert_eq!(
             JobKind::Recurrences.due_time(&settings),
             NaiveTime::from_hms_opt(6, 0, 0).unwrap()
@@ -102,6 +117,7 @@ mod tests {
         let on = |day| NaiveDate::from_ymd_opt(2026, 3, day).unwrap();
         assert!(JobKind::CycleReport.applies_on(on(5), &settings));
         assert!(!JobKind::CycleReport.applies_on(on(6), &settings));
-        assert!(JobKind::DailyReport.applies_on(on(6), &settings));
+        assert!(JobKind::TodayReport.applies_on(on(6), &settings));
+        assert!(JobKind::YesterdayReport.applies_on(on(6), &settings));
     }
 }

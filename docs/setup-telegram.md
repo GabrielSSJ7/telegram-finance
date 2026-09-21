@@ -54,13 +54,15 @@ Restart finbot. `/healthz` now shows a `telegram` check.
 /gasto       → valor, descrição, categoria, conta ou cartão, (parcelas), data
 /novocartao  → nome, dia de fechamento, dia de vencimento
 /recorrente  → salário todo dia 5, aluguel todo dia 10...
-/config      → dia em que o ciclo começa, horário do resumo diário
+/config      → dia em que o ciclo começa, horários do resumo de ontem e de hoje
 /saldo, /resumo, /fatura
 ```
 
-The daily summary arrives at 21:00 and the closing of the financial month
-on the first day of each cycle; change both with `/config` (or the API's
-`PATCH /api/v1/settings`).
+Two summaries arrive every day: yesterday's, complete, at 09:00, and today's
+at 21:00 (never before 19:00, so the day is mostly recorded). The closing of
+the financial month comes with yesterday's summary on the first day of each
+cycle. Change the times with `/config` (or the API's `PATCH /api/v1/settings`);
+`/resumo` and `/ontem` show either summary on demand.
 
 ## Fixing mistakes
 

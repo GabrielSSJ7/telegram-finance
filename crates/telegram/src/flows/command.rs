@@ -103,11 +103,17 @@ fn reconcile(answers: &Answers) -> Option<ReconcileBalance> {
 
 /// Skipped fields stay `None`, which keeps the current value.
 fn settings_patch(answers: &Answers) -> Option<SettingsPatch> {
-    if !(answers.has(Field::CycleStartDay) && answers.has(Field::ReportTime)) {
+    let fields = [Field::CycleStartDay, Field::YesterdayReportTime, Field::TodayReportTime];
+    if !fields.iter().all(|field| answers.has(*field)) {
         return None;
     }
-    let day = answers.day(Field::CycleStartDay).and_then(|day| DayOfMonth::new(day).ok());
-    Some(SettingsPatch { cycle_start_day: day, daily_report_time: answers.time(Field::ReportTime) })
+    Some(SettingsPatch {
+        cycle_start_day: answers
+            .day(Field::CycleStartDay)
+            .and_then(|day| DayOfMonth::new(day).ok()),
+        yesterday_report_time: answers.time(Field::YesterdayReportTime),
+        today_report_time: answers.time(Field::TodayReportTime),
+    })
 }
 
 /// Card payments become card purchases; the rest are account expenses.

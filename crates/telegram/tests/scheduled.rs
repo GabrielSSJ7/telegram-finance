@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use app::fakes::requests::monthly_expense;
 use app::jobs::{JobKind, JobRunner};
-use app::model::{EntryFilter, RecurrenceMode};
+use app::model::{EntryFilter, RecurrenceMode, ReportDay};
 use app::ports::HouseholdNotifier;
 use app::services::CreateRecurrence;
 use chrono::NaiveDate;
@@ -54,12 +54,17 @@ async fn daily_report_reaches_the_group() {
     harness.tap(ANA, "Nubank").await;
     harness.tap(ANA, "Hoje").await;
     harness.tap(ANA, "Confirmar").await;
-    runner(&harness).run(JobKind::DailyReport, date(3, 10)).await.unwrap();
+    runner(&harness).run(JobKind::TodayReport, date(3, 10)).await.unwrap();
     let report = harness.last_html();
     assert!(report.starts_with("<b>📊 Resumo de terça, 10/03</b>"), "{report}");
     assert!(report.contains("• Ana: mercado R$ 25,00 — pão"), "{report}");
     assert!(report.contains("Gasto hoje: R$ 25,00"), "{report}");
     assert!(report.contains("Disponível: R$ 975,00"), "{report}");
+    runner(&harness).run(JobKind::YesterdayReport, date(3, 11)).await.unwrap();
+    let morning = harness.last_html();
+    assert!(morning.starts_with("<b>📊 Resumo de ontem (terça, 10/03)</b>"), "{morning}");
+    assert!(morning.contains("<b>Ontem</b> (1 lançamentos)"), "{morning}");
+    assert!(morning.contains("Gasto ontem: R$ 25,00"), "{morning}");
 }
 
 #[tokio::test]
@@ -71,6 +76,8 @@ async fn cycle_report_and_resumo_command() {
     assert!(report.contains("Nenhum gasto no ciclo."), "{report}");
     harness.say(BIA, "/resumo").await;
     harness.expect_last("Nenhum lançamento hoje.");
+    harness.say(BIA, "/ontem").await;
+    harness.expect_last("Nenhum lançamento ontem.");
 }
 
 #[tokio::test]
@@ -134,7 +141,7 @@ async fn scheduled_messages_are_dropped_before_binding_and_backups_go_to_dms() {
     let mut harness = BotHarness::new().with_basics().await;
     let notifier = TelegramNotifier::new(harness.gateway.clone(), harness.set.services.clone());
     let report = harness.set.services.reports.daily(date(3, 10)).await.unwrap();
-    notifier.daily_report(&report).await.unwrap();
+    notifier.daily_report(&report, ReportDay::Today).await.unwrap();
     assert_eq!(harness.gateway.sent_count(), 0);
     harness.say_in(ANA, ChatKind::Private, ANA, "/start").await;
     notifier.backup_missing(None).await.unwrap();

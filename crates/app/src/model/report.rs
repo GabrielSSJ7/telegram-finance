@@ -30,7 +30,15 @@ pub struct PeriodTotals {
     pub by_member: Vec<(Option<MemberId>, Cents)>,
 }
 
-/// The evening message: today, the cycle so far, and what is coming.
+/// Which day a daily summary describes, relative to when it is sent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ReportDay {
+    Today,
+    Yesterday,
+}
+
+/// A day's summary: that day, the cycle up to it, and what is coming.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DailyReport {
     pub date: NaiveDate,

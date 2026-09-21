@@ -2,7 +2,7 @@
 
 use app::model::{
     BudgetStatus, Category, CategoryId, CycleReport, DailyReport, LedgerEntry, Member, MemberId,
-    PeriodTotals,
+    PeriodTotals, ReportDay,
 };
 use chrono::{Datelike, NaiveDate, Weekday};
 use domain::Cents;
@@ -21,10 +21,10 @@ const WARNING_BP: i64 = 8_000;
 /// Categories listed in the cycle report before "outros".
 const TOP_CATEGORIES: usize = 8;
 
-pub fn daily_report_text(report: &DailyReport) -> String {
+pub fn daily_report_text(report: &DailyReport, day: ReportDay) -> String {
     let names = Names { categories: &report.categories, members: &report.members };
-    let mut sections = vec![format!("<b>📊 Resumo de {}</b>", weekday_date(report.date))];
-    sections.push(today_section(report, &names));
+    let mut sections = vec![summary_title(report.date, day)];
+    sections.push(day_section(report, &names, day));
     sections.push(cycle_section(report.cycle, report.date, &report.cycle_to_date, &names));
     sections.push(balance_text(&report.balances));
     if !report.cards.is_empty() {
@@ -100,14 +100,31 @@ impl Names<'_> {
     }
 }
 
-fn today_section(report: &DailyReport, names: &Names<'_>) -> String {
+/// `📊 Resumo de ontem (segunda, 21/09)` or `📊 Resumo de terça, 22/09`.
+fn summary_title(date: NaiveDate, day: ReportDay) -> String {
+    match day {
+        ReportDay::Today => format!("<b>📊 Resumo de {}</b>", weekday_date(date)),
+        ReportDay::Yesterday => format!("<b>📊 Resumo de ontem ({})</b>", weekday_date(date)),
+    }
+}
+
+/// The entries of the day the summary covers.
+fn day_section(report: &DailyReport, names: &Names<'_>, day: ReportDay) -> String {
+    let (title, word) = match day {
+        ReportDay::Today => ("Hoje", "hoje"),
+        ReportDay::Yesterday => ("Ontem", "ontem"),
+    };
     if report.entries_today.is_empty() {
-        return "<b>Hoje</b>\nNenhum lançamento hoje.".into();
+        return format!("<b>{title}</b>\nNenhum lançamento {word}.");
     }
     let lines: Vec<String> =
         report.entries_today.iter().map(|entry| entry_line(entry, names)).collect();
     let spent = format_brl(report.today.summary.spending);
-    format!("<b>Hoje</b> ({} lançamentos)\n{}\nGasto hoje: {spent}", lines.len(), lines.join("\n"))
+    format!(
+        "<b>{title}</b> ({} lançamentos)\n{}\nGasto {word}: {spent}",
+        lines.len(),
+        lines.join("\n")
+    )
 }
 
 fn entry_line(entry: &LedgerEntry, names: &Names<'_>) -> String {

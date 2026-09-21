@@ -35,9 +35,14 @@ async fn settings_read_and_patch() {
     let api = ApiHarness::new().await;
     let (status, settings) = api.get("/api/v1/settings").await;
     assert_eq!((status, settings["cycle_start_day"].as_u64()), (StatusCode::OK, Some(1)));
-    let patch = json!({"cycle_start_day": 5, "daily_report_time": "20:30:00"});
+    let patch = json!({"cycle_start_day": 5, "today_report_time": "20:30:00", "yesterday_report_time": "08:00:00"});
     let (status, updated) = api.call(Method::PATCH, "/api/v1/settings", Some(patch)).await;
-    assert_eq!((status, updated["daily_report_time"].as_str()), (StatusCode::OK, Some("20:30:00")));
+    assert_eq!((status, updated["today_report_time"].as_str()), (StatusCode::OK, Some("20:30:00")));
+    assert_eq!(updated["yesterday_report_time"].as_str(), Some("08:00:00"));
+    let morning = json!({"today_report_time": "09:00:00"});
+    let (status, problem) = api.call(Method::PATCH, "/api/v1/settings", Some(morning)).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    assert!(problem["detail"].as_str().unwrap().contains("19:00 or later"), "{problem}");
     let (status, problem) =
         api.call(Method::PATCH, "/api/v1/settings", Some(json!({"cycle_start_day": 40}))).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);

@@ -10,7 +10,8 @@ use crate::error_mapping::{corrupt, store_error};
 struct HouseholdRow {
     telegram_chat_id: Option<i64>,
     cycle_start_day: i16,
-    daily_report_time: NaiveTime,
+    yesterday_report_time: NaiveTime,
+    today_report_time: NaiveTime,
 }
 
 impl HouseholdRow {
@@ -20,7 +21,8 @@ impl HouseholdRow {
         Ok(HouseholdSettings {
             telegram_chat_id: self.telegram_chat_id,
             cycle_start_day,
-            daily_report_time: self.daily_report_time,
+            yesterday_report_time: self.yesterday_report_time,
+            today_report_time: self.today_report_time,
         })
     }
 }
@@ -30,7 +32,8 @@ impl SettingsStore for PgStore {
     async fn load_settings(&self) -> StoreResult<HouseholdSettings> {
         let row = sqlx::query_as!(
             HouseholdRow,
-            "select telegram_chat_id, cycle_start_day, daily_report_time from household where id = 1",
+            "select telegram_chat_id, cycle_start_day, yesterday_report_time, today_report_time
+             from household where id = 1",
         )
         .fetch_one(self.pool())
         .await
@@ -43,11 +46,13 @@ impl SettingsStore for PgStore {
             HouseholdRow,
             "update household set
                  cycle_start_day = coalesce($1, cycle_start_day),
-                 daily_report_time = coalesce($2, daily_report_time)
+                 yesterday_report_time = coalesce($2, yesterday_report_time),
+                 today_report_time = coalesce($3, today_report_time)
              where id = 1
-             returning telegram_chat_id, cycle_start_day, daily_report_time",
+             returning telegram_chat_id, cycle_start_day, yesterday_report_time, today_report_time",
             patch.cycle_start_day.map(i16::from),
-            patch.daily_report_time,
+            patch.yesterday_report_time,
+            patch.today_report_time,
         )
         .fetch_one(self.pool())
         .await
@@ -59,7 +64,7 @@ impl SettingsStore for PgStore {
         let row = sqlx::query_as!(
             HouseholdRow,
             "update household set telegram_chat_id = $1 where id = 1
-             returning telegram_chat_id, cycle_start_day, daily_report_time",
+             returning telegram_chat_id, cycle_start_day, yesterday_report_time, today_report_time",
             chat_id,
         )
         .fetch_one(self.pool())

@@ -6,14 +6,14 @@ use chrono::{DateTime, NaiveDate, Utc};
 
 use crate::model::{
     BudgetAlert, BudgetId, CardId, CreditCard, CycleReport, DailyReport, InvoiceId, InvoiceView,
-    Recurrence, RecurrenceId,
+    Recurrence, RecurrenceId, ReportDay,
 };
 use crate::ports::{HouseholdNotifier, NotifyError};
 
 /// One message the scheduler asked to send.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Notice {
-    Daily(Box<DailyReport>),
+    Daily(Box<DailyReport>, ReportDay),
     Cycle(Box<CycleReport>),
     InvoiceClosed(CardId, InvoiceId),
     InvoiceDue(CardId, InvoiceId, i64),
@@ -50,8 +50,8 @@ impl RecordingNotifier {
 
 #[async_trait]
 impl HouseholdNotifier for RecordingNotifier {
-    async fn daily_report(&self, report: &DailyReport) -> Result<(), NotifyError> {
-        self.push(Notice::Daily(Box::new(report.clone())))
+    async fn daily_report(&self, report: &DailyReport, day: ReportDay) -> Result<(), NotifyError> {
+        self.push(Notice::Daily(Box::new(report.clone()), day))
     }
 
     async fn cycle_report(&self, report: &CycleReport) -> Result<(), NotifyError> {

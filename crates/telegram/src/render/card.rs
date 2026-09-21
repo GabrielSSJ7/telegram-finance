@@ -165,7 +165,8 @@ const FIELD_TEXT: &[(Field, &str, &str)] = &[
     (Field::EditFieldChoice, "✏️", "Alterar"),
     (Field::ActualBalance, "⚖️", "Saldo real"),
     (Field::CycleStartDay, "🔄", "Ciclo começa"),
-    (Field::ReportTime, "⏰", "Resumo diário"),
+    (Field::YesterdayReportTime, "🌅", "Resumo de ontem"),
+    (Field::TodayReportTime, "🌙", "Resumo de hoje"),
 ];
 
 fn field_text(field: Field) -> (&'static str, &'static str) {
@@ -230,7 +231,16 @@ const QUESTIONS: &[(Option<FormKind>, Field, &str)] = &[
     (Some(FormKind::Adjust), Field::ReceivingAccount, "Qual conta ajustar?"),
     (None, Field::ActualBalance, "Qual o saldo real dela agora, no app do banco? (negativo: -50)"),
     (None, Field::CycleStartDay, "Em que dia começa o ciclo? (1 a 31, ex.: dia do salário)"),
-    (None, Field::ReportTime, "Que horas mandar o resumo diário? (ex.: 21:00)"),
+    (
+        None,
+        Field::YesterdayReportTime,
+        "Que horas mandar o resumo de ontem? (qualquer hora, ex.: 09:00)",
+    ),
+    (
+        None,
+        Field::TodayReportTime,
+        "Que horas mandar o resumo de hoje? (19:00 ou depois, ex.: 21:00)",
+    ),
     (
         None,
         Field::RecurrenceModeChoice,

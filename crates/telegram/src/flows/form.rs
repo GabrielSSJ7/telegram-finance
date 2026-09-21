@@ -69,9 +69,12 @@ pub enum Field {
     EditFieldChoice,
     /// The balance the bank shows; may be zero or negative.
     ActualBalance,
-    /// Skippable, like `ReportTime`: skipped keeps the current value.
+    /// Skippable, like the report times: skipped keeps the current value.
     CycleStartDay,
-    ReportTime,
+    /// Any hour.
+    YesterdayReportTime,
+    /// 19:00 or later.
+    TodayReportTime,
 }
 
 use Field::{
@@ -85,6 +88,10 @@ use Field::{
 /// Only the field picked in `EditFieldChoice` applies.
 const EDIT_FIELDS: &[Field] =
     &[EditTarget, EditFieldChoice, Amount, Description, ExpenseCategory, IncomeCategory, Date];
+
+/// Each one can be kept as it is with the [Manter] button.
+const SETTINGS_FIELDS: &[Field] =
+    &[Field::CycleStartDay, Field::YesterdayReportTime, Field::TodayReportTime];
 
 /// Expense-only and income-only fields are skipped by `Field::applies`.
 const RECURRENCE_FIELDS: &[Field] = &[
@@ -136,7 +143,7 @@ impl FormKind {
             FormKind::SetBudget => &[ExpenseCategory, BudgetLimit],
             FormKind::EditEntry => EDIT_FIELDS,
             FormKind::Adjust => &[ReceivingAccount, Field::ActualBalance],
-            FormKind::Settings => &[Field::CycleStartDay, Field::ReportTime],
+            FormKind::Settings => SETTINGS_FIELDS,
         }
     }
 
