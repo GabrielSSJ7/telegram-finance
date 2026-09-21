@@ -12,7 +12,7 @@ export LLVM_COV ?= $(shell command -v llvm-cov 2>/dev/null)
 export LLVM_PROFDATA ?= $(shell command -v llvm-profdata 2>/dev/null)
 endif
 
-.PHONY: test test-db dev dev-db lint deny coverage sqlx-prepare check
+.PHONY: test test-db dev dev-db lint deny coverage sqlx-prepare images shellcheck check
 
 test-db:
 	docker compose -f compose.test.yml up -d --wait
@@ -44,4 +44,12 @@ sqlx-prepare: test-db
 	DATABASE_URL=$(TEST_DATABASE_URL) sqlx migrate run --source crates/pg/migrations
 	DATABASE_URL=$(TEST_DATABASE_URL) cargo sqlx prepare --workspace -- --all-targets --all-features
 
-check: lint test deny coverage
+images:
+	docker build -f docker/app.Dockerfile -t finbot:local .
+	docker build -t finbot-backup:local docker/backup
+
+shellcheck:
+	docker run --rm -v "$(CURDIR):/mnt:ro" koalaman/shellcheck:stable -x -s sh -e SC1091 \
+		/mnt/scripts/deploy.sh /mnt/scripts/init-secrets.sh /mnt/docker/backup/backup.sh /mnt/docker/backup/restore.sh
+
+check: lint test deny coverage shellcheck

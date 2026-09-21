@@ -1,0 +1,2 @@
+# Times follow the TZ environment variable (the household timezone).
+0 3 * * * /usr/local/bin/backup.sh scheduled > /proc/1/fd/1 2>&1

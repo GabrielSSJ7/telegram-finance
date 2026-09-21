@@ -13,8 +13,8 @@ choose, such as payday). A REST API exposes the same data.
 | 1 | Workspace and domain rules (money, cycles, card invoices, installments, balances) | done |
 | 2 | Postgres schema, core services, REST API | done |
 | 3 | Telegram bot MVP | done |
-| 4 | Docker, Caddy, backups, deploy | next |
-| 5 | Credit cards and invoices | |
+| 4 | Docker, Caddy, backups, deploy | done |
+| 5 | Credit cards and invoices | next |
 | 6 | Scheduler and reports | |
 | 7 | Budgets and goals | |
 | 8 | Edit flows, CSV export, hardening | |
@@ -58,6 +58,16 @@ finbot api-key create <name>    # prints the token once
 finbot api-key revoke <name>
 finbot healthcheck              # exit 0 when /healthz answers 200
 ```
+
+## Deploy
+
+Production runs from `compose.yml`: Caddy (HTTPS), finbot, Postgres 18 and a
+backup sidecar. Images are built by GitHub Actions on `v*` tags and pushed to
+GHCR; the VPS only pulls.
+
+- [docs/deploy-hostinger.md](docs/deploy-hostinger.md): VPS setup and releases
+- [docs/backup-restore.md](docs/backup-restore.md): encrypted backups and restore
+- [docs/setup-telegram.md](docs/setup-telegram.md): BotFather and group setup
 
 ## Configuration
 

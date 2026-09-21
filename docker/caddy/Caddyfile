@@ -1,0 +1,26 @@
+# Public HTTPS for the REST API. Certificates come from Let's Encrypt for
+# API_DOMAIN (use `localhost` for a local test with Caddy's own CA).
+{
+	email {$ACME_EMAIL}
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Caddy ignores X-Forwarded-For sent by clients (no trusted proxies)
+	# and sets it to the real client address, which the API rate-limits on.
+	reverse_proxy finbot:8080
+
+	log {
+		output stdout
+		format json
+	}
+}

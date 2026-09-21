@@ -1,0 +1,135 @@
+# Production stack for the Hostinger VPS. Only Caddy publishes ports.
+# Setup: docs/deploy-hostinger.md. Values come from .env next to this file.
+name: finbot
+
+x-logging: &logging
+  # The default json-file driver never rotates; `local` does.
+  driver: local
+  options:
+    max-size: 10m
+    max-file: "5"
+
+x-hardening: &hardening
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+  logging: *logging
+
+services:
+  postgres:
+    <<: *hardening
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: finbot
+      POSTGRES_DB: finbot
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes:
+      # Postgres 18 keeps its data under /var/lib/postgresql/18/docker.
+      - pgdata:/var/lib/postgresql
+    shm_size: 128mb
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finbot -d finbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  finbot:
+    <<: *hardening
+    image: ${FINBOT_IMAGE:-ghcr.io/gabrielssj7/finbot}:${FINBOT_TAG:-latest}
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    # PID 1 in distroless: tini forwards SIGTERM for a graceful stop.
+    init: true
+    # Longer than the 50s Telegram long poll.
+    stop_grace_period: 70s
+    read_only: true
+    cap_drop: [ALL]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+      TELEGRAM_BOT_TOKEN_FILE: /run/secrets/telegram_bot_token
+      ALLOWED_TELEGRAM_USER_IDS: ${ALLOWED_TELEGRAM_USER_IDS:?set ALLOWED_TELEGRAM_USER_IDS in .env}
+      HOUSEHOLD_TIMEZONE: ${HOUSEHOLD_TIMEZONE:-America/Sao_Paulo}
+      HTTP_BIND: 0.0.0.0:8080
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      LOG_FORMAT: json
+      RUST_LOG: ${RUST_LOG:-info,sqlx=warn}
+    secrets: [database_url, telegram_bot_token]
+    # backend reaches Postgres; edge reaches Caddy and the internet.
+    networks: [backend, edge]
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/finbot", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+
+  backup:
+    <<: *hardening
+    image: ${FINBOT_BACKUP_IMAGE:-ghcr.io/gabrielssj7/finbot-backup}:${FINBOT_TAG:-latest}
+    build:
+      context: docker/backup
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: ${HOUSEHOLD_TIMEZONE:-America/Sao_Paulo}
+      PGHOST: postgres
+      PGUSER: finbot
+      PGDATABASE: finbot
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      TELEGRAM_BOT_TOKEN_FILE: /run/secrets/telegram_bot_token
+      # age public keys (age1...), comma separated: one per spouse.
+      AGE_RECIPIENTS: ${AGE_RECIPIENTS:?set AGE_RECIPIENTS in .env}
+    secrets: [postgres_password, telegram_bot_token]
+    volumes:
+      - backups:/backups
+    # The plaintext dump never touches disk.
+    tmpfs:
+      - /tmp:size=512m,mode=0700
+    networks: [backend, egress]
+
+  caddy:
+    <<: *hardening
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      finbot:
+        condition: service_started
+    networks: [edge]
+
+networks:
+  # No route out: only finbot and the backup job talk to Postgres.
+  backend:
+    internal: true
+  edge: {}
+  egress: {}
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password
+  database_url:
+    file: ./secrets/database_url
+  telegram_bot_token:
+    file: ./secrets/telegram_bot_token
+
+volumes:
+  pgdata:
+  backups:
+  caddy_data:
+  caddy_config:

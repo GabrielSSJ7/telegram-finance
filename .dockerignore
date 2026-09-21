@@ -1,0 +1,8 @@
+target/
+.git/
+secrets/
+backups/
+.env
+*.dump
+*.age
+docs/
