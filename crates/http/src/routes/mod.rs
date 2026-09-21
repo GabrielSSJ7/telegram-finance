@@ -1,0 +1,30 @@
+//! Handlers, one module per resource. Each handler converts the wire type,
+//! calls one service method and converts the result back.
+
+pub mod accounts;
+pub mod categories;
+pub mod entries;
+pub mod goals;
+pub mod settings;
+
+use utoipa_axum::router::OpenApiRouter;
+use utoipa_axum::routes;
+
+use crate::state::ApiState;
+
+/// Every `/api/v1` route with its API documentation.
+pub fn v1_routes() -> OpenApiRouter<ApiState> {
+    OpenApiRouter::new()
+        .routes(routes!(accounts::list_accounts, accounts::open_account))
+        .routes(routes!(accounts::archive_account))
+        .routes(routes!(accounts::balance_sheet))
+        .routes(routes!(categories::list_categories, categories::create_category))
+        .routes(routes!(categories::archive_category))
+        .routes(routes!(entries::list_entries, entries::create_entry))
+        .routes(routes!(entries::get_entry, entries::update_entry, entries::delete_entry))
+        .routes(routes!(goals::list_goals, goals::create_goal))
+        .routes(routes!(goals::update_goal_target))
+        .routes(routes!(goals::deposit_to_goal))
+        .routes(routes!(goals::withdraw_from_goal))
+        .routes(routes!(settings::get_settings, settings::update_settings))
+}

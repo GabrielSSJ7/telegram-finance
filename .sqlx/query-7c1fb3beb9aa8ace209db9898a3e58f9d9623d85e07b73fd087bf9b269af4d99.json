@@ -1,0 +1,44 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- Totals per (account, kind, role) of live entries up to a date; the app\n-- applies the sign rules from domain::EntryKind::account_effect.\nselect account_id as \"account_id!\", kind as \"kind!\", 'primary' as \"role!\",\n       sum(amount_cents)::bigint as \"total!\"\nfrom ledger_entries\nwhere deleted_at is null and accounting_date <= $1 and account_id is not null\ngroup by account_id, kind\nunion all\nselect counter_account_id, kind, 'counter', sum(amount_cents)::bigint\nfrom ledger_entries\nwhere deleted_at is null and accounting_date <= $1 and counter_account_id is not null\ngroup by counter_account_id, kind\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "account_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "kind!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "role!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "total!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "7c1fb3beb9aa8ace209db9898a3e58f9d9623d85e07b73fd087bf9b269af4d99"
+}

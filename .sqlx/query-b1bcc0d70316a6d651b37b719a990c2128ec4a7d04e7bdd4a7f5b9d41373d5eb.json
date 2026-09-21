@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into committed_drafts (draft_id) values ($1) on conflict do nothing",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b1bcc0d70316a6d651b37b719a990c2128ec4a7d04e7bdd4a7f5b9d41373d5eb"
+}

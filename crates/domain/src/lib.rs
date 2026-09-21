@@ -7,6 +7,7 @@ pub mod calendar;
 pub mod cycle;
 pub mod day_of_month;
 pub mod entry_kind;
+pub mod goal_progress;
 pub mod installments;
 pub mod invoice_cycle;
 pub mod money;

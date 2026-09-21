@@ -11,7 +11,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  RUSTFLAGS: -D warnings
+  # Query macros read the committed .sqlx/ data instead of a live database.
+  SQLX_OFFLINE: "true"
 
 jobs:
   lint:
@@ -23,15 +24,58 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-  test:
+  test-and-coverage:
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: finbot
+          POSTGRES_PASSWORD: finbot
+          POSTGRES_DB: finbot
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U finbot -d finbot"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgres://finbot:finbot@localhost:5432/finbot
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      # Every test runs under coverage; the build fails below 90% of lines.
+      - run: cargo llvm-cov --workspace --all-features --fail-under-lines 90 --summary-only
+
+  sqlx-offline-data:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: finbot
+          POSTGRES_PASSWORD: finbot
+          POSTGRES_DB: finbot
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U finbot -d finbot"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgres://finbot:finbot@localhost:5432/finbot
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.95.0
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --workspace
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: sqlx-cli@0.9.0
+      - run: sqlx migrate run --source crates/pg/migrations
+      # Fails when a query changed without `make sqlx-prepare`.
+      - run: SQLX_OFFLINE=false cargo sqlx prepare --workspace --check -- --all-targets --all-features
 
   deny:
     runs-on: ubuntu-24.04

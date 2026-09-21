@@ -27,10 +27,7 @@ pub struct MoneyParseError {
 /// assert_eq!(parse_brl("R$ 1.234,56"), Ok(Cents::new(123_456)));
 /// ```
 pub fn parse_brl(input: &str) -> Result<Cents, MoneyParseError> {
-    let fail = |reason: &'static str| MoneyParseError {
-        input: input.to_owned(),
-        reason,
-    };
+    let fail = |reason: &'static str| MoneyParseError { input: input.to_owned(), reason };
     let body = strip_currency(input);
     if body.is_empty() {
         return Err(fail("no digits"));
@@ -45,10 +42,8 @@ pub fn parse_brl(input: &str) -> Result<Cents, MoneyParseError> {
 
 fn strip_currency(input: &str) -> &str {
     let trimmed = input.trim();
-    let without = trimmed
-        .strip_prefix("R$")
-        .or_else(|| trimmed.strip_prefix("r$"))
-        .unwrap_or(trimmed);
+    let without =
+        trimmed.strip_prefix("R$").or_else(|| trimmed.strip_prefix("r$")).unwrap_or(trimmed);
     without.trim()
 }
 
@@ -155,11 +150,7 @@ mod tests {
     #[test]
     fn parses_typed_amounts() {
         for (input, expected) in VALID {
-            assert_eq!(
-                parse_brl(input),
-                Ok(Cents::new(*expected)),
-                "input {input:?}"
-            );
+            assert_eq!(parse_brl(input), Ok(Cents::new(*expected)), "input {input:?}");
         }
     }
 

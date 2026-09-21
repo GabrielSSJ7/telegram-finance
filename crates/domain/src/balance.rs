@@ -23,10 +23,8 @@ pub struct AccountFlow {
 /// assert_eq!(account_balance(Cents::new(1000), &flows), Cents::new(700));
 /// ```
 pub fn account_balance(initial: Cents, flows: &[AccountFlow]) -> Cents {
-    let movement: Cents = flows
-        .iter()
-        .map(|flow| flow.total.times(flow.kind.account_effect(flow.role)))
-        .sum();
+    let movement: Cents =
+        flows.iter().map(|flow| flow.total.times(flow.kind.account_effect(flow.role))).sum();
     initial + movement
 }
 
@@ -47,20 +45,11 @@ pub struct MoneyPosition {
 
 /// Computes "Disponível" and "Reservado em metas".
 pub fn money_position(balances: &[KindBalance], unpaid_closed_invoices: Cents) -> MoneyPosition {
-    let spendable: Cents = balances
-        .iter()
-        .filter(|item| item.kind.is_spendable())
-        .map(|item| item.balance)
-        .sum();
-    let reserved: Cents = balances
-        .iter()
-        .filter(|item| !item.kind.is_spendable())
-        .map(|item| item.balance)
-        .sum();
-    MoneyPosition {
-        available: spendable - unpaid_closed_invoices,
-        reserved_in_pots: reserved,
-    }
+    let spendable: Cents =
+        balances.iter().filter(|item| item.kind.is_spendable()).map(|item| item.balance).sum();
+    let reserved: Cents =
+        balances.iter().filter(|item| !item.kind.is_spendable()).map(|item| item.balance).sum();
+    MoneyPosition { available: spendable - unpaid_closed_invoices, reserved_in_pots: reserved }
 }
 
 #[cfg(test)]
@@ -69,11 +58,7 @@ mod tests {
     use AccountRole::{Counter, Primary};
 
     fn flow(kind: EntryKind, role: AccountRole, total: i64) -> AccountFlow {
-        AccountFlow {
-            kind,
-            role,
-            total: Cents::new(total),
-        }
+        AccountFlow { kind, role, total: Cents::new(total) }
     }
 
     #[test]
@@ -90,27 +75,15 @@ mod tests {
             flow(EntryKind::CardInstallment, Primary, 99_999),
         ];
         let expected = 100_000 + 500_000 - 10_000 - 50_000 + 20_000 - 30_000 + 1_000 + 5 - 10;
-        assert_eq!(
-            account_balance(Cents::new(100_000), &flows),
-            Cents::new(expected)
-        );
+        assert_eq!(account_balance(Cents::new(100_000), &flows), Cents::new(expected));
     }
 
     #[test]
     fn position_excludes_pots_and_subtracts_closed_invoices() {
         let balances = [
-            KindBalance {
-                kind: AccountKind::Checking,
-                balance: Cents::new(300_000),
-            },
-            KindBalance {
-                kind: AccountKind::Cash,
-                balance: Cents::new(5_000),
-            },
-            KindBalance {
-                kind: AccountKind::Pot,
-                balance: Cents::new(2_000_000),
-            },
+            KindBalance { kind: AccountKind::Checking, balance: Cents::new(300_000) },
+            KindBalance { kind: AccountKind::Cash, balance: Cents::new(5_000) },
+            KindBalance { kind: AccountKind::Pot, balance: Cents::new(2_000_000) },
         ];
         let position = money_position(&balances, Cents::new(120_000));
         assert_eq!(position.available, Cents::new(185_000));

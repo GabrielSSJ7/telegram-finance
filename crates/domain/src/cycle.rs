@@ -27,20 +27,13 @@ impl Cycle {
     pub fn containing(date: NaiveDate, start_day: DayOfMonth) -> Self {
         let month = YearMonth::of(date);
         let starts_this_month = date >= month.clamped(start_day);
-        let start_month = if starts_this_month {
-            month
-        } else {
-            month.prev()
-        };
+        let start_month = if starts_this_month { month } else { month.prev() };
         Self::starting_in(start_month, start_day)
     }
 
     /// Cycle whose first day falls in `month`.
     pub fn starting_in(month: YearMonth, start_day: DayOfMonth) -> Self {
-        Self {
-            start: month.clamped(start_day),
-            end_exclusive: month.next().clamped(start_day),
-        }
+        Self { start: month.clamped(start_day), end_exclusive: month.next().clamped(start_day) }
     }
 
     pub fn previous(self, start_day: DayOfMonth) -> Self {
@@ -89,11 +82,7 @@ mod tests {
         for &(on, start_day, (sy, sm, sd), (ey, em, ed)) in CASES {
             let cycle = Cycle::containing(date(on.0, on.1, on.2), day(start_day));
             assert_eq!(cycle.start, date(sy, sm, sd), "{on:?} day {start_day}");
-            assert_eq!(
-                cycle.end_exclusive,
-                date(ey, em, ed),
-                "{on:?} day {start_day}"
-            );
+            assert_eq!(cycle.end_exclusive, date(ey, em, ed), "{on:?} day {start_day}");
         }
     }
 

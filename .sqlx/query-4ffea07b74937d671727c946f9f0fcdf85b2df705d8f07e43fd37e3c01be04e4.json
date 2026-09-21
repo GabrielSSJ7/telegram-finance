@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update accounts set archived_at = $2 where id = $1 and archived_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4ffea07b74937d671727c946f9f0fcdf85b2df705d8f07e43fd37e3c01be04e4"
+}

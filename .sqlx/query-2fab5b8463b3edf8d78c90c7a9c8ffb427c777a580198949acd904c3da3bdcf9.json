@@ -1,0 +1,155 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ledger_entries\n    (kind, amount_cents, description, category_id, account_id, counter_account_id, accounting_date, created_by)\nvalues ($1, $2, $3, $4, $5, $6, $7, $8)\nreturning id, kind, amount_cents, description, category_id, account_id, counter_account_id,\n          accounting_date, created_by, created_at, deleted_at\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "amount_cents",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "amount_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "category_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "account_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "counter_account_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "counter_account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "accounting_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "accounting_date"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "deleted_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "deleted_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Date",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "2fab5b8463b3edf8d78c90c7a9c8ffb427c777a580198949acd904c3da3bdcf9"
+}

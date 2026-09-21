@@ -1,0 +1,32 @@
+[package]
+name = "finbot"
+description = "finbot binary: configuration, wiring and the serve/migrate/api-key commands."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+app.workspace = true
+domain.workspace = true
+pg.workspace = true
+http-api.workspace = true
+anyhow = "1.0.104"
+async-trait.workspace = true
+axum = "0.8.9"
+chrono.workspace = true
+chrono-tz.workspace = true
+clap = { version = "4.6.7", features = ["derive"] }
+getrandom = "0.4.3"
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
+
+[dev-dependencies]
+sqlx.workspace = true
+
+[lints]
+workspace = true

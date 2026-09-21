@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update categories set archived_at = $2 where id = $1 and archived_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "b07103c47349a27b703801707c4911cc0815feb345206dcf188385b32d44f6f9"
+}

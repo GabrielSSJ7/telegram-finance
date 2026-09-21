@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update api_keys set revoked_at = $2 where name = $1 and revoked_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c5540426f0233a7a5ec326f1bd8646db0830c76f3b8566ebe42c6639f2d7315b"
+}

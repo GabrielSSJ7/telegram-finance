@@ -55,11 +55,7 @@ impl CardSchedule {
     pub fn period_closing_in(self, closing_month: YearMonth) -> InvoicePeriod {
         let closing_date = closing_month.clamped(self.closing_day);
         let due_date = self.first_due_after(closing_date);
-        InvoicePeriod {
-            reference_month: YearMonth::of(due_date),
-            closing_date,
-            due_date,
-        }
+        InvoicePeriod { reference_month: YearMonth::of(due_date), closing_date, due_date }
     }
 
     /// Closed invoices accept no new purchases and can be paid.
@@ -75,11 +71,7 @@ impl CardSchedule {
         let closing = month.clamped(self.closing_day);
         let on_closing_stays = purchase_date == closing && !self.closing_day_goes_next;
         let stays_this_month = purchase_date < closing || on_closing_stays;
-        if stays_this_month {
-            month
-        } else {
-            month.next()
-        }
+        if stays_this_month { month } else { month.next() }
     }
 
     /// First due day strictly after closing, so a due day smaller than the
@@ -87,11 +79,7 @@ impl CardSchedule {
     fn first_due_after(self, closing_date: NaiveDate) -> NaiveDate {
         let month = YearMonth::of(closing_date);
         let same_month = month.clamped(self.due_day);
-        if same_month > closing_date {
-            same_month
-        } else {
-            month.next().clamped(self.due_day)
-        }
+        if same_month > closing_date { same_month } else { month.next().clamped(self.due_day) }
     }
 }
 
@@ -133,16 +121,8 @@ mod tests {
             let got = card(closing, due, next)
                 .period_for_purchase(date(purchase.0, purchase.1, purchase.2));
             let label = format!("closing {closing} due {due} next {next} purchase {purchase:?}");
-            assert_eq!(
-                got.closing_date,
-                date(want_close.0, want_close.1, want_close.2),
-                "{label}"
-            );
-            assert_eq!(
-                got.due_date,
-                date(want_due.0, want_due.1, want_due.2),
-                "{label}"
-            );
+            assert_eq!(got.closing_date, date(want_close.0, want_close.1, want_close.2), "{label}");
+            assert_eq!(got.due_date, date(want_due.0, want_due.1, want_due.2), "{label}");
             assert_eq!(got.reference_month, YearMonth::of(got.due_date), "{label}");
         }
     }
@@ -152,14 +132,8 @@ mod tests {
         let schedule = card(31, 8, true);
         let first = schedule.period_for_purchase(date(2026, 1, 10));
         assert_eq!(first.closing_date, date(2026, 1, 31));
-        assert_eq!(
-            schedule.period_after(first, 1).closing_date,
-            date(2026, 2, 28)
-        );
-        assert_eq!(
-            schedule.period_after(first, 2).closing_date,
-            date(2026, 3, 31)
-        );
+        assert_eq!(schedule.period_after(first, 1).closing_date, date(2026, 2, 28));
+        assert_eq!(schedule.period_after(first, 2).closing_date, date(2026, 3, 31));
         assert_eq!(schedule.period_after(first, 0), first);
     }
 

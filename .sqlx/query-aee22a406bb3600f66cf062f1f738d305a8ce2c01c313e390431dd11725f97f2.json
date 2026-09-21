@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select telegram_chat_id, cycle_start_day, daily_report_time from household where id = 1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "telegram_chat_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "household",
+            "name": "telegram_chat_id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "cycle_start_day",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "household",
+            "name": "cycle_start_day"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "daily_report_time",
+        "type_info": "Time",
+        "origin": {
+          "Table": {
+            "table": "household",
+            "name": "daily_report_time"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "aee22a406bb3600f66cf062f1f738d305a8ce2c01c313e390431dd11725f97f2"
+}

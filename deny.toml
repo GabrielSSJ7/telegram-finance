@@ -4,6 +4,11 @@ all-features = true
 [advisories]
 version = 2
 yanked = "deny"
+ignore = [
+    # `paste` is a compile-time macro pulled in by utoipa-axum. Unmaintained
+    # is not a vulnerability; revisit when utoipa-axum drops it.
+    { id = "RUSTSEC-2024-0436", reason = "compile-time only, via utoipa-axum; no known vulnerability" },
+]
 
 [licenses]
 version = 2

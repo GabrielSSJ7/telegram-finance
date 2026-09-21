@@ -36,24 +36,11 @@ pub struct PeriodSummary {
 /// assert_eq!(summarize_period(&flows).savings_rate_bp, Some(7500));
 /// ```
 pub fn summarize_period<C>(flows: &[CategoryFlow<C>]) -> PeriodSummary {
-    let income: Cents = flows
-        .iter()
-        .map(|flow| flow.total.times(flow.kind.income_effect()))
-        .sum();
-    let spending: Cents = flows
-        .iter()
-        .map(|flow| flow.total.times(flow.kind.spend_effect()))
-        .sum();
+    let income: Cents = flows.iter().map(|flow| flow.total.times(flow.kind.income_effect())).sum();
+    let spending: Cents = flows.iter().map(|flow| flow.total.times(flow.kind.spend_effect())).sum();
     let saved = income - spending;
-    let savings_rate_bp = income
-        .is_positive()
-        .then(|| saved.value() * 10_000 / income.value());
-    PeriodSummary {
-        income,
-        spending,
-        saved,
-        savings_rate_bp,
-    }
+    let savings_rate_bp = income.is_positive().then(|| saved.value() * 10_000 / income.value());
+    PeriodSummary { income, spending, saved, savings_rate_bp }
 }
 
 /// Net spending per category, largest first. Categories whose refunds
@@ -64,10 +51,8 @@ pub fn spending_by_category<C: Ord + Clone>(flows: &[CategoryFlow<C>]) -> Vec<(O
         *totals.entry(flow.category.clone()).or_default() +=
             flow.total.times(flow.kind.spend_effect());
     }
-    let mut ranked: Vec<(Option<C>, Cents)> = totals
-        .into_iter()
-        .filter(|(_, total)| total.is_positive())
-        .collect();
+    let mut ranked: Vec<(Option<C>, Cents)> =
+        totals.into_iter().filter(|(_, total)| total.is_positive()).collect();
     ranked.sort_by_key(|(_, total)| std::cmp::Reverse(*total));
     ranked
 }
@@ -81,11 +66,7 @@ mod tests {
         kind: EntryKind,
         total: i64,
     ) -> CategoryFlow<&'static str> {
-        CategoryFlow {
-            category,
-            kind,
-            total: Cents::new(total),
-        }
+        CategoryFlow { category, kind, total: Cents::new(total) }
     }
 
     fn sample() -> Vec<CategoryFlow<&'static str>> {
@@ -123,10 +104,7 @@ mod tests {
         let ranked = spending_by_category(&sample());
         assert_eq!(
             ranked,
-            vec![
-                (Some("lazer"), Cents::new(150_000)),
-                (Some("mercado"), Cents::new(95_000))
-            ]
+            vec![(Some("lazer"), Cents::new(150_000)), (Some("mercado"), Cents::new(95_000))]
         );
     }
 }

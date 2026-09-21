@@ -34,10 +34,7 @@ impl YearMonth {
     }
 
     pub fn of(date: NaiveDate) -> Self {
-        Self {
-            year: date.year(),
-            month: date.month(),
-        }
+        Self { year: date.year(), month: date.month() }
     }
 
     pub const fn year(self) -> i32 {
@@ -58,10 +55,7 @@ impl YearMonth {
     #[allow(clippy::cast_possible_wrap, clippy::cast_sign_loss)]
     pub fn plus_months(self, months: i32) -> Self {
         let index = self.year * 12 + (self.month as i32 - 1) + months;
-        Self {
-            year: index.div_euclid(12),
-            month: index.rem_euclid(12) as u32 + 1,
-        }
+        Self { year: index.div_euclid(12), month: index.rem_euclid(12) as u32 + 1 }
     }
 
     pub fn next(self) -> Self {
@@ -113,9 +107,7 @@ impl std::fmt::Display for YearMonth {
 /// ```
 pub fn add_months_clamped(date: NaiveDate, months: u32) -> NaiveDate {
     let shift = i32::try_from(months).unwrap_or(i32::MAX / 24);
-    YearMonth::of(date)
-        .plus_months(shift)
-        .clamped_date(date.day())
+    YearMonth::of(date).plus_months(shift).clamped_date(date.day())
 }
 
 fn is_leap_year(year: i32) -> bool {
@@ -179,13 +171,7 @@ mod tests {
 
     #[test]
     fn rejects_invalid_year_month() {
-        assert_eq!(
-            YearMonth::new(2026, 0),
-            Err(YearMonthError {
-                year: 2026,
-                month: 0
-            })
-        );
+        assert_eq!(YearMonth::new(2026, 0), Err(YearMonthError { year: 2026, month: 0 }));
         assert!(YearMonth::new(0, 5).is_err());
     }
 

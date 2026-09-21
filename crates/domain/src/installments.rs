@@ -53,10 +53,7 @@ pub fn split_amount(total: Cents, count: u32) -> Result<Vec<Cents>, InstallmentE
     validate_count(count)?;
     let parts = i64::from(count);
     if total.value() < parts {
-        return Err(InstallmentError::TotalTooSmall {
-            total: total.value(),
-            count,
-        });
+        return Err(InstallmentError::TotalTooSmall { total: total.value(), count });
     }
     let base = total.value() / parts;
     let first = base + total.value() % parts;
@@ -71,16 +68,11 @@ pub fn schedule_installments(
 ) -> Result<Vec<InstallmentSlot>, InstallmentError> {
     let amounts = split_amount(plan.total, plan.count)?;
     if !(1..=plan.count).contains(&plan.first_number) {
-        return Err(InstallmentError::FirstNumber {
-            first: plan.first_number,
-            count: plan.count,
-        });
+        return Err(InstallmentError::FirstNumber { first: plan.first_number, count: plan.count });
     }
     let first_invoice = card.period_for_purchase(plan.purchase_date);
     let slots = (plan.first_number..=plan.count).zip(amounts.into_iter().skip(skip_count(plan)));
-    Ok(slots
-        .map(|(number, amount)| slot(plan, card, first_invoice, number, amount))
-        .collect())
+    Ok(slots.map(|(number, amount)| slot(plan, card, first_invoice, number, amount)).collect())
 }
 
 fn slot(
@@ -128,30 +120,19 @@ mod tests {
     }
 
     fn plan(total: i64, count: u32, first_number: u32, purchase: NaiveDate) -> InstallmentPlan {
-        InstallmentPlan {
-            total: Cents::new(total),
-            count,
-            first_number,
-            purchase_date: purchase,
-        }
+        InstallmentPlan { total: Cents::new(total), count, first_number, purchase_date: purchase }
     }
 
     #[test]
     fn three_installments_on_consecutive_invoices() {
         let slots = schedule_installments(plan(30_000, 3, 1, date(2026, 1, 31)), card()).unwrap();
-        let refs: Vec<YearMonth> = slots
-            .iter()
-            .map(|slot| slot.invoice.reference_month)
-            .collect();
+        let refs: Vec<YearMonth> = slots.iter().map(|slot| slot.invoice.reference_month).collect();
         let expected: Vec<YearMonth> = [(2026, 2), (2026, 3), (2026, 4)]
             .map(|(year, month)| YearMonth::new(year, month).unwrap())
             .into();
         assert_eq!(refs, expected);
         let dates: Vec<NaiveDate> = slots.iter().map(|slot| slot.accounting_date).collect();
-        assert_eq!(
-            dates,
-            vec![date(2026, 1, 31), date(2026, 2, 28), date(2026, 3, 31)]
-        );
+        assert_eq!(dates, vec![date(2026, 1, 31), date(2026, 2, 28), date(2026, 3, 31)]);
         assert!(slots.iter().all(|slot| slot.amount == Cents::new(10_000)));
     }
 
@@ -167,14 +148,8 @@ mod tests {
     #[test]
     fn rejects_invalid_plans() {
         let on = date(2026, 1, 1);
-        assert_eq!(
-            split_amount(Cents::new(100), 0),
-            Err(InstallmentError::Count(0))
-        );
-        assert_eq!(
-            split_amount(Cents::new(100), 49),
-            Err(InstallmentError::Count(49))
-        );
+        assert_eq!(split_amount(Cents::new(100), 0), Err(InstallmentError::Count(0)));
+        assert_eq!(split_amount(Cents::new(100), 49), Err(InstallmentError::Count(49)));
         assert_eq!(
             split_amount(Cents::new(2), 3),
             Err(InstallmentError::TotalTooSmall { total: 2, count: 3 })

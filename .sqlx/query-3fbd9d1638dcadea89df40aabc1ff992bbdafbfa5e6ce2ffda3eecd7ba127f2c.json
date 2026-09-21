@@ -1,0 +1,154 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- Optional filters: a null parameter matches everything.\nselect id, kind, amount_cents, description, category_id, account_id, counter_account_id,\n       accounting_date, created_by, created_at, deleted_at\nfrom ledger_entries\nwhere deleted_at is null\n  and ($1::date is null or accounting_date >= $1)\n  and ($2::date is null or accounting_date <= $2)\n  and ($3::text is null or kind = $3)\n  and ($4::uuid is null or account_id = $4 or counter_account_id = $4)\n  and ($5::uuid is null or category_id = $5)\n  and ($6::uuid is null or created_by = $6)\norder by accounting_date desc, id desc\nlimit $7\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "amount_cents",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "amount_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "category_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "account_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "counter_account_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "counter_account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "accounting_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "accounting_date"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "created_by",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "created_by"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "deleted_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "deleted_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Date",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "3fbd9d1638dcadea89df40aabc1ff992bbdafbfa5e6ce2ffda3eecd7ba127f2c"
+}

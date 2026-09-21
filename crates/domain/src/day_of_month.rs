@@ -75,10 +75,7 @@ mod tests {
         assert_eq!(DayOfMonth::new(32), Err(DayOfMonthError(32)));
         assert_eq!(DayOfMonth::try_from(-1i16), Err(DayOfMonthError(-1)));
         let message = DayOfMonth::new(0).unwrap_err().to_string();
-        assert!(
-            message.contains('0') && message.contains("1 to 31"),
-            "{message}"
-        );
+        assert!(message.contains('0') && message.contains("1 to 31"), "{message}");
     }
 
     #[test]

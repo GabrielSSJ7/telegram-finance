@@ -1,0 +1,30 @@
+[package]
+name = "app"
+description = "Use cases of finbot: services over storage ports. No SQL, no HTTP, no Telegram."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+# Named in-memory fakes of every port, shared by the tests of other crates.
+test-support = []
+
+[dependencies]
+domain.workspace = true
+async-trait.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+uuid.workspace = true
+sha2.workspace = true
+hex.workspace = true
+
+[dev-dependencies]
+app = { path = ".", features = ["test-support"] }
+tokio.workspace = true
+
+[lints]
+workspace = true

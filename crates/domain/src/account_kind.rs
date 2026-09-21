@@ -20,12 +20,8 @@ pub enum AccountKind {
 pub struct UnknownAccountKind(pub String);
 
 impl AccountKind {
-    pub const ALL: [AccountKind; 4] = [
-        AccountKind::Checking,
-        AccountKind::Savings,
-        AccountKind::Cash,
-        AccountKind::Pot,
-    ];
+    pub const ALL: [AccountKind; 4] =
+        [AccountKind::Checking, AccountKind::Savings, AccountKind::Cash, AccountKind::Pot];
 
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -57,10 +53,8 @@ mod tests {
 
     #[test]
     fn only_pots_are_not_spendable() {
-        let spendable: Vec<bool> = AccountKind::ALL
-            .iter()
-            .map(|kind| kind.is_spendable())
-            .collect();
+        let spendable: Vec<bool> =
+            AccountKind::ALL.iter().map(|kind| kind.is_spendable()).collect();
         assert_eq!(spendable, vec![true, true, true, false]);
     }
 
@@ -69,12 +63,6 @@ mod tests {
         for kind in AccountKind::ALL {
             assert_eq!(kind.as_str().parse::<AccountKind>(), Ok(kind));
         }
-        assert!(
-            "investment"
-                .parse::<AccountKind>()
-                .unwrap_err()
-                .to_string()
-                .contains("pot")
-        );
+        assert!("investment".parse::<AccountKind>().unwrap_err().to_string().contains("pot"));
     }
 }

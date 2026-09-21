@@ -1,0 +1,122 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select goals.id as goal_id, goals.target_cents, goals.target_date, accounts.id, accounts.name,\n                    accounts.kind, accounts.initial_balance_cents, accounts.opened_on, accounts.archived_at\n             from goals join accounts on accounts.id = goals.account_id\n             where accounts.archived_at is null\n             order by goals.created_at, goals.id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "goal_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "goals",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "target_cents",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "goals",
+            "name": "target_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "target_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "goals",
+            "name": "target_date"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "initial_balance_cents",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "initial_balance_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "opened_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "opened_on"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "archived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "accounts",
+            "name": "archived_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "af2a04b85c998f18ecf3f4f734ecfd7d139f854908067c157944f072e4362d1d"
+}
