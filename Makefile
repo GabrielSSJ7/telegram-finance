@@ -50,6 +50,6 @@ images:
 
 shellcheck:
 	docker run --rm -v "$(CURDIR):/mnt:ro" koalaman/shellcheck:stable -x -s sh -e SC1091 \
-		/mnt/scripts/deploy.sh /mnt/scripts/init-secrets.sh /mnt/docker/backup/backup.sh /mnt/docker/backup/restore.sh
+		/mnt/scripts/deploy.sh /mnt/scripts/init-secrets.sh /mnt/scripts/install-nginx-vhost.sh /mnt/docker/backup/backup.sh /mnt/docker/backup/restore.sh
 
 check: lint test deny coverage shellcheck

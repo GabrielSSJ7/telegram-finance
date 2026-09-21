@@ -83,6 +83,8 @@ backup sidecar. Images are built by GitHub Actions on `v*` tags and pushed to
 GHCR; the VPS only pulls.
 
 - [docs/deploy-hostinger.md](docs/deploy-hostinger.md): VPS setup and releases
+- [docs/deploy-shared-nginx.md](docs/deploy-shared-nginx.md): same VPS as another
+  stack whose nginx owns ports 80/443 (no Caddy)
 - [docs/backup-restore.md](docs/backup-restore.md): encrypted backups and restore
 - [docs/setup-telegram.md](docs/setup-telegram.md): BotFather and group setup
 

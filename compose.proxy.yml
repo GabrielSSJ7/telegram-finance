@@ -1,0 +1,44 @@
+# Override for a VPS whose ports 80/443 already belong to another stack's
+# nginx (docs/deploy-shared-nginx.md). Enable it in .env:
+#
+#   COMPOSE_FILE=compose.yml:compose.proxy.yml
+#   PROXY_CONTAINER=pq-nginx
+#
+# Caddy stays off. The host's nginx reaches the API as finbot-api:8080 on
+# the finbot-proxy network; deploy.sh attaches PROXY_CONTAINER to it.
+# Limits keep finbot from starving the stack it shares the machine with.
+
+services:
+  caddy:
+    # A profile nobody enables keeps Caddy from starting.
+    profiles: [own-https]
+
+  finbot:
+    networks:
+      proxy:
+        aliases: [finbot-api]
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 256m
+
+  postgres:
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512m
+
+  backup:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          # The dump is staged in a tmpfs, which counts against this limit.
+          memory: 768m
+
+networks:
+  proxy:
+    # Fixed name: the other stack's nginx joins it by this name.
+    name: finbot-proxy

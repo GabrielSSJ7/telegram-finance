@@ -5,6 +5,10 @@ shared hosting and cannot run containers. KVM 1 (1 vCPU, 4 GB RAM) is
 enough: the VPS never compiles Rust, it pulls images built by GitHub
 Actions.
 
+If another stack on the VPS already owns ports 80 and 443 with its own
+nginx, follow [deploy-shared-nginx.md](deploy-shared-nginx.md) instead of
+the Caddy setup below.
+
 ## What runs
 
 | Service | Image | Reachable from |

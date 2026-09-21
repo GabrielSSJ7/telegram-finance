@@ -10,6 +10,20 @@ cd "$(dirname "$0")/.."
 
 tag="${1:?usage: deploy.sh <git tag, e.g. v0.4.0>}"
 
+# With compose.proxy.yml, another stack's nginx (PROXY_CONTAINER in .env)
+# serves the API. It loses the finbot-proxy network whenever that stack
+# recreates it, so every deploy re-attaches it; connecting is live and
+# does not restart the other nginx.
+attach_shared_proxy() {
+    proxy="$(sed -n 's/^PROXY_CONTAINER=//p' .env | tail -n 1)"
+    [ -n "$proxy" ] || return 0
+    attached="$(docker network inspect finbot-proxy --format '{{range .Containers}}{{.Name}} {{end}}')"
+    case " $attached " in
+        *" $proxy "*) ;;
+        *) docker network connect finbot-proxy "$proxy" && echo "attached $proxy to finbot-proxy" ;;
+    esac
+}
+
 git fetch --tags --quiet
 git checkout --quiet "$tag"
 
@@ -26,6 +40,7 @@ mv .env.next .env
 
 docker compose pull --quiet
 docker compose up -d --remove-orphans
+attach_shared_proxy
 
 container="$(docker compose ps -q finbot)"
 for attempt in $(seq 1 30); do

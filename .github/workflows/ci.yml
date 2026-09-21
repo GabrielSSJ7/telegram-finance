@@ -89,7 +89,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Shellcheck
-        run: docker run --rm -v "$PWD:/mnt:ro" koalaman/shellcheck:stable -x -s sh -e SC1091 /mnt/scripts/deploy.sh /mnt/scripts/init-secrets.sh /mnt/docker/backup/backup.sh /mnt/docker/backup/restore.sh
+        run: make shellcheck
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:

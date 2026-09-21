@@ -1,0 +1,50 @@
+# finbot API behind a shared nginx (docs/deploy-shared-nginx.md).
+# Rendered by scripts/install-nginx-vhost.sh; __DOMAIN__ is replaced.
+
+server {
+    listen 80;
+    server_name __DOMAIN__;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name __DOMAIN__;
+
+    ssl_certificate /etc/letsencrypt/live/__DOMAIN__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__DOMAIN__/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:finbot_ssl:1m;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "no-referrer" always;
+
+    client_max_body_size 1m;
+
+    # Resolved per request through Docker's DNS, so this nginx still starts
+    # (and keeps serving the other sites) while finbot is down: a static
+    # upstream would fail the whole config.
+    resolver 127.0.0.11 valid=30s ipv6=off;
+    set $finbot_upstream http://finbot-api:8080;
+
+    location / {
+        proxy_pass $finbot_upstream;
+        proxy_set_header Host $host;
+        # Overwrite, never append: the API rate-limits on the first
+        # X-Forwarded-For address, which a client could otherwise forge.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 60s;
+    }
+}
