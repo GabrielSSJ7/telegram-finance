@@ -1,5 +1,6 @@
 use app::model::{
-    AccountId, CardId, CategoryId, EntryId, GoalId, InvoiceId, RecurrenceKind, RecurrenceMode,
+    AccountId, CardId, CategoryId, CategoryKind, EntryId, GoalId, InvoiceId, RecurrenceKind,
+    RecurrenceMode,
 };
 use chrono::{NaiveDate, NaiveTime};
 use domain::{AccountKind, Cents};
@@ -32,6 +33,7 @@ pub enum Answer {
     },
     EditChoice(EditChoice),
     Time(NaiveTime),
+    CategoryKind(CategoryKind),
 }
 
 /// Which part of an entry `/ultimos` → ✏️ changes.
@@ -165,6 +167,13 @@ impl Answers {
     pub fn time(&self, field: Field) -> Option<NaiveTime> {
         match self.get(field) {
             Some(Answer::Time(time)) => Some(*time),
+            _ => None,
+        }
+    }
+
+    pub fn category_kind(&self) -> Option<CategoryKind> {
+        match self.get(Field::CategoryKindChoice) {
+            Some(Answer::CategoryKind(kind)) => Some(*kind),
             _ => None,
         }
     }

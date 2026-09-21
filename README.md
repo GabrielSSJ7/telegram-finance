@@ -107,6 +107,7 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/estorno` | Refund back to an account or a card invoice |
 | `/fatura`, `/cartoes` | Card invoices (open, due, future installments); cards |
 | `/novaconta`, `/novameta`, `/novocartao` | Create an account, a savings goal (optional deadline shows the monthly pace) or a card |
+| `/novacategoria` | Create an expense or income category, with an optional emoji (`/nova-categoria` also works when typed) |
 | `/saldo`, `/resumo`, `/ontem`, `/contas`, `/metas`, `/categorias` | Reports (`/resumo` and `/ontem` are today's and yesterday's summaries on demand; `/resumo 15/09` shows any earlier day) |
 | `/recorrente`, `/recorrentes` | Create a monthly entry (salary, rent, subscription); list and deactivate |
 | `/orcamento`, `/orcamentos` | Set (or remove) a category's limit per cycle; see how much of each is used. Alerts at 80% and 100% |

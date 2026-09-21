@@ -27,7 +27,9 @@ use crate::render::reports::{
 pub fn parse_command(text: &str) -> Option<(String, String)> {
     let body = text.trim().strip_prefix('/')?;
     let (head, rest) = body.split_once(char::is_whitespace).unwrap_or((body, ""));
-    let name = head.split('@').next().unwrap_or(head).to_lowercase();
+    // Telegram only allows letters, digits and `_` in commands, so
+    // `/nova-categoria` or `/nova_categoria` typed by hand mean /novacategoria.
+    let name = head.split('@').next().unwrap_or(head).to_lowercase().replace(['-', '_'], "");
     (!name.is_empty()).then(|| (name, rest.trim().to_owned()))
 }
 
@@ -218,6 +220,11 @@ mod tests {
         assert_eq!(parse_command("gasto"), None);
         assert_eq!(parse_command("/"), None);
         assert_eq!(parse_command("/@bot"), None);
+        assert_eq!(parse_command("/nova-categoria"), Some(("novacategoria".into(), String::new())));
+        assert_eq!(
+            parse_command("/Nova_Categoria@finbot"),
+            Some(("novacategoria".into(), String::new()))
+        );
     }
 
     #[test]

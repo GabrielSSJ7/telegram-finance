@@ -45,6 +45,7 @@ fn field_choices(
         Field::RecurrenceKindChoice => recurrence_kind_choices(),
         Field::RecurrenceModeChoice => recurrence_mode_choices(),
         Field::EditFieldChoice => edit_choices(),
+        Field::CategoryKindChoice => category_kind_choices(),
         field if typed_only(field) => return Some(Vec::new()),
         other => catalog_choices(form, other, answers, catalog),
     };
@@ -55,7 +56,7 @@ fn field_choices(
 /// "nothing" or "no change".
 const fn skip_label(field: Field) -> Option<&'static str> {
     match field {
-        Field::Description => Some("Pular"),
+        Field::Description | Field::CategoryEmoji => Some("Pular"),
         Field::InitialBalance | Field::AlreadySaved | Field::ActualBalance => Some("Zero"),
         Field::BudgetLimit => Some("🗑️ Remover orçamento"),
         Field::GoalDeadline => Some("Sem prazo"),
@@ -81,6 +82,7 @@ const fn typed_only(field: Field) -> bool {
             | Field::RecurrenceName
             | Field::RecurrenceDay
             | Field::EditTarget
+            | Field::CategoryName
     )
 }
 
@@ -151,6 +153,13 @@ fn recurrence_kind_choices() -> Choices {
     vec![
         (ButtonValue::RecurrenceKind(RecurrenceKind::Expense), "💸 Gasto".to_owned()),
         (ButtonValue::RecurrenceKind(RecurrenceKind::Income), "💰 Entrada".to_owned()),
+    ]
+}
+
+fn category_kind_choices() -> Choices {
+    vec![
+        (ButtonValue::CategoryKind(CategoryKind::Expense), "💸 Gasto".to_owned()),
+        (ButtonValue::CategoryKind(CategoryKind::Income), "💰 Entrada".to_owned()),
     ]
 }
 

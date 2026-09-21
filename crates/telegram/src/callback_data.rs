@@ -5,8 +5,8 @@
 //! and rejected instead of answering the wrong flow.
 
 use app::model::{
-    AccountId, CardId, CategoryId, DraftId, EntryId, GoalId, InvoiceId, PurchaseId, RecurrenceId,
-    RecurrenceKind, RecurrenceMode,
+    AccountId, CardId, CategoryId, CategoryKind, DraftId, EntryId, GoalId, InvoiceId, PurchaseId,
+    RecurrenceId, RecurrenceKind, RecurrenceMode,
 };
 use chrono::NaiveDate;
 
@@ -33,6 +33,7 @@ pub enum ButtonValue {
     RecurrenceKind(RecurrenceKind),
     RecurrenceMode(RecurrenceMode),
     EditChoice(EditChoice),
+    CategoryKind(CategoryKind),
     Confirm,
     Cancel,
 }
@@ -119,6 +120,7 @@ fn encode_value(value: ButtonValue) -> String {
         ButtonValue::RecurrenceKind(kind) => format!("rk:{}", kind.as_str()),
         ButtonValue::RecurrenceMode(mode) => format!("rm:{}", mode.as_str()),
         ButtonValue::EditChoice(choice) => format!("ec:{}", choice.code()),
+        ButtonValue::CategoryKind(kind) => format!("ck:{}", kind.as_str()),
         ButtonValue::Confirm => "ok".into(),
         ButtonValue::Cancel => "x".into(),
     }
@@ -173,6 +175,7 @@ fn decode_tagged(code: &str) -> Option<ButtonValue> {
         "cc" => value.parse().ok().map(ButtonValue::Card),
         "i" => value.parse().ok().map(ButtonValue::Invoice),
         "n" => value.parse().ok().map(ButtonValue::Installments),
+        "ck" => value.parse().ok().map(ButtonValue::CategoryKind),
         "m" => value.parse().ok().map(|cents| ButtonValue::Money(Cents::new(cents))),
         "rk" => value.parse().ok().map(ButtonValue::RecurrenceKind),
         "rm" => value.parse().ok().map(ButtonValue::RecurrenceMode),
@@ -202,6 +205,7 @@ mod tests {
             ButtonValue::RecurrenceKind(RecurrenceKind::Income),
             ButtonValue::RecurrenceMode(RecurrenceMode::Confirm),
             ButtonValue::EditChoice(EditChoice::Category),
+            ButtonValue::CategoryKind(CategoryKind::Income),
             ButtonValue::Confirm,
             ButtonValue::Cancel,
         ]

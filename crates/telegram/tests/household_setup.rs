@@ -69,3 +69,37 @@ async fn config_takes_both_report_times_and_keeps_today_in_the_evening() {
 fn at(hour: u32, minute: u32) -> NaiveTime {
     NaiveTime::from_hms_opt(hour, minute, 0).unwrap()
 }
+
+#[tokio::test]
+async fn nova_categoria_creates_a_category_usable_in_gasto() {
+    let mut harness = BotHarness::bound().await.with_basics().await;
+    harness.say(ANA, "/nova-categoria").await;
+    harness.say(ANA, "pets").await;
+    harness.tap(ANA, "Gasto").await;
+    harness.say(ANA, "cachorro").await;
+    harness.expect_last("Mande só um emoji");
+    harness.say(ANA, "🐶").await;
+    harness.tap(ANA, "Confirmar").await;
+    harness.expect_last("Categoria criada");
+    harness.say(ANA, "/gasto").await;
+    harness.say(ANA, "80").await;
+    harness.tap(ANA, "Pular").await;
+    assert!(harness.gateway.find_button(common::GROUP, "🐶 pets").is_some());
+}
+
+#[tokio::test]
+async fn nova_categoria_refuses_a_repeated_name() {
+    let mut harness = BotHarness::bound().await.with_basics().await;
+    harness.say(BIA, "/novacategoria").await;
+    harness.say(BIA, "Mercado").await;
+    harness.tap(BIA, "Gasto").await;
+    harness.tap(BIA, "Pular").await;
+    harness.tap(BIA, "Confirmar").await;
+    let expense = app::model::CategoryKind::Expense;
+    let categories = harness.set.services.categories.list(Some(expense)).await.unwrap();
+    assert_eq!(
+        categories.iter().filter(|category| category.name.eq_ignore_ascii_case("mercado")).count(),
+        1
+    );
+    harness.expect_last("Já existe um registro com esse nome.");
+}

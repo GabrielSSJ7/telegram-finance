@@ -21,6 +21,7 @@ pub enum FormKind {
     /// Makes an account's balance match the bank.
     Adjust,
     Settings,
+    NewCategory,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -75,6 +76,10 @@ pub enum Field {
     YesterdayReportTime,
     /// 19:00 or later.
     TodayReportTime,
+    CategoryName,
+    CategoryKindChoice,
+    /// Optional; skipped means no emoji.
+    CategoryEmoji,
 }
 
 use Field::{
@@ -88,6 +93,9 @@ use Field::{
 /// Only the field picked in `EditFieldChoice` applies.
 const EDIT_FIELDS: &[Field] =
     &[EditTarget, EditFieldChoice, Amount, Description, ExpenseCategory, IncomeCategory, Date];
+
+const CATEGORY_FIELDS: &[Field] =
+    &[Field::CategoryName, Field::CategoryKindChoice, Field::CategoryEmoji];
 
 /// Each one can be kept as it is with the [Manter] button.
 const SETTINGS_FIELDS: &[Field] =
@@ -107,7 +115,7 @@ const RECURRENCE_FIELDS: &[Field] = &[
 ];
 
 impl FormKind {
-    pub const ALL: [FormKind; 15] = [
+    pub const ALL: [FormKind; 16] = [
         FormKind::Expense,
         FormKind::Income,
         FormKind::Transfer,
@@ -123,6 +131,7 @@ impl FormKind {
         FormKind::EditEntry,
         FormKind::Adjust,
         FormKind::Settings,
+        FormKind::NewCategory,
     ];
 
     pub const fn fields(self) -> &'static [Field] {
@@ -144,6 +153,7 @@ impl FormKind {
             FormKind::EditEntry => EDIT_FIELDS,
             FormKind::Adjust => &[ReceivingAccount, Field::ActualBalance],
             FormKind::Settings => SETTINGS_FIELDS,
+            FormKind::NewCategory => CATEGORY_FIELDS,
         }
     }
 
@@ -165,6 +175,7 @@ impl FormKind {
             FormKind::EditEntry => "editar",
             FormKind::Adjust => "ajuste",
             FormKind::Settings => "config",
+            FormKind::NewCategory => "novacategoria",
         }
     }
 
@@ -185,6 +196,7 @@ impl FormKind {
             FormKind::EditEntry => "Editar lançamento",
             FormKind::Adjust => "Ajustar saldo",
             FormKind::Settings => "Configurações",
+            FormKind::NewCategory => "Nova categoria",
         }
     }
 

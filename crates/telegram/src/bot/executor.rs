@@ -2,8 +2,8 @@
 
 use app::AppResult;
 use app::model::{
-    Account, Budget, CardPurchase, CategoryId, CreditCard, Goal, HouseholdSettings, LedgerEntry,
-    Recurrence,
+    Account, Budget, CardPurchase, Category, CategoryId, CreditCard, Goal, HouseholdSettings,
+    LedgerEntry, Recurrence,
 };
 use app::services::{EntryOrigin, ServiceSet};
 use domain::Cents;
@@ -21,6 +21,7 @@ pub enum Committed {
     Budget(Budget),
     BudgetRemoved,
     Settings(HouseholdSettings),
+    Category(Category),
 }
 
 pub async fn execute(
@@ -65,12 +66,15 @@ async fn configure(services: &ServiceSet, command: FormCommand) -> AppResult<Com
     }
 }
 
-/// Budgets and household settings.
+/// Budgets, categories and household settings.
 async fn household_rules(services: &ServiceSet, command: FormCommand) -> AppResult<Committed> {
     match command {
         FormCommand::SetBudget { category, limit } => set_budget(services, category, limit).await,
         FormCommand::UpdateSettings(patch) => {
             services.settings.update(patch).await.map(Committed::Settings)
+        }
+        FormCommand::CreateCategory { name, kind, emoji } => {
+            services.categories.create(&name, kind, emoji).await.map(Committed::Category)
         }
         other => {
             Err(app::AppError::invalid("form command", format!("{other:?}"), "a setup command"))
@@ -136,5 +140,6 @@ pub const fn headline(form: FormKind) -> &'static str {
         FormKind::EditEntry => "Lançamento alterado",
         FormKind::Adjust => "Saldo ajustado",
         FormKind::Settings => "Configuração salva",
+        FormKind::NewCategory => "Categoria criada",
     }
 }

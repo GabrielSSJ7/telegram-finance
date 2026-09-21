@@ -1,6 +1,7 @@
 //! Reads one input (typed text or a tapped button) as the answer to one
 //! field. Problems come back as pt-BR text for the chat.
 
+use app::services::categories::MAX_CATEGORY_NAME_CHARS;
 use app::services::settings::{EARLIEST_TODAY_REPORT, is_evening_report_time};
 use app::services::text_rules::{clean_description, clean_name};
 use chrono::{Days, NaiveDate};
@@ -36,8 +37,10 @@ pub fn interpret(field: Field, input: &FormInput, today: NaiveDate) -> Result<In
         Field::TodayReportTime => keep_or(input, evening_report_time),
         Field::Description => description(input),
         Field::AccountName | Field::GoalName | Field::CardName | Field::RecurrenceName => {
-            name(input)
+            name(input, MAX_NAME_CHARS)
         }
+        Field::CategoryName => name(input, MAX_CATEGORY_NAME_CHARS),
+        Field::CategoryEmoji => keep_or(input, emoji),
         Field::ClosingDay | Field::DueDay | Field::RecurrenceDay => day_of_month(input),
         Field::Installments => installments(input),
         _ => button_choice(field, input),
@@ -162,13 +165,32 @@ fn description(input: &FormInput) -> Result<Answer, String> {
     }
 }
 
-fn name(input: &FormInput) -> Result<Answer, String> {
+/// Longest account, goal, card or recurrence name.
+const MAX_NAME_CHARS: usize = 40;
+
+/// Longest emoji sequence accepted: family and flag emoji take several
+/// code points, sentences do not fit.
+const MAX_EMOJI_CHARS: usize = 8;
+
+fn name(input: &FormInput, max_chars: usize) -> Result<Answer, String> {
     let FormInput::Text(text) = input else {
         return Err("Digite o nome.".into());
     };
-    clean_name("name", text, 40)
+    clean_name("name", text, max_chars)
         .map(Answer::Text)
-        .map_err(|_| "Use um nome de 1 a 40 letras.".into())
+        .map_err(|_| format!("Use um nome de 1 a {max_chars} letras."))
+}
+
+fn emoji(input: &FormInput) -> Result<Answer, String> {
+    let problem = || "Mande só um emoji (ex.: 🐶) ou toque em Pular.".to_owned();
+    let FormInput::Text(text) = input else {
+        return Err(problem());
+    };
+    let text = text.trim();
+    let looks_like_emoji = !text.is_empty()
+        && text.chars().count() <= MAX_EMOJI_CHARS
+        && !text.chars().any(char::is_alphanumeric);
+    looks_like_emoji.then(|| Answer::Text(text.to_owned())).ok_or_else(problem)
 }
 
 fn date(input: &FormInput, today: NaiveDate) -> Result<Interpreted, String> {
@@ -211,6 +233,9 @@ fn button_choice(field: Field, input: &FormInput) -> Result<Answer, String> {
 fn option_choice(field: Field, value: ButtonValue) -> Result<Answer, String> {
     match (field, value) {
         (Field::EditFieldChoice, ButtonValue::EditChoice(choice)) => Ok(Answer::EditChoice(choice)),
+        (Field::CategoryKindChoice, ButtonValue::CategoryKind(kind)) => {
+            Ok(Answer::CategoryKind(kind))
+        }
         (Field::RecurrenceKindChoice, ButtonValue::RecurrenceKind(kind)) => {
             Ok(Answer::RecurrenceKind(kind))
         }
@@ -279,6 +304,20 @@ mod tests {
         assert!(tap(Field::Description, ButtonValue::Confirm).is_err());
         assert!(typed(Field::AccountName, "   ").is_err());
         assert!(tap(Field::GoalName, ButtonValue::Skip).is_err());
+        assert!(typed(Field::CategoryName, &"a".repeat(33)).is_err());
+        assert_eq!(typed(Field::CategoryName, " pets "), got(Answer::Text("pets".into())));
+    }
+
+    #[test]
+    fn category_emoji_and_kind() {
+        assert_eq!(typed(Field::CategoryEmoji, " 🐶 "), got(Answer::Text("🐶".into())));
+        assert_eq!(typed(Field::CategoryEmoji, "👨‍👩‍👧"), got(Answer::Text("👨‍👩‍👧".into())));
+        assert_eq!(tap(Field::CategoryEmoji, ButtonValue::Skip), got(Answer::Skipped));
+        assert!(typed(Field::CategoryEmoji, "cachorro").is_err());
+        let income = app::model::CategoryKind::Income;
+        let chosen = tap(Field::CategoryKindChoice, ButtonValue::CategoryKind(income));
+        assert_eq!(chosen, got(Answer::CategoryKind(income)));
+        assert!(tap(Field::CategoryKindChoice, ButtonValue::Skip).is_err());
     }
 
     #[test]

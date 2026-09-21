@@ -1,7 +1,7 @@
 //! Turns a confirmed form into the use-case request it stands for.
 
 use app::model::{
-    CategoryId, EntryId, EntryPatch, RecurrenceKind, RecurrenceTarget, SettingsPatch,
+    CategoryId, CategoryKind, EntryId, EntryPatch, RecurrenceKind, RecurrenceTarget, SettingsPatch,
 };
 use app::services::ledger::{AccountEntry, EntryRequest, TransferEntry};
 use app::services::{
@@ -36,6 +36,11 @@ pub enum FormCommand {
     },
     Reconcile(ReconcileBalance),
     UpdateSettings(SettingsPatch),
+    CreateCategory {
+        name: String,
+        kind: CategoryKind,
+        emoji: Option<String>,
+    },
 }
 
 /// `None` when a required answer is missing (the engine never confirms
@@ -90,8 +95,19 @@ fn setup_command(form: FormKind, answers: &Answers) -> Option<FormCommand> {
             Some(FormCommand::SetBudget { category, limit })
         }
         FormKind::Settings => settings_patch(answers).map(FormCommand::UpdateSettings),
+        FormKind::NewCategory => new_category(answers),
         _ => None,
     }
+}
+
+/// A skipped emoji becomes `None`.
+fn new_category(answers: &Answers) -> Option<FormCommand> {
+    let emoji = answers.text(Field::CategoryEmoji)?;
+    Some(FormCommand::CreateCategory {
+        name: answers.text(Field::CategoryName)?,
+        kind: answers.category_kind()?,
+        emoji: (!emoji.is_empty()).then_some(emoji),
+    })
 }
 
 fn reconcile(answers: &Answers) -> Option<ReconcileBalance> {

@@ -1,4 +1,4 @@
-use app::model::{RecurrenceKind, RecurrenceMode};
+use app::model::{CategoryKind, RecurrenceKind, RecurrenceMode};
 use chrono::{Days, NaiveDate};
 use domain::money_format::format_brl;
 
@@ -79,6 +79,8 @@ pub fn answer_value(answer: &Answer, context: CardContext<'_>) -> String {
         Answer::Entry { label, .. } => label.clone(),
         Answer::EditChoice(choice) => edit_choice_name(*choice).to_owned(),
         Answer::Time(time) => time.format("%H:%M").to_string(),
+        Answer::CategoryKind(CategoryKind::Expense) => "Gasto".to_owned(),
+        Answer::CategoryKind(CategoryKind::Income) => "Entrada".to_owned(),
         reference => referenced_name(reference, context.catalog),
     }
 }
@@ -167,6 +169,9 @@ const FIELD_TEXT: &[(Field, &str, &str)] = &[
     (Field::CycleStartDay, "🔄", "Ciclo começa"),
     (Field::YesterdayReportTime, "🌅", "Resumo de ontem"),
     (Field::TodayReportTime, "🌙", "Resumo de hoje"),
+    (Field::CategoryName, "✏️", "Nome"),
+    (Field::CategoryKindChoice, "🗂️", "Tipo"),
+    (Field::CategoryEmoji, "🙂", "Emoji"),
 ];
 
 fn field_text(field: Field) -> (&'static str, &'static str) {
@@ -228,6 +233,9 @@ const QUESTIONS: &[(Option<FormKind>, Field, &str)] = &[
     (Some(FormKind::EditEntry), Field::Date, "Qual a data certa?"),
     (None, Field::EditFieldChoice, "O que você quer alterar?"),
     (None, Field::EditTarget, "Qual lançamento?"),
+    (None, Field::CategoryName, "Nome da categoria? (ex.: pets, farmácia, presentes)"),
+    (None, Field::CategoryKindChoice, "É uma categoria de gasto ou de entrada?"),
+    (None, Field::CategoryEmoji, "Um emoji para ela? (ex.: 🐶) Ou toque em Pular."),
     (Some(FormKind::Adjust), Field::ReceivingAccount, "Qual conta ajustar?"),
     (None, Field::ActualBalance, "Qual o saldo real dela agora, no app do banco? (negativo: -50)"),
     (None, Field::CycleStartDay, "Em que dia começa o ciclo? (1 a 31, ex.: dia do salário)"),

@@ -26,6 +26,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("recorrentes", "Listar e desativar recorrentes"),
     ("contas", "Listar contas"),
     ("categorias", "Listar categorias"),
+    ("novacategoria", "Criar uma categoria de gasto ou de entrada"),
     ("ajuste", "Acertar o saldo de uma conta com o do banco"),
     ("config", "Dia de início do ciclo e horários dos resumos"),
     ("cancelar", "Cancelar o que está preenchendo"),
