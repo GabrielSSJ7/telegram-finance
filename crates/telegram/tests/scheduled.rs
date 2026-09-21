@@ -154,18 +154,7 @@ async fn scheduled_messages_are_dropped_before_binding_and_backups_go_to_dms() {
 #[tokio::test]
 async fn resumo_with_a_date_shows_that_day() {
     let mut harness = BotHarness::bound().await.with_basics().await;
-    let account_id = harness.set.services.accounts.list(false).await.unwrap()[0].id;
-    let expense = CategoryKind::Expense;
-    let category_id = harness.set.services.categories.list(Some(expense)).await.unwrap()[0].id;
-    let bread = AccountEntry {
-        account_id,
-        category_id,
-        amount: Cents::new(2_500),
-        description: "pão".into(),
-        date: Some(date(3, 5)),
-    };
-    let request = EntryRequest::Expense(bread);
-    harness.set.services.ledger.record(request, EntryOrigin::default()).await.unwrap();
+    record_bread_on(&harness, date(3, 5)).await;
     harness.say(ANA, "/resumo 05/03").await;
     let report = harness.last_html();
     assert!(report.starts_with("<b>📊 Resumo de quinta, 05/03</b>"), "{report}");
@@ -177,4 +166,20 @@ async fn resumo_with_a_date_shows_that_day() {
     harness.expect_last("Esse dia ainda não chegou.");
     harness.say(ANA, "/resumo semana passada").await;
     harness.expect_last("Não entendi a data.");
+}
+
+/// A R$ 25,00 "pão" expense at the Nubank account, dated `day`.
+async fn record_bread_on(harness: &BotHarness, day: NaiveDate) {
+    let account_id = harness.set.services.accounts.list(false).await.unwrap()[0].id;
+    let expense = CategoryKind::Expense;
+    let category_id = harness.set.services.categories.list(Some(expense)).await.unwrap()[0].id;
+    let bread = AccountEntry {
+        account_id,
+        category_id,
+        amount: Cents::new(2_500),
+        description: "pão".into(),
+        date: Some(day),
+    };
+    let request = EntryRequest::Expense(bread);
+    harness.set.services.ledger.record(request, EntryOrigin::default()).await.unwrap();
 }
