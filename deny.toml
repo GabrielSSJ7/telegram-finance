@@ -26,6 +26,10 @@ allow = [
     "CDLA-Permissive-2.0",
     "MPL-2.0",
 ]
+exceptions = [
+    # Telegram client; WTFPL is permissive (FSF free) and limited to this crate.
+    { allow = ["WTFPL"], crate = "frankenstein" },
+]
 
 [bans]
 multiple-versions = "warn"
