@@ -1,4 +1,4 @@
-use app::model::{AccountId, CategoryId, GoalId};
+use app::model::{AccountId, CardId, CategoryId, GoalId, InvoiceId};
 use chrono::NaiveDate;
 use domain::{AccountKind, Cents};
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,10 @@ pub enum Answer {
     Goal(GoalId),
     Date(NaiveDate),
     AccountKind(AccountKind),
+    Card(CardId),
+    Invoice(InvoiceId),
+    Installments(u32),
+    Day(u8),
 }
 
 /// Answers given so far, in the order the fields were asked.
@@ -76,6 +80,35 @@ impl Answers {
     pub fn date(&self) -> Option<NaiveDate> {
         match self.get(Field::Date) {
             Some(Answer::Date(date)) => Some(*date),
+            _ => None,
+        }
+    }
+
+    pub fn card(&self, field: Field) -> Option<CardId> {
+        match self.get(field) {
+            Some(Answer::Card(id)) => Some(*id),
+            _ => None,
+        }
+    }
+
+    pub fn invoice(&self) -> Option<InvoiceId> {
+        match self.get(Field::InvoiceChoice) {
+            Some(Answer::Invoice(id)) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Installments chosen; a card purchase without the step is 1x.
+    pub fn installments(&self) -> u32 {
+        match self.get(Field::Installments) {
+            Some(Answer::Installments(count)) => *count,
+            _ => 1,
+        }
+    }
+
+    pub fn day(&self, field: Field) -> Option<u8> {
+        match self.get(field) {
+            Some(Answer::Day(day)) => Some(*day),
             _ => None,
         }
     }

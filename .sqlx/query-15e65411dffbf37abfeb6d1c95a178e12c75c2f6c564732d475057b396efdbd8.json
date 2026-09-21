@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, kind, amount_cents, description, category_id, account_id, counter_account_id,\n                    accounting_date, created_by, created_at, deleted_at\n             from ledger_entries where id = $1",
+  "query": "-- Optional filters: a null parameter matches everything.\nselect id, kind, amount_cents, description, category_id, account_id, counter_account_id,\n       card_purchase_id, installment_no, invoice_id, accounting_date, created_by, created_at, deleted_at\nfrom ledger_entries\nwhere deleted_at is null\n  and ($1::date is null or accounting_date >= $1)\n  and ($2::date is null or accounting_date <= $2)\n  and ($3::text is null or kind = $3)\n  and ($4::uuid is null or account_id = $4 or counter_account_id = $4)\n  and ($5::uuid is null or category_id = $5)\n  and ($6::uuid is null or created_by = $6)\norder by accounting_date desc, id desc\nlimit $7\n",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,39 @@
       },
       {
         "ordinal": 7,
+        "name": "card_purchase_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "card_purchase_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "installment_no",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "installment_no"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "invoice_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "invoice_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
         "name": "accounting_date",
         "type_info": "Date",
         "origin": {
@@ -92,7 +125,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 11,
         "name": "created_by",
         "type_info": "Uuid",
         "origin": {
@@ -103,7 +136,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +147,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 13,
         "name": "deleted_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -127,7 +160,13 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Date",
+        "Date",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int8"
       ]
     },
     "nullable": [
@@ -138,11 +177,14 @@
       true,
       true,
       true,
+      true,
+      true,
+      true,
       false,
       true,
       false,
       true
     ]
   },
-  "hash": "c73cb6ea61df3d7a5e7865fbebeb7c2c4995ebf61a15f8510938e2314937efc0"
+  "hash": "15e65411dffbf37abfeb6d1c95a178e12c75c2f6c564732d475057b396efdbd8"
 }

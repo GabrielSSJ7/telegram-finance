@@ -6,4 +6,4 @@ update ledger_entries set
     accounting_date = coalesce($5, accounting_date)
 where id = $1 and deleted_at is null
 returning id, kind, amount_cents, description, category_id, account_id, counter_account_id,
-          accounting_date, created_by, created_at, deleted_at
+          card_purchase_id, installment_no, invoice_id, accounting_date, created_by, created_at, deleted_at

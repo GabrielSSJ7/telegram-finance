@@ -14,8 +14,8 @@ choose, such as payday). A REST API exposes the same data.
 | 2 | Postgres schema, core services, REST API | done |
 | 3 | Telegram bot MVP | done |
 | 4 | Docker, Caddy, backups, deploy | done |
-| 5 | Credit cards and invoices | next |
-| 6 | Scheduler and reports | |
+| 5 | Credit cards and invoices | done |
+| 6 | Scheduler and reports | next |
 | 7 | Budgets and goals | |
 | 8 | Edit flows, CSV export, hardening | |
 
@@ -78,11 +78,14 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 
 | Command | What it does |
 |---|---|
-| `/gasto` | Guided expense: value, description, category, account, date |
+| `/gasto` | Guided expense: value, description, category, account or card (with installments), date |
 | `/entrada` | Guided income |
 | `/transferir` | Move money between accounts |
 | `/guardar`, `/resgatar` | Move money into or out of a goal's pot |
-| `/novaconta`, `/novameta` | Create an account or a savings goal |
+| `/pagarfatura` | Pay (part of) a card invoice from an account |
+| `/estorno` | Refund back to an account or a card invoice |
+| `/fatura`, `/cartoes` | Card invoices (open, due, future installments); cards |
+| `/novaconta`, `/novameta`, `/novocartao` | Create an account, a savings goal or a card |
 | `/saldo`, `/contas`, `/metas`, `/categorias` | Reports |
 | `/desfazer` | Undo your own last entry |
 | `/cancelar`, `/ajuda` | Cancel the current form, list commands |

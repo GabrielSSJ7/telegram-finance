@@ -27,7 +27,7 @@ fn pot_move(goal_id: GoalId, account_id: AccountId, cents: i64) -> PotMove {
 }
 
 async fn sheet(set: &FakeServiceSet) -> BalanceSheet {
-    set.services.accounts.balance_sheet().await.unwrap()
+    set.services.position.balance_sheet().await.unwrap()
 }
 
 #[tokio::test]

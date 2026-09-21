@@ -9,7 +9,7 @@ use super::{AccountService, CategoryService};
 use crate::model::{
     CategoryKind, DraftId, EntryFilter, EntryId, EntryPatch, LedgerEntry, MemberId, NewEntry,
 };
-use crate::ports::{Clock, EntryStore};
+use crate::ports::{CardStore, Clock, EntryStore};
 use crate::{AppError, AppResult};
 
 pub use super::ledger_validation::{AccountEntry, AdjustmentEntry, EntryRequest, TransferEntry};
@@ -23,6 +23,7 @@ pub struct EntryOrigin {
 
 pub struct LedgerService {
     entries: Arc<dyn EntryStore>,
+    cards: Arc<dyn CardStore>,
     accounts: Arc<AccountService>,
     categories: Arc<CategoryService>,
     clock: Arc<dyn Clock>,
@@ -31,11 +32,12 @@ pub struct LedgerService {
 impl LedgerService {
     pub fn new(
         entries: Arc<dyn EntryStore>,
+        cards: Arc<dyn CardStore>,
         accounts: Arc<AccountService>,
         categories: Arc<CategoryService>,
         clock: Arc<dyn Clock>,
     ) -> Self {
-        Self { entries, accounts, categories, clock }
+        Self { entries, cards, accounts, categories, clock }
     }
 
     /// Validates and saves one entry. Saving the same draft twice fails with
@@ -77,9 +79,14 @@ impl LedgerService {
         updated.ok_or_else(|| AppError::not_found("entry", id))
     }
 
+    /// Deletes an entry; an installment deletes its whole card purchase.
     pub async fn delete(&self, id: EntryId) -> AppResult<LedgerEntry> {
         let entry = self.find(id).await?;
-        if !self.entries.soft_delete_entry(id, self.clock.now()).await? {
+        let deleted = match entry.card_purchase_id {
+            Some(purchase) => self.cards.delete_purchase(purchase, self.clock.now()).await?,
+            None => self.entries.soft_delete_entry(id, self.clock.now()).await?,
+        };
+        if !deleted {
             return Err(AppError::not_found("entry", id));
         }
         Ok(entry)

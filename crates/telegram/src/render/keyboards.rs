@@ -1,24 +1,29 @@
 //! Inline keyboards for each question. Every flow keyboard ends with a
 //! [Cancelar] row so the couple can always back out.
 
-use app::model::CategoryKind;
+use app::model::{AccountId, CategoryKind};
 use domain::AccountKind;
+use domain::money_format::format_brl;
 
 use super::Catalog;
-use super::catalog::{account_label, category_label, kind_name};
+use super::catalog::{account_label, card_label, category_label, kind_name};
+use super::reports::invoice_label;
 use crate::callback_data::{ButtonValue, flow_button};
 use crate::flows::{Answers, Awaiting, Field, FormKind, FormState};
 use crate::gateway::{Button, Keyboard};
 
+type Choices = Vec<(ButtonValue, String)>;
+
 /// Buttons for the current question; `None` when the flow cannot go on
 /// (for example, no accounts exist yet).
 pub fn question_keyboard(state: &FormState, catalog: &Catalog, nonce: &str) -> Option<Keyboard> {
-    let choices = match state.awaiting {
-        Awaiting::Confirmation => vec![(ButtonValue::Confirm, "✅ Confirmar".to_owned())],
-        Awaiting::TypedDate => Vec::new(),
-        Awaiting::Field(field) => field_choices(state.form, field, &state.answers, catalog)?,
+    let (choices, per_row) = match state.awaiting {
+        Awaiting::Confirmation => (vec![(ButtonValue::Confirm, "✅ Confirmar".to_owned())], 2),
+        Awaiting::TypedDate => (Vec::new(), 2),
+        Awaiting::Field(Field::Installments) => (installment_choices(), 4),
+        Awaiting::Field(field) => (field_choices(state.form, field, &state.answers, catalog)?, 2),
     };
-    Some(with_cancel(choices, nonce))
+    Some(with_cancel(choices, nonce, per_row))
 }
 
 fn field_choices(
@@ -26,62 +31,104 @@ fn field_choices(
     field: Field,
     answers: &Answers,
     catalog: &Catalog,
-) -> Option<Vec<(ButtonValue, String)>> {
+) -> Option<Choices> {
     let choices = match field {
-        Field::Amount | Field::GoalTarget | Field::AccountName | Field::GoalName => {
-            return Some(Vec::new());
+        Field::Amount if form == FormKind::PayInvoice => {
+            return Some(full_payment_choice(answers, catalog));
         }
         Field::Description => vec![(ButtonValue::Skip, "Pular".to_owned())],
         Field::InitialBalance | Field::AlreadySaved => vec![(ButtonValue::Skip, "Zero".to_owned())],
         Field::Date => date_choices(),
         Field::AccountKind => kind_choices(),
+        field if typed_only(field) => return Some(Vec::new()),
         other => catalog_choices(form, other, answers, catalog),
     };
     (!choices.is_empty()).then_some(choices)
 }
 
+/// Fields answered by typing; they only get the cancel button.
+const fn typed_only(field: Field) -> bool {
+    matches!(
+        field,
+        Field::Amount
+            | Field::GoalTarget
+            | Field::AccountName
+            | Field::GoalName
+            | Field::CardName
+            | Field::ClosingDay
+            | Field::DueDay
+            | Field::Installments
+    )
+}
+
 /// Choices that come from the couple's own data.
-fn catalog_choices(
-    form: FormKind,
-    field: Field,
-    answers: &Answers,
-    catalog: &Catalog,
-) -> Vec<(ButtonValue, String)> {
+fn catalog_choices(form: FormKind, field: Field, answers: &Answers, catalog: &Catalog) -> Choices {
     match field {
         Field::ExpenseCategory => category_choices(catalog, CategoryKind::Expense),
         Field::IncomeCategory => category_choices(catalog, CategoryKind::Income),
-        Field::Goal => catalog
-            .goals
-            .iter()
-            .map(|goal| (ButtonValue::Goal(goal.id), catalog.goal_label(goal.id)))
-            .collect(),
+        Field::Goal => goal_choices(catalog),
         Field::ToAccount => account_choices(catalog, excluded_source(form, answers)),
+        Field::CardChoice => card_choices(catalog),
+        Field::InvoiceChoice => invoice_choices(answers, catalog),
+        Field::RefundTarget => [account_choices(catalog, None), card_choices(catalog)].concat(),
+        Field::PaymentAccount if form == FormKind::Expense => {
+            [account_choices(catalog, None), card_choices(catalog)].concat()
+        }
         _ => account_choices(catalog, None),
     }
 }
 
-fn excluded_source(form: FormKind, answers: &Answers) -> Option<app::model::AccountId> {
+fn excluded_source(form: FormKind, answers: &Answers) -> Option<AccountId> {
     (form == FormKind::Transfer).then(|| answers.account(Field::FromAccount)).flatten()
 }
 
-fn category_choices(catalog: &Catalog, kind: CategoryKind) -> Vec<(ButtonValue, String)> {
-    catalog
-        .categories_of(kind)
-        .into_iter()
+fn category_choices(catalog: &Catalog, kind: CategoryKind) -> Choices {
+    let categories = catalog.categories_of(kind).into_iter();
+    categories
         .map(|category| (ButtonValue::Category(category.id), category_label(category)))
         .collect()
 }
 
-fn account_choices(
-    catalog: &Catalog,
-    excluded: Option<app::model::AccountId>,
-) -> Vec<(ButtonValue, String)> {
+fn goal_choices(catalog: &Catalog) -> Choices {
+    catalog
+        .goals
+        .iter()
+        .map(|goal| (ButtonValue::Goal(goal.id), catalog.goal_label(goal.id)))
+        .collect()
+}
+
+fn account_choices(catalog: &Catalog, excluded: Option<AccountId>) -> Choices {
     let accounts =
         catalog.spendable_accounts().into_iter().filter(|account| Some(account.id) != excluded);
     accounts.map(|account| (ButtonValue::Account(account.id), account_label(account))).collect()
 }
 
-fn date_choices() -> Vec<(ButtonValue, String)> {
+fn card_choices(catalog: &Catalog) -> Choices {
+    catalog.cards.iter().map(|card| (ButtonValue::Card(card.id), card_label(card))).collect()
+}
+
+fn invoice_choices(answers: &Answers, catalog: &Catalog) -> Choices {
+    let Some(card) = answers.card(Field::CardChoice) else {
+        return Vec::new();
+    };
+    let views = catalog.payable_invoices(card).into_iter();
+    views.map(|view| (ButtonValue::Invoice(view.invoice.id), invoice_label(&view))).collect()
+}
+
+/// [Total R$ X] for the chosen invoice, when it still owes money.
+fn full_payment_choice(answers: &Answers, catalog: &Catalog) -> Choices {
+    let owed =
+        answers.invoice().and_then(|id| catalog.invoice(id)).map(|view| view.statement.outstanding);
+    let owed = owed.filter(|amount| amount.is_positive());
+    owed.map(|amount| vec![(ButtonValue::Money(amount), format!("Total {}", format_brl(amount)))])
+        .unwrap_or_default()
+}
+
+fn installment_choices() -> Choices {
+    (1..=12).map(|count| (ButtonValue::Installments(count), format!("{count}x"))).collect()
+}
+
+fn date_choices() -> Choices {
     vec![
         (ButtonValue::Today, "Hoje".to_owned()),
         (ButtonValue::Yesterday, "Ontem".to_owned()),
@@ -89,20 +136,20 @@ fn date_choices() -> Vec<(ButtonValue, String)> {
     ]
 }
 
-fn kind_choices() -> Vec<(ButtonValue, String)> {
+fn kind_choices() -> Choices {
     [AccountKind::Checking, AccountKind::Savings, AccountKind::Cash]
         .into_iter()
         .map(|kind| (ButtonValue::Kind(kind), kind_name(kind).to_owned()))
         .collect()
 }
 
-/// Two buttons per row (labels are short), then the cancel row.
-fn with_cancel(choices: Vec<(ButtonValue, String)>, nonce: &str) -> Keyboard {
+/// `per_row` buttons per row, then the cancel row.
+fn with_cancel(choices: Choices, nonce: &str, per_row: usize) -> Keyboard {
     let buttons: Vec<Button> = choices
         .into_iter()
         .map(|(value, label)| Button { label, data: flow_button(nonce, value) })
         .collect();
-    let mut rows: Vec<Vec<Button>> = buttons.chunks(2).map(<[Button]>::to_vec).collect();
+    let mut rows: Vec<Vec<Button>> = buttons.chunks(per_row).map(<[Button]>::to_vec).collect();
     rows.push(vec![Button {
         label: "✖️ Cancelar".into(),
         data: flow_button(nonce, ButtonValue::Cancel),

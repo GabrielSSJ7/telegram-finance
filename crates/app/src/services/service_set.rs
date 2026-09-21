@@ -4,12 +4,12 @@
 use std::sync::Arc;
 
 use super::{
-    AccountService, AllowedUsers, ApiKeyService, CategoryService, GoalService, LedgerService,
-    MemberService, SettingsService,
+    AccountService, AllowedUsers, ApiKeyService, CardService, CategoryService, GoalService,
+    LedgerService, MemberService, PositionService, SettingsService,
 };
 use crate::ports::{
-    AccountStore, ApiKeyStore, BotStateStore, CategoryStore, ChatFlowStore, Clock, EntryStore,
-    GoalStore, MemberStore, SettingsStore, TokenSource,
+    AccountStore, ApiKeyStore, BotStateStore, CardStore, CategoryStore, ChatFlowStore, Clock,
+    EntryStore, GoalStore, MemberStore, SettingsStore, TokenSource,
 };
 
 /// One handle per store port.
@@ -24,6 +24,7 @@ pub struct StorePorts {
     pub api_keys: Arc<dyn ApiKeyStore>,
     pub flows: Arc<dyn ChatFlowStore>,
     pub bot_state: Arc<dyn BotStateStore>,
+    pub cards: Arc<dyn CardStore>,
 }
 
 impl StorePorts {
@@ -39,6 +40,7 @@ impl StorePorts {
             + ApiKeyStore
             + ChatFlowStore
             + BotStateStore
+            + CardStore
             + 'static,
     {
         Self {
@@ -51,6 +53,7 @@ impl StorePorts {
             api_keys: store.clone(),
             flows: store.clone(),
             bot_state: store.clone(),
+            cards: store.clone(),
         }
     }
 }
@@ -72,6 +75,8 @@ pub struct ServiceSet {
     pub members: Arc<MemberService>,
     pub settings: Arc<SettingsService>,
     pub api_keys: Arc<ApiKeyService>,
+    pub cards: Arc<CardService>,
+    pub position: Arc<PositionService>,
 }
 
 impl ServiceSet {
@@ -81,24 +86,90 @@ impl ServiceSet {
     /// let services = ServiceSet::wire(StorePorts::from_single(&pg_store), environment);
     /// ```
     pub fn wire(stores: StorePorts, environment: ServiceEnvironment) -> Self {
+        let money = MoneyServices::wire(&stores, &environment.clock);
         let clock = environment.clock;
-        let accounts = Arc::new(AccountService::new(stores.accounts, clock.clone()));
-        let categories = Arc::new(CategoryService::new(stores.categories, clock.clone()));
-        let ledger = Arc::new(LedgerService::new(
-            stores.entries,
-            accounts.clone(),
-            categories.clone(),
-            clock.clone(),
+        Self {
+            api_keys: Arc::new(ApiKeyService::new(stores.api_keys, environment.tokens, clock)),
+            members: Arc::new(MemberService::new(stores.members, environment.allowed_users)),
+            settings: Arc::new(SettingsService::new(stores.settings)),
+            accounts: money.accounts,
+            categories: money.categories,
+            ledger: money.ledger,
+            goals: money.goals,
+            cards: money.cards,
+            position: money.position,
+        }
+    }
+}
+
+/// The services that move or report money, which depend on each other.
+struct MoneyServices {
+    accounts: Arc<AccountService>,
+    categories: Arc<CategoryService>,
+    ledger: Arc<LedgerService>,
+    goals: Arc<GoalService>,
+    cards: Arc<CardService>,
+    position: Arc<PositionService>,
+}
+
+impl MoneyServices {
+    fn wire(stores: &StorePorts, clock: &Arc<dyn Clock>) -> Self {
+        let accounts = Arc::new(AccountService::new(stores.accounts.clone(), clock.clone()));
+        let categories = Arc::new(CategoryService::new(stores.categories.clone(), clock.clone()));
+        let base = BaseServices { accounts, categories, clock: clock.clone() };
+        let cards = Arc::new(base.cards(stores));
+        let ledger = Arc::new(base.ledger(stores));
+        let goals = Arc::new(base.goals(stores, &ledger));
+        let position = Arc::new(PositionService::new(
+            base.accounts.clone(),
+            cards.clone(),
+            base.clock.clone(),
         ));
-        let goals = Arc::new(GoalService::new(
-            stores.goals,
-            accounts.clone(),
+        Self {
+            accounts: base.accounts,
+            categories: base.categories,
+            ledger,
+            goals,
+            cards,
+            position,
+        }
+    }
+}
+
+/// Services the others are built on.
+struct BaseServices {
+    accounts: Arc<AccountService>,
+    categories: Arc<CategoryService>,
+    clock: Arc<dyn Clock>,
+}
+
+impl BaseServices {
+    fn cards(&self, stores: &StorePorts) -> CardService {
+        CardService::new(
+            stores.cards.clone(),
+            self.accounts.clone(),
+            self.categories.clone(),
+            self.clock.clone(),
+        )
+    }
+
+    fn ledger(&self, stores: &StorePorts) -> LedgerService {
+        let (accounts, categories) = (self.accounts.clone(), self.categories.clone());
+        LedgerService::new(
+            stores.entries.clone(),
+            stores.cards.clone(),
+            accounts,
+            categories,
+            self.clock.clone(),
+        )
+    }
+
+    fn goals(&self, stores: &StorePorts, ledger: &Arc<LedgerService>) -> GoalService {
+        GoalService::new(
+            stores.goals.clone(),
+            self.accounts.clone(),
             ledger.clone(),
-            clock.clone(),
-        ));
-        let api_keys = Arc::new(ApiKeyService::new(stores.api_keys, environment.tokens, clock));
-        let members = Arc::new(MemberService::new(stores.members, environment.allowed_users));
-        let settings = Arc::new(SettingsService::new(stores.settings));
-        Self { accounts, categories, ledger, goals, members, settings, api_keys }
+            self.clock.clone(),
+        )
     }
 }

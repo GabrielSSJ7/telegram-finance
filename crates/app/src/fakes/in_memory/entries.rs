@@ -69,7 +69,7 @@ impl EntryStore for InMemoryStore {
     }
 }
 
-fn ledger_entry(entry: NewEntry) -> LedgerEntry {
+pub(super) fn ledger_entry(entry: NewEntry) -> LedgerEntry {
     LedgerEntry {
         id: EntryId::generate(),
         kind: entry.kind,
@@ -78,6 +78,9 @@ fn ledger_entry(entry: NewEntry) -> LedgerEntry {
         category_id: entry.category_id,
         account_id: entry.account_id,
         counter_account_id: entry.counter_account_id,
+        card_purchase_id: None,
+        installment_no: None,
+        invoice_id: entry.invoice_id,
         accounting_date: entry.accounting_date,
         created_by: entry.created_by,
         created_at: Utc::now(),

@@ -1,6 +1,6 @@
 use app::model::{
-    AccountId, CategoryId, DraftId, EntryFilter, EntryId, EntryPatch, LedgerEntry, MemberId,
-    NewEntry,
+    AccountId, CategoryId, DraftId, EntryFilter, EntryId, EntryPatch, InvoiceId, LedgerEntry,
+    MemberId, NewEntry, PurchaseId,
 };
 use app::ports::{EntryStore, StoreResult};
 use async_trait::async_trait;
@@ -13,7 +13,7 @@ use crate::PgStore;
 use crate::drafts::commit_draft;
 use crate::error_mapping::{corrupt, store_error};
 
-struct EntryRow {
+pub(crate) struct EntryRow {
     id: Uuid,
     kind: String,
     amount_cents: i64,
@@ -21,6 +21,9 @@ struct EntryRow {
     category_id: Option<Uuid>,
     account_id: Option<Uuid>,
     counter_account_id: Option<Uuid>,
+    card_purchase_id: Option<Uuid>,
+    installment_no: Option<i16>,
+    invoice_id: Option<Uuid>,
     accounting_date: NaiveDate,
     created_by: Option<Uuid>,
     created_at: DateTime<Utc>,
@@ -28,7 +31,7 @@ struct EntryRow {
 }
 
 impl EntryRow {
-    fn into_entry(self) -> StoreResult<LedgerEntry> {
+    pub(crate) fn into_entry(self) -> StoreResult<LedgerEntry> {
         let kind = self
             .kind
             .parse::<EntryKind>()
@@ -41,6 +44,9 @@ impl EntryRow {
             category_id: self.category_id.map(CategoryId),
             account_id: self.account_id.map(AccountId),
             counter_account_id: self.counter_account_id.map(AccountId),
+            card_purchase_id: self.card_purchase_id.map(PurchaseId),
+            installment_no: self.installment_no.and_then(|number| u32::try_from(number).ok()),
+            invoice_id: self.invoice_id.map(InvoiceId),
             accounting_date: self.accounting_date,
             created_by: self.created_by.map(MemberId),
             created_at: self.created_at,
@@ -49,7 +55,10 @@ impl EntryRow {
     }
 }
 
-async fn insert_entry(connection: &mut PgConnection, entry: &NewEntry) -> StoreResult<EntryRow> {
+pub(crate) async fn insert_entry(
+    connection: &mut PgConnection,
+    entry: &NewEntry,
+) -> StoreResult<EntryRow> {
     sqlx::query_file_as!(
         EntryRow,
         "queries/insert_entry.sql",
@@ -59,6 +68,7 @@ async fn insert_entry(connection: &mut PgConnection, entry: &NewEntry) -> StoreR
         entry.category_id.map(|id| id.0),
         entry.account_id.map(|id| id.0),
         entry.counter_account_id.map(|id| id.0),
+        entry.invoice_id.map(|id| id.0),
         entry.accounting_date,
         entry.created_by.map(|id| id.0),
     )
@@ -91,7 +101,7 @@ impl EntryStore for PgStore {
         let row = sqlx::query_as!(
             EntryRow,
             "select id, kind, amount_cents, description, category_id, account_id, counter_account_id,
-                    accounting_date, created_by, created_at, deleted_at
+                    card_purchase_id, installment_no, invoice_id, accounting_date, created_by, created_at, deleted_at
              from ledger_entries where id = $1",
             id.0,
         )
@@ -123,7 +133,7 @@ impl EntryStore for PgStore {
         let row = sqlx::query_as!(
             EntryRow,
             "select id, kind, amount_cents, description, category_id, account_id, counter_account_id,
-                    accounting_date, created_by, created_at, deleted_at
+                    card_purchase_id, installment_no, invoice_id, accounting_date, created_by, created_at, deleted_at
              from ledger_entries
              where created_by = $1 and deleted_at is null
              order by created_at desc, id desc

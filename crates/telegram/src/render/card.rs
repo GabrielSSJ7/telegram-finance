@@ -4,6 +4,7 @@ use domain::money_format::format_brl;
 use super::Catalog;
 use super::catalog::kind_name;
 use super::keyboards::question_keyboard;
+use super::reports::invoice_label;
 use crate::flows::dates::short_date;
 use crate::flows::{Answer, Awaiting, Field, FormKind, FormState};
 use crate::gateway::Keyboard;
@@ -59,7 +60,8 @@ fn answered_card(state: &FormState, context: CardContext<'_>, header: &str) -> S
 }
 
 fn answer_line(field: Field, answer: &Answer, context: CardContext<'_>) -> String {
-    format!("{} {}: {}", field_icon(field), field_label(field), answer_value(answer, context))
+    let (icon, label) = field_text(field);
+    format!("{icon} {label}: {}", answer_value(answer, context))
 }
 
 pub fn answer_value(answer: &Answer, context: CardContext<'_>) -> String {
@@ -72,6 +74,13 @@ pub fn answer_value(answer: &Answer, context: CardContext<'_>) -> String {
         Answer::Goal(id) => context.catalog.goal_label(*id),
         Answer::Date(date) => relative_date(*date, context.today),
         Answer::AccountKind(kind) => kind_name(*kind).to_owned(),
+        Answer::Card(id) => context.catalog.card_label(*id),
+        Answer::Invoice(id) => context
+            .catalog
+            .invoice(*id)
+            .map_or_else(|| "fatura".to_owned(), |view| invoice_label(&view)),
+        Answer::Installments(count) => format!("{count}x"),
+        Answer::Day(day) => format!("dia {day}"),
     }
 }
 
@@ -85,79 +94,87 @@ pub fn relative_date(date: NaiveDate, today: NaiveDate) -> String {
     short_date(date, today)
 }
 
-const fn field_icon(field: Field) -> &'static str {
-    match field {
-        Field::Amount | Field::InitialBalance | Field::AlreadySaved => "💰",
-        Field::Description => "📝",
-        Field::ExpenseCategory | Field::IncomeCategory => "🏷️",
-        Field::PaymentAccount | Field::ReceivingAccount => "🏦",
-        Field::FromAccount => "↗️",
-        Field::ToAccount => "↘️",
-        Field::Goal => "🎯",
-        Field::Date => "📅",
-        Field::AccountName | Field::GoalName => "✏️",
-        Field::AccountKind => "🗂️",
-        Field::GoalTarget => "🏁",
-    }
-}
+/// Icon and label shown before each answer on a card.
+const FIELD_TEXT: &[(Field, &str, &str)] = &[
+    (Field::Amount, "💰", "Valor"),
+    (Field::Description, "📝", "Descrição"),
+    (Field::ExpenseCategory, "🏷️", "Categoria"),
+    (Field::IncomeCategory, "🏷️", "Categoria"),
+    (Field::PaymentAccount, "🏦", "Pago com"),
+    (Field::ReceivingAccount, "🏦", "Conta"),
+    (Field::FromAccount, "↗️", "De"),
+    (Field::ToAccount, "↘️", "Para"),
+    (Field::Goal, "🎯", "Meta"),
+    (Field::Date, "📅", "Data"),
+    (Field::AccountName, "✏️", "Nome"),
+    (Field::AccountKind, "🗂️", "Tipo"),
+    (Field::InitialBalance, "💰", "Saldo atual"),
+    (Field::GoalName, "✏️", "Nome"),
+    (Field::GoalTarget, "🏁", "Objetivo"),
+    (Field::AlreadySaved, "💰", "Já guardado"),
+    (Field::Installments, "🔢", "Parcelas"),
+    (Field::CardName, "✏️", "Nome"),
+    (Field::ClosingDay, "📆", "Fecha"),
+    (Field::DueDay, "📆", "Vence"),
+    (Field::CardChoice, "💳", "Cartão"),
+    (Field::InvoiceChoice, "🧾", "Fatura"),
+    (Field::RefundTarget, "↩️", "Volta para"),
+];
 
-const fn field_label(field: Field) -> &'static str {
-    match field {
-        Field::Amount => "Valor",
-        Field::Description => "Descrição",
-        Field::ExpenseCategory | Field::IncomeCategory => "Categoria",
-        Field::PaymentAccount | Field::ReceivingAccount => "Conta",
-        Field::FromAccount => "De",
-        Field::ToAccount => "Para",
-        Field::Goal => "Meta",
-        Field::Date => "Data",
-        Field::AccountName | Field::GoalName => "Nome",
-        Field::AccountKind => "Tipo",
-        Field::InitialBalance => "Saldo atual",
-        Field::GoalTarget => "Objetivo",
-        Field::AlreadySaved => "Já guardado",
-    }
+fn field_text(field: Field) -> (&'static str, &'static str) {
+    let found = FIELD_TEXT.iter().find(|(known, _, _)| *known == field);
+    found.map_or(("•", "Campo"), |(_, icon, label)| (*icon, *label))
 }
 
 fn question(form: FormKind, awaiting: Awaiting) -> &'static str {
     match awaiting {
         Awaiting::Confirmation => "Tudo certo? Toque em ✅ Confirmar.",
         Awaiting::TypedDate => "Digite a data (dd/mm):",
-        Awaiting::Field(Field::Amount) => amount_question(form),
         Awaiting::Field(field) => field_question(form, field),
     }
 }
 
-const fn amount_question(form: FormKind) -> &'static str {
-    match form {
-        FormKind::Income => "Quanto entrou?",
-        FormKind::Transfer => "Quanto vai transferir?",
-        FormKind::PotDeposit => "Quanto vai guardar?",
-        FormKind::PotWithdraw => "Quanto vai resgatar?",
-        _ => "Quanto foi?",
-    }
-}
+/// Question per field. Rows naming a form win over the generic row.
+const QUESTIONS: &[(Option<FormKind>, Field, &str)] = &[
+    (Some(FormKind::Income), Field::Amount, "Quanto entrou?"),
+    (Some(FormKind::Transfer), Field::Amount, "Quanto vai transferir?"),
+    (Some(FormKind::PotDeposit), Field::Amount, "Quanto vai guardar?"),
+    (Some(FormKind::PotWithdraw), Field::Amount, "Quanto vai resgatar?"),
+    (Some(FormKind::PayInvoice), Field::Amount, "Quanto vai pagar? Digite ou toque em Total."),
+    (Some(FormKind::Refund), Field::Amount, "Quanto voltou?"),
+    (Some(FormKind::PayInvoice), Field::FromAccount, "Pagar com qual conta?"),
+    (Some(FormKind::PotDeposit), Field::FromAccount, "De qual conta sai o dinheiro?"),
+    (Some(FormKind::PotWithdraw), Field::ToAccount, "Para qual conta volta o dinheiro?"),
+    (None, Field::Amount, "Quanto foi?"),
+    (None, Field::Description, "Descrição? (ex.: mercado, farmácia)"),
+    (None, Field::ExpenseCategory, "Qual categoria?"),
+    (None, Field::IncomeCategory, "Qual categoria?"),
+    (None, Field::PaymentAccount, "Pago com qual conta ou cartão?"),
+    (None, Field::Installments, "Em quantas parcelas? Toque ou digite (ex.: 18)."),
+    (None, Field::CardName, "Nome do cartão? (ex.: Nubank, Itaú)"),
+    (None, Field::ClosingDay, "Em que dia a fatura fecha? (1 a 31)"),
+    (None, Field::DueDay, "Em que dia ela vence? (1 a 31)"),
+    (None, Field::CardChoice, "Qual cartão?"),
+    (None, Field::InvoiceChoice, "Qual fatura?"),
+    (None, Field::RefundTarget, "Para onde o dinheiro volta?"),
+    (None, Field::ReceivingAccount, "Entrou em qual conta?"),
+    (None, Field::FromAccount, "De qual conta sai?"),
+    (None, Field::ToAccount, "Para qual conta vai?"),
+    (None, Field::Goal, "Qual meta?"),
+    (None, Field::Date, "Quando foi?"),
+    (None, Field::AccountName, "Nome da conta? (ex.: Nubank, Carteira)"),
+    (None, Field::AccountKind, "Que tipo de conta?"),
+    (None, Field::InitialBalance, "Saldo atual dela? Digite o valor ou toque em Zero."),
+    (None, Field::GoalName, "Nome da meta? (ex.: Casa própria)"),
+    (None, Field::GoalTarget, "Quanto quer juntar?"),
+    (None, Field::AlreadySaved, "Quanto já tem guardado? Digite o valor ou toque em Zero."),
+];
 
-const fn field_question(form: FormKind, field: Field) -> &'static str {
-    match (form, field) {
-        (_, Field::Description) => "Descrição? (ex.: mercado, farmácia)",
-        (_, Field::ExpenseCategory | Field::IncomeCategory) => "Qual categoria?",
-        (_, Field::PaymentAccount) => "Pago com qual conta?",
-        (_, Field::ReceivingAccount) => "Entrou em qual conta?",
-        (FormKind::PotDeposit, Field::FromAccount) => "De qual conta sai o dinheiro?",
-        (_, Field::FromAccount) => "De qual conta sai?",
-        (FormKind::PotWithdraw, Field::ToAccount) => "Para qual conta volta o dinheiro?",
-        (_, Field::ToAccount) => "Para qual conta vai?",
-        (_, Field::Goal) => "Qual meta?",
-        (_, Field::Date) => "Quando foi?",
-        (_, Field::AccountName) => "Nome da conta? (ex.: Nubank, Carteira)",
-        (_, Field::AccountKind) => "Que tipo de conta?",
-        (_, Field::InitialBalance) => "Saldo atual dela? Digite o valor ou toque em Zero.",
-        (_, Field::GoalName) => "Nome da meta? (ex.: Casa própria)",
-        (_, Field::GoalTarget) => "Quanto quer juntar?",
-        (_, Field::AlreadySaved) => "Quanto já tem guardado? Digite o valor ou toque em Zero.",
-        (_, Field::Amount) => "Quanto foi?",
-    }
+fn field_question(form: FormKind, field: Field) -> &'static str {
+    let row = |owner: Option<FormKind>| {
+        QUESTIONS.iter().find(|(known_form, known, _)| *known == field && *known_form == owner)
+    };
+    row(Some(form)).or_else(|| row(None)).map_or("?", |(_, _, question)| *question)
 }
 
 fn blocked_text(awaiting: Awaiting) -> &'static str {
@@ -169,6 +186,8 @@ fn blocked_text(awaiting: Awaiting) -> &'static str {
         Awaiting::Field(Field::ExpenseCategory | Field::IncomeCategory) => {
             "Nenhuma categoria ativa desse tipo."
         }
+        Awaiting::Field(Field::CardChoice) => "Nenhum cartão ainda. Cadastre um com /novocartao.",
+        Awaiting::Field(Field::InvoiceChoice) => "Esse cartão não tem fatura com valor a pagar. 🎉",
         _ => "Você ainda não tem contas. Crie uma com /novaconta.",
     }
 }
@@ -232,8 +251,12 @@ mod tests {
     fn every_question_has_text() {
         for form in FormKind::ALL {
             for field in form.fields() {
-                assert!(!question(form, Awaiting::Field(*field)).is_empty());
-                assert!(!field_label(*field).is_empty() && !field_icon(*field).is_empty());
+                assert_ne!(
+                    question(form, Awaiting::Field(*field)),
+                    "?",
+                    "{form:?} {field:?} has no question"
+                );
+                assert_ne!(field_text(*field), ("•", "Campo"), "{field:?} has no icon and label");
             }
         }
         assert_eq!(question(FormKind::Expense, Awaiting::TypedDate), "Digite a data (dd/mm):");

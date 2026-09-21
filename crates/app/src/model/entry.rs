@@ -2,9 +2,9 @@ use chrono::{DateTime, NaiveDate, Utc};
 use domain::{Cents, EntryKind};
 use serde::{Deserialize, Serialize};
 
-use super::{AccountId, CategoryId, EntryId, MemberId};
+use super::{AccountId, CategoryId, EntryId, InvoiceId, MemberId, PurchaseId};
 
-/// One row of the ledger. Card fields arrive with the cards phase.
+/// One row of the ledger.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LedgerEntry {
     pub id: EntryId,
@@ -14,6 +14,11 @@ pub struct LedgerEntry {
     pub category_id: Option<CategoryId>,
     pub account_id: Option<AccountId>,
     pub counter_account_id: Option<AccountId>,
+    /// Card installments: the purchase they belong to and their number.
+    pub card_purchase_id: Option<PurchaseId>,
+    pub installment_no: Option<u32>,
+    /// Card installments, card credits and invoice payments.
+    pub invoice_id: Option<InvoiceId>,
     pub accounting_date: NaiveDate,
     pub created_by: Option<MemberId>,
     pub created_at: DateTime<Utc>,
@@ -29,6 +34,8 @@ pub struct NewEntry {
     pub category_id: Option<CategoryId>,
     pub account_id: Option<AccountId>,
     pub counter_account_id: Option<AccountId>,
+    /// Set for card credits and invoice payments.
+    pub invoice_id: Option<InvoiceId>,
     pub accounting_date: NaiveDate,
     pub created_by: Option<MemberId>,
 }

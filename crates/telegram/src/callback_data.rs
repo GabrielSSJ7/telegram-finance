@@ -4,8 +4,8 @@
 //! on an old keyboard, or on the other spouse's keyboard, is recognised
 //! and rejected instead of answering the wrong flow.
 
-use app::model::{AccountId, CategoryId, DraftId, EntryId, GoalId};
-use domain::AccountKind;
+use app::model::{AccountId, CardId, CategoryId, DraftId, EntryId, GoalId, InvoiceId, PurchaseId};
+use domain::{AccountKind, Cents};
 
 pub const MAX_CALLBACK_BYTES: usize = 64;
 
@@ -19,6 +19,11 @@ pub enum ButtonValue {
     Yesterday,
     OtherDate,
     Kind(AccountKind),
+    Card(CardId),
+    Invoice(InvoiceId),
+    Installments(u32),
+    /// A suggested amount, such as the full invoice total.
+    Money(Cents),
     Confirm,
     Cancel,
 }
@@ -31,6 +36,8 @@ pub enum CallbackPayload {
     },
     /// [Desfazer] under a confirmation message.
     Undo(EntryId),
+    /// [Desfazer] under a card purchase: removes every installment.
+    UndoPurchase(PurchaseId),
 }
 
 /// Short, per-flow tag: the random tail of the draft UUID.
@@ -52,6 +59,10 @@ pub fn undo_button(entry: EntryId) -> String {
     format!("u|{entry}")
 }
 
+pub fn undo_purchase_button(purchase: PurchaseId) -> String {
+    format!("up|{purchase}")
+}
+
 fn encode_value(value: ButtonValue) -> String {
     match value {
         ButtonValue::Skip => "s".into(),
@@ -62,6 +73,10 @@ fn encode_value(value: ButtonValue) -> String {
         ButtonValue::Yesterday => "dy".into(),
         ButtonValue::OtherDate => "do".into(),
         ButtonValue::Kind(kind) => format!("k:{}", kind.as_str()),
+        ButtonValue::Card(id) => format!("cc:{id}"),
+        ButtonValue::Invoice(id) => format!("i:{id}"),
+        ButtonValue::Installments(count) => format!("n:{count}"),
+        ButtonValue::Money(amount) => format!("m:{}", amount.value()),
         ButtonValue::Confirm => "ok".into(),
         ButtonValue::Cancel => "x".into(),
     }
@@ -70,8 +85,10 @@ fn encode_value(value: ButtonValue) -> String {
 /// Reads a payload produced by this module; anything else is `None`.
 pub fn parse(data: &str) -> Option<CallbackPayload> {
     let (head, tail) = data.split_once('|')?;
-    if head == "u" {
-        return tail.parse().ok().map(CallbackPayload::Undo);
+    match head {
+        "u" => return tail.parse().ok().map(CallbackPayload::Undo),
+        "up" => return tail.parse().ok().map(CallbackPayload::UndoPurchase),
+        _ => {}
     }
     let value = decode_value(tail)?;
     Some(CallbackPayload::Flow { nonce: head.to_owned(), value })
@@ -97,6 +114,10 @@ fn decode_tagged(code: &str) -> Option<ButtonValue> {
         "a" => value.parse().ok().map(ButtonValue::Account),
         "g" => value.parse().ok().map(ButtonValue::Goal),
         "k" => value.parse().ok().map(ButtonValue::Kind),
+        "cc" => value.parse().ok().map(ButtonValue::Card),
+        "i" => value.parse().ok().map(ButtonValue::Invoice),
+        "n" => value.parse().ok().map(ButtonValue::Installments),
+        "m" => value.parse().ok().map(|cents| ButtonValue::Money(Cents::new(cents))),
         _ => None,
     }
 }
@@ -115,6 +136,10 @@ mod tests {
             ButtonValue::Yesterday,
             ButtonValue::OtherDate,
             ButtonValue::Kind(AccountKind::Savings),
+            ButtonValue::Card(CardId::generate()),
+            ButtonValue::Invoice(InvoiceId::generate()),
+            ButtonValue::Installments(12),
+            ButtonValue::Money(Cents::new(123_456)),
             ButtonValue::Confirm,
             ButtonValue::Cancel,
         ]
@@ -134,6 +159,11 @@ mod tests {
     fn undo_round_trips() {
         let entry = EntryId::generate();
         assert_eq!(parse(&undo_button(entry)), Some(CallbackPayload::Undo(entry)));
+        let purchase = PurchaseId::generate();
+        assert_eq!(
+            parse(&undo_purchase_button(purchase)),
+            Some(CallbackPayload::UndoPurchase(purchase))
+        );
     }
 
     #[test]

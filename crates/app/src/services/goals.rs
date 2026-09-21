@@ -75,10 +75,9 @@ impl GoalService {
 
     pub async fn list_progress(&self) -> AppResult<Vec<GoalProgress>> {
         let goals = self.goals.list_goals().await?;
-        let sheet = self.accounts.balance_sheet().await?;
+        let balances = self.accounts.balances().await?;
         let saved_in = |pot: AccountId| {
-            sheet
-                .accounts
+            balances
                 .iter()
                 .find(|item| item.account.id == pot)
                 .map_or(Cents::ZERO, |item| item.balance)
@@ -119,8 +118,8 @@ impl GoalService {
     }
 
     async fn pot_balance(&self, pot: AccountId) -> AppResult<Cents> {
-        let sheet = self.accounts.balance_sheet().await?;
-        let found = sheet.accounts.iter().find(|item| item.account.id == pot);
+        let balances = self.accounts.balances().await?;
+        let found = balances.iter().find(|item| item.account.id == pot);
         Ok(found.map_or(Cents::ZERO, |item| item.balance))
     }
 }

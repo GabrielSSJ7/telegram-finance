@@ -1,7 +1,10 @@
 //! Names for the ids a flow stores, loaded fresh for each card.
 
 use app::AppResult;
-use app::model::{Account, AccountId, Category, CategoryId, CategoryKind, Goal, GoalId};
+use app::model::{
+    Account, AccountId, CardId, CardSummary, Category, CategoryId, CategoryKind, CreditCard, Goal,
+    GoalId, InvoiceId, InvoiceView,
+};
 use app::services::ServiceSet;
 use domain::AccountKind;
 
@@ -12,10 +15,14 @@ pub struct Catalog {
     pub categories: Vec<Category>,
     pub accounts: Vec<Account>,
     pub goals: Vec<Goal>,
+    pub cards: Vec<CreditCard>,
+    /// Loaded only for forms that pick an invoice.
+    pub card_summaries: Vec<CardSummary>,
 }
 
 impl Catalog {
-    pub async fn load(services: &ServiceSet) -> AppResult<Self> {
+    /// Loads names for a card; `with_invoices` adds each card's invoices.
+    pub async fn load(services: &ServiceSet, with_invoices: bool) -> AppResult<Self> {
         let categories = services.categories.list(None).await?;
         let accounts = services.accounts.list(false).await?;
         let goals = services
@@ -25,7 +32,10 @@ impl Catalog {
             .into_iter()
             .map(|progress| progress.goal)
             .collect();
-        Ok(Self { categories, accounts, goals })
+        let cards = services.cards.list().await?;
+        let card_summaries =
+            if with_invoices { services.cards.summaries().await? } else { Vec::new() };
+        Ok(Self { categories, accounts, goals, cards, card_summaries })
     }
 
     pub fn categories_of(&self, kind: CategoryKind) -> Vec<&Category> {
@@ -47,6 +57,28 @@ impl Catalog {
         found.map_or_else(|| "conta removida".into(), account_label)
     }
 
+    pub fn card_label(&self, id: CardId) -> String {
+        let found = self.cards.iter().find(|card| card.id == id);
+        found.map_or_else(|| "cartão removido".into(), card_label)
+    }
+
+    /// Invoices of `card` that still have money owed, newest last.
+    pub fn payable_invoices(&self, card: CardId) -> Vec<InvoiceView> {
+        let summary = self.card_summaries.iter().find(|summary| summary.card.id == card);
+        let views = summary.map(|summary| [summary.unpaid, summary.current]).unwrap_or_default();
+        views
+            .into_iter()
+            .flatten()
+            .filter(|view| view.statement.outstanding.is_positive())
+            .collect()
+    }
+
+    pub fn invoice(&self, id: InvoiceId) -> Option<InvoiceView> {
+        let views =
+            self.card_summaries.iter().flat_map(|summary| [summary.unpaid, summary.current]);
+        views.flatten().find(|view| view.invoice.id == id)
+    }
+
     pub fn goal_label(&self, id: GoalId) -> String {
         let found = self.goals.iter().find(|goal| goal.id == id);
         found
@@ -64,6 +96,10 @@ pub fn category_label(category: &Category) -> String {
 
 pub fn account_label(account: &Account) -> String {
     format!("{} {}", kind_emoji(account.kind), escape(&account.name))
+}
+
+pub fn card_label(card: &CreditCard) -> String {
+    format!("💳 {}", escape(&card.name))
 }
 
 pub const fn kind_emoji(kind: AccountKind) -> &'static str {

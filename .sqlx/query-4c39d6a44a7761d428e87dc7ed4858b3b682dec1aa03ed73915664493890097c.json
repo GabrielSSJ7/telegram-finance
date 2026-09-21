@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into ledger_entries\n    (kind, amount_cents, description, category_id, card_purchase_id, installment_no, invoice_id, accounting_date, created_by)\nvalues ('card_installment', $1, $2, $3, $4, $5, $6, $7, $8)\n",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Uuid",
+        "Date",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4c39d6a44a7761d428e87dc7ed4858b3b682dec1aa03ed73915664493890097c"
+}

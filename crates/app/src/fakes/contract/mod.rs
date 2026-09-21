@@ -11,6 +11,7 @@
 
 mod accounts;
 mod api_keys;
+mod cards;
 mod categories;
 mod chat_flows;
 mod entries;
@@ -23,6 +24,7 @@ mod memory_cases;
 
 pub use accounts::*;
 pub use api_keys::*;
+pub use cards::*;
 pub use categories::*;
 pub use chat_flows::*;
 pub use entries::*;
@@ -62,6 +64,12 @@ macro_rules! store_contract_cases {
         $case!(chat_flow_save_load_replace_clear);
         $case!(chat_flow_expired_is_absent);
         $case!(bot_offset_round_trip);
+        $case!(card_create_find_list_unique);
+        $case!(card_archive_hides_card);
+        $case!(card_invoice_ensure_keeps_first_dates);
+        $case!(card_purchase_spreads_installments);
+        $case!(card_purchase_delete_removes_installments);
+        $case!(card_invoice_entries_count_as_credits_and_payments);
     };
 }
 

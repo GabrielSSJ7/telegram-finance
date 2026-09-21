@@ -1,0 +1,54 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- Inserts the invoice unless one exists for (card, reference month); the\n-- second branch returns the existing row, keeping its stored dates.\nwith inserted as (\n    insert into card_invoices (card_id, reference_month, closing_date, due_date)\n    values ($1, $2, $3, $4)\n    on conflict (card_id, reference_month) do nothing\n    returning id, card_id, reference_month, closing_date, due_date\n)\nselect id as \"id!\", card_id as \"card_id!\", reference_month as \"reference_month!\",\n       closing_date as \"closing_date!\", due_date as \"due_date!\"\nfrom inserted\nunion all\nselect id, card_id, reference_month, closing_date, due_date\nfrom card_invoices\nwhere card_id = $1 and reference_month = $2\nlimit 1\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 1,
+        "name": "card_id!",
+        "type_info": "Uuid",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 2,
+        "name": "reference_month!",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "closing_date!",
+        "type_info": "Date",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 4,
+        "name": "due_date!",
+        "type_info": "Date",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Date",
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "14aee4a90b2f3161664a853d52bfa0fe2507f49b1a7d58022172ba00a5c6d248"
+}

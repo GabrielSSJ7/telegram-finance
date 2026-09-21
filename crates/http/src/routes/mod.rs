@@ -2,6 +2,7 @@
 //! calls one service method and converts the result back.
 
 pub mod accounts;
+pub mod cards;
 pub mod categories;
 pub mod entries;
 pub mod goals;
@@ -14,6 +15,10 @@ use crate::state::ApiState;
 
 /// Every `/api/v1` route with its API documentation.
 pub fn v1_routes() -> OpenApiRouter<ApiState> {
+    ledger_routes().merge(card_routes())
+}
+
+fn ledger_routes() -> OpenApiRouter<ApiState> {
     OpenApiRouter::new()
         .routes(routes!(accounts::list_accounts, accounts::open_account))
         .routes(routes!(accounts::archive_account))
@@ -27,4 +32,16 @@ pub fn v1_routes() -> OpenApiRouter<ApiState> {
         .routes(routes!(goals::deposit_to_goal))
         .routes(routes!(goals::withdraw_from_goal))
         .routes(routes!(settings::get_settings, settings::update_settings))
+}
+
+fn card_routes() -> OpenApiRouter<ApiState> {
+    OpenApiRouter::new()
+        .routes(routes!(cards::list_cards, cards::open_card))
+        .routes(routes!(cards::archive_card))
+        .routes(routes!(cards::card_summaries))
+        .routes(routes!(cards::card_invoices))
+        .routes(routes!(cards::create_purchase))
+        .routes(routes!(cards::delete_purchase))
+        .routes(routes!(cards::create_credit))
+        .routes(routes!(cards::pay_invoice))
 }

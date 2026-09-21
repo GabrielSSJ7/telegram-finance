@@ -1,7 +1,11 @@
 //! Turns a confirmed form into the use-case request it stands for.
 
 use app::services::ledger::{AccountEntry, EntryRequest, TransferEntry};
-use app::services::{CreateGoal, OpenAccount, PotMove};
+use app::services::{
+    CardCreditRequest, CardPurchaseRequest, CreateGoal, InvoicePaymentRequest, OpenAccount,
+    OpenCard, PotMove,
+};
+use domain::DayOfMonth;
 
 use super::{Answers, Field, FormKind, FormState};
 
@@ -12,6 +16,10 @@ pub enum FormCommand {
     PotWithdraw(PotMove),
     OpenAccount(OpenAccount),
     CreateGoal(CreateGoal),
+    CardPurchase(CardPurchaseRequest),
+    CardCredit(CardCreditRequest),
+    PayInvoice(InvoicePaymentRequest),
+    OpenCard(OpenCard),
 }
 
 /// `None` when a required answer is missing (the engine never confirms
@@ -19,8 +27,7 @@ pub enum FormCommand {
 pub fn build_command(state: &FormState) -> Option<FormCommand> {
     let answers = &state.answers;
     match state.form {
-        FormKind::Expense => account_entry(answers, Field::ExpenseCategory, Field::PaymentAccount)
-            .map(|entry| FormCommand::Record(EntryRequest::Expense(entry))),
+        FormKind::Expense => expense(answers),
         FormKind::Income => account_entry(answers, Field::IncomeCategory, Field::ReceivingAccount)
             .map(|entry| FormCommand::Record(EntryRequest::Income(entry))),
         FormKind::Transfer => {
@@ -30,7 +37,62 @@ pub fn build_command(state: &FormState) -> Option<FormCommand> {
         FormKind::PotWithdraw => pot_move(answers, Field::ToAccount).map(FormCommand::PotWithdraw),
         FormKind::NewAccount => open_account(answers).map(FormCommand::OpenAccount),
         FormKind::NewGoal => create_goal(answers).map(FormCommand::CreateGoal),
+        FormKind::NewCard => open_card(answers).map(FormCommand::OpenCard),
+        FormKind::PayInvoice => pay_invoice(answers).map(FormCommand::PayInvoice),
+        FormKind::Refund => refund(answers),
     }
+}
+
+/// Card payments become card purchases; the rest are account expenses.
+fn expense(answers: &Answers) -> Option<FormCommand> {
+    let Some(card_id) = answers.card(Field::PaymentAccount) else {
+        let entry = account_entry(answers, Field::ExpenseCategory, Field::PaymentAccount)?;
+        return Some(FormCommand::Record(EntryRequest::Expense(entry)));
+    };
+    Some(FormCommand::CardPurchase(CardPurchaseRequest {
+        card_id,
+        category_id: answers.category(Field::ExpenseCategory)?,
+        total: answers.money(Field::Amount)?,
+        installments: answers.installments(),
+        first_installment_no: 1,
+        description: answers.text(Field::Description)?,
+        purchased_on: Some(answers.date()?),
+    }))
+}
+
+/// A refund goes back to a card invoice or to an account.
+fn refund(answers: &Answers) -> Option<FormCommand> {
+    let Some(card_id) = answers.card(Field::RefundTarget) else {
+        let entry = account_entry(answers, Field::ExpenseCategory, Field::RefundTarget)?;
+        return Some(FormCommand::Record(EntryRequest::Refund(entry)));
+    };
+    Some(FormCommand::CardCredit(CardCreditRequest {
+        card_id,
+        category_id: answers.category(Field::ExpenseCategory)?,
+        amount: answers.money(Field::Amount)?,
+        description: answers.text(Field::Description)?,
+        date: Some(answers.date()?),
+    }))
+}
+
+fn open_card(answers: &Answers) -> Option<OpenCard> {
+    Some(OpenCard {
+        name: answers.text(Field::CardName)?,
+        closing_day: DayOfMonth::new(answers.day(Field::ClosingDay)?).ok()?,
+        due_day: DayOfMonth::new(answers.day(Field::DueDay)?).ok()?,
+        closing_day_goes_next: true,
+        limit: None,
+        default_payment_account_id: None,
+    })
+}
+
+fn pay_invoice(answers: &Answers) -> Option<InvoicePaymentRequest> {
+    Some(InvoicePaymentRequest {
+        invoice_id: answers.invoice()?,
+        account_id: answers.account(Field::FromAccount)?,
+        amount: answers.money(Field::Amount)?,
+        date: Some(answers.date()?),
+    })
 }
 
 fn account_entry(answers: &Answers, category: Field, account: Field) -> Option<AccountEntry> {

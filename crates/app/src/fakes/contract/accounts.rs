@@ -50,6 +50,7 @@ fn entry(
         category_id: None,
         account_id: Some(account),
         counter_account_id: counter,
+        invoice_id: None,
         accounting_date: day(3, on),
         created_by: None,
     }

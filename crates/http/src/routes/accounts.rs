@@ -46,6 +46,6 @@ pub async fn archive_account(
 pub async fn balance_sheet(
     State(state): State<ApiState>,
 ) -> Result<Json<BalanceSheetResponse>, ApiError> {
-    let sheet = state.services.accounts.balance_sheet().await?;
+    let sheet = state.services.position.balance_sheet().await?;
     Ok(Json(sheet.into()))
 }

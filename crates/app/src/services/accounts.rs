@@ -1,12 +1,11 @@
 use std::sync::Arc;
 
 use chrono::NaiveDate;
-use domain::balance::money_position;
 use domain::{AccountKind, Cents};
 
-use super::balances::{balances_from_flows, kind_balances};
+use super::balances::balances_from_flows;
 use super::text_rules::clean_name;
-use crate::model::{Account, AccountId, BalanceSheet, NewAccount};
+use crate::model::{Account, AccountBalance, AccountId, NewAccount};
 use crate::ports::{AccountStore, Clock};
 use crate::{AppError, AppResult};
 
@@ -75,15 +74,11 @@ impl AccountService {
         }
     }
 
-    /// Balances of active accounts as of today and the money position.
-    pub async fn balance_sheet(&self) -> AppResult<BalanceSheet> {
-        let as_of = self.clock.today();
+    /// Balance of every active account as of today.
+    pub async fn balances(&self) -> AppResult<Vec<AccountBalance>> {
         let accounts = self.accounts.list_accounts(false).await?;
-        let flows = self.accounts.account_flows(as_of).await?;
-        let balances = balances_from_flows(accounts, &flows);
-        // Closed unpaid invoices join here with the cards phase.
-        let position = money_position(&kind_balances(&balances), Cents::ZERO);
-        Ok(BalanceSheet { as_of, accounts: balances, position })
+        let flows = self.accounts.account_flows(self.clock.today()).await?;
+        Ok(balances_from_flows(accounts, &flows))
     }
 }
 
@@ -136,15 +131,15 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn balance_sheet_starts_from_initial_balances() {
+    async fn balances_start_from_initial_balances() {
         let service = service();
         service.open(checking("Nubank", 150_000)).await.unwrap();
         service
             .open(OpenAccount { kind: AccountKind::Cash, ..checking("Carteira", 5_000) })
             .await
             .unwrap();
-        let sheet = service.balance_sheet().await.unwrap();
-        assert_eq!(sheet.accounts.len(), 2);
-        assert_eq!(sheet.position.available, Cents::new(155_000));
+        let balances: Vec<i64> =
+            service.balances().await.unwrap().iter().map(|item| item.balance.value()).collect();
+        assert_eq!(balances, vec![150_000, 5_000]);
     }
 }

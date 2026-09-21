@@ -140,6 +140,7 @@ pub fn shape_to_new_entry(
         category_id: shape.category_id,
         account_id: Some(shape.account_id),
         counter_account_id: shape.counter_account_id,
+        invoice_id: None,
         accounting_date: shape.date.unwrap_or(today),
         created_by,
     })

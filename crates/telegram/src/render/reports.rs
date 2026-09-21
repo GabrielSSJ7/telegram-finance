@@ -1,6 +1,9 @@
 //! Replies of the instant commands: balances, accounts, goals, categories.
 
-use app::model::{BalanceSheet, Category, CategoryKind, GoalProgress};
+use app::model::{
+    BalanceSheet, CardSummary, Category, CategoryKind, CreditCard, GoalProgress, InvoiceView,
+};
+use domain::invoice_settlement::InvoiceStatus;
 use domain::money_format::format_brl;
 use domain::{AccountKind, Cents};
 
@@ -80,6 +83,62 @@ fn goal_block(progress: &GoalProgress) -> String {
 pub fn progress_bar(progress_bp: i64) -> String {
     let filled = usize::try_from(progress_bp.clamp(0, 10_000) / 1_000).unwrap_or(0);
     format!("{}{}", "▓".repeat(filled), "░".repeat(10 - filled))
+}
+
+/// `Fatura 04/2026 · R$ 1.234,56 · vence 10/04` (open invoices say so).
+pub fn invoice_label(view: &InvoiceView) -> String {
+    let period = view.invoice.period;
+    let owed = format_brl(view.statement.outstanding);
+    let due = period.due_date.format("%d/%m");
+    let open = if view.statement.status == InvoiceStatus::Open { " (aberta)" } else { "" };
+    format!("Fatura {}{open} · {owed} · vence {due}", period.reference_month)
+}
+
+/// `/fatura`: per card, the open invoice, what is due and what is ahead.
+pub fn invoices_text(summaries: &[CardSummary]) -> String {
+    if summaries.is_empty() {
+        return "Nenhum cartão ainda. Cadastre um com /novocartao.".into();
+    }
+    let blocks: Vec<String> = summaries.iter().map(card_block).collect();
+    format!("<b>💳 Faturas</b>\n\n{}", blocks.join("\n\n"))
+}
+
+fn card_block(summary: &CardSummary) -> String {
+    let mut lines = vec![format!("<b>{}</b>", escape(&summary.card.name))];
+    if let Some(unpaid) = &summary.unpaid {
+        let due = unpaid.invoice.period.due_date.format("%d/%m");
+        lines.push(format!("⚠️ A pagar até {due}: {}", format_brl(unpaid.statement.outstanding)));
+    }
+    match &summary.current {
+        Some(current) => lines.push(format!(
+            "Aberta (fecha {}): {}",
+            current.invoice.period.closing_date.format("%d/%m"),
+            format_brl(current.statement.outstanding)
+        )),
+        None => lines.push("Sem compras na fatura aberta.".into()),
+    }
+    if summary.future_committed.is_positive() {
+        lines.push(format!(
+            "Parcelas nas próximas faturas: {}",
+            format_brl(summary.future_committed)
+        ));
+    }
+    lines.join("\n")
+}
+
+/// `/cartoes`: registered cards with their closing and due days.
+pub fn cards_text(cards: &[CreditCard]) -> String {
+    if cards.is_empty() {
+        return "Nenhum cartão ainda. Cadastre um com /novocartao.".into();
+    }
+    let lines: Vec<String> = cards
+        .iter()
+        .map(|card| {
+            let (closing, due) = (card.schedule.closing_day.get(), card.schedule.due_day.get());
+            format!("💳 {}: fecha dia {closing}, vence dia {due}", escape(&card.name))
+        })
+        .collect();
+    format!("<b>💳 Cartões</b>\n{}\n\nNovo cartão: /novocartao", lines.join("\n"))
 }
 
 /// `/categorias`: expense and income categories.

@@ -4,6 +4,7 @@
 
 mod accounts;
 mod api_keys;
+mod cards;
 mod categories;
 mod chat_flows;
 mod entries;
@@ -14,12 +15,11 @@ mod settings;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use chrono::{DateTime, NaiveTime, Utc};
-use domain::DayOfMonth;
+use chrono::{DateTime, Utc};
 
 use crate::model::{
-    Account, AccountId, ApiKey, Category, CategoryId, CategoryKind, DraftId, GoalId, GoalTarget,
-    HouseholdSettings, LedgerEntry, Member, NewAccount,
+    Account, AccountId, ApiKey, CardPurchase, Category, CategoryId, CategoryKind, CreditCard,
+    DraftId, GoalId, GoalTarget, HouseholdSettings, Invoice, LedgerEntry, Member, NewAccount,
 };
 use crate::ports::{ChatUserKey, StoreError, StoredFlow};
 
@@ -37,7 +37,7 @@ struct ApiKeyRow {
     last_used_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 struct MemoryState {
     accounts: Vec<Account>,
     goals: Vec<GoalRow>,
@@ -49,6 +49,9 @@ struct MemoryState {
     api_keys: Vec<ApiKeyRow>,
     flows: HashMap<ChatUserKey, StoredFlow>,
     update_offset: Option<i64>,
+    cards: Vec<CreditCard>,
+    invoices: Vec<Invoice>,
+    purchases: Vec<CardPurchase>,
 }
 
 #[derive(Debug)]
@@ -65,25 +68,7 @@ impl Default for InMemoryStore {
 impl InMemoryStore {
     /// Empty store with the default settings (cycle day 1, report 21:00).
     pub fn new() -> Self {
-        let settings = HouseholdSettings {
-            telegram_chat_id: None,
-            cycle_start_day: DayOfMonth::new(1)
-                .unwrap_or_else(|_| unreachable!("1 is a valid day")),
-            daily_report_time: NaiveTime::from_hms_opt(21, 0, 0).unwrap_or_default(),
-        };
-        let state = MemoryState {
-            accounts: Vec::new(),
-            goals: Vec::new(),
-            categories: Vec::new(),
-            entries: Vec::new(),
-            drafts: HashSet::new(),
-            members: Vec::new(),
-            settings,
-            api_keys: Vec::new(),
-            flows: HashMap::new(),
-            update_offset: None,
-        };
-        Self { state: Mutex::new(state) }
+        Self { state: Mutex::new(MemoryState::default()) }
     }
 
     /// Adds an active category directly and returns its id.

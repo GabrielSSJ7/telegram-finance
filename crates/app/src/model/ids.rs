@@ -36,6 +36,9 @@ macro_rules! define_id {
 }
 
 define_id!(AccountId);
+define_id!(CardId);
+define_id!(InvoiceId);
+define_id!(PurchaseId);
 define_id!(ApiKeyId);
 define_id!(CategoryId);
 define_id!(EntryId);

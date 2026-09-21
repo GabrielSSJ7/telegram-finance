@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update credit_cards set archived_at = $2 where id = $1 and archived_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fab8bb7f327ac66600bdcb4eb47c1cede3f6f50de1f2ff7bb209e09d13a6d206"
+}

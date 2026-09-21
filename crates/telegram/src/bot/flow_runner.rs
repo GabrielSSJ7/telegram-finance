@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::BotContext;
 use super::executor::{Committed, execute, headline};
-use crate::callback_data::{nonce_of, undo_button};
+use crate::callback_data::{nonce_of, undo_button, undo_purchase_button};
 use crate::flows::{Advance, FormInput, FormKind, FormState, build_command};
 use crate::gateway::{Button, GatewayError, Keyboard};
 use crate::render::{CardContext, CardView, Catalog, card_view, committed_card};
@@ -153,7 +153,7 @@ async fn render_card(
     state: &FormState,
     problem: Option<&str>,
 ) -> AppResult<CardView> {
-    let catalog = Catalog::load(&context.services).await?;
+    let catalog = Catalog::load(&context.services, state.form == FormKind::PayInvoice).await?;
     let nonce = nonce_of(session.draft);
     let card = CardContext {
         owner: &session.member.display_name,
@@ -260,7 +260,9 @@ async fn show_committed(
     committed: &Committed,
     placement: Placement,
 ) -> Result<(), GatewayError> {
-    let catalog = Catalog::load(&context.services).await.unwrap_or_default();
+    let catalog = Catalog::load(&context.services, state.form == FormKind::PayInvoice)
+        .await
+        .unwrap_or_default();
     let card = CardContext {
         owner: &session.member.display_name,
         catalog: &catalog,
@@ -269,16 +271,16 @@ async fn show_committed(
     };
     let html = committed_card(state, card, headline(state.form));
     let keyboard = match committed {
-        Committed::Entry(entry) => Some(undo_keyboard(entry.id)),
-        Committed::Account(_) | Committed::Goal(_) => None,
+        Committed::Entry(entry) => Some(undo_keyboard(undo_button(entry.id))),
+        Committed::Purchase(purchase) => Some(undo_keyboard(undo_purchase_button(purchase.id))),
+        Committed::Account(_) | Committed::Goal(_) | Committed::Card(_) => None,
     };
     place(context, &mut session, html, keyboard, placement).await
 }
 
-pub fn undo_keyboard(entry: app::model::EntryId) -> Keyboard {
-    Keyboard {
-        rows: vec![vec![Button { label: "↩️ Desfazer".into(), data: undo_button(entry) }]]
-    }
+/// A single [Desfazer] button carrying `data`.
+pub fn undo_keyboard(data: String) -> Keyboard {
+    Keyboard { rows: vec![vec![Button { label: "↩️ Desfazer".into(), data }]] }
 }
 
 async fn finish_cancelled(

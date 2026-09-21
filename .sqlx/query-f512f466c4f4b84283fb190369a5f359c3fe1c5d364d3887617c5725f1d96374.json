@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, kind, amount_cents, description, category_id, account_id, counter_account_id,\n                    accounting_date, created_by, created_at, deleted_at\n             from ledger_entries\n             where created_by = $1 and deleted_at is null\n             order by created_at desc, id desc\n             limit 1",
+  "query": "select id, kind, amount_cents, description, category_id, account_id, counter_account_id,\n                    card_purchase_id, installment_no, invoice_id, accounting_date, created_by, created_at, deleted_at\n             from ledger_entries\n             where created_by = $1 and deleted_at is null\n             order by created_at desc, id desc\n             limit 1",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,39 @@
       },
       {
         "ordinal": 7,
+        "name": "card_purchase_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "card_purchase_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "installment_no",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "installment_no"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "invoice_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "invoice_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
         "name": "accounting_date",
         "type_info": "Date",
         "origin": {
@@ -92,7 +125,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 11,
         "name": "created_by",
         "type_info": "Uuid",
         "origin": {
@@ -103,7 +136,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +147,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 13,
         "name": "deleted_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -138,11 +171,14 @@
       true,
       true,
       true,
+      true,
+      true,
+      true,
       false,
       true,
       false,
       true
     ]
   },
-  "hash": "697ca397b997773060c1a6965320f593e665ca81fab7aa1ad2129ed8f3af57f7"
+  "hash": "f512f466c4f4b84283fb190369a5f359c3fe1c5d364d3887617c5725f1d96374"
 }

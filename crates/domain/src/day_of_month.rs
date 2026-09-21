@@ -13,6 +13,8 @@ pub struct DayOfMonth(u8);
 pub struct DayOfMonthError(pub i64);
 
 impl DayOfMonth {
+    pub const FIRST: DayOfMonth = DayOfMonth(1);
+
     /// Builds a validated day.
     ///
     /// ```

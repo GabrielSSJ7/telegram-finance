@@ -28,8 +28,8 @@ impl LedgerFixture {
     }
 
     async fn balances(&self) -> Vec<i64> {
-        let sheet = self.set.services.accounts.balance_sheet().await.unwrap();
-        sheet.accounts.iter().map(|item| item.balance.value()).collect()
+        let balances = self.set.services.accounts.balances().await.unwrap();
+        balances.iter().map(|item| item.balance.value()).collect()
     }
 }
 

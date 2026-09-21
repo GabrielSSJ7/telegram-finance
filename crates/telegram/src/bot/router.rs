@@ -8,7 +8,7 @@ use super::access::{Audience, identify};
 use super::commands::{household_command, parse_command};
 use super::flow_runner::{Placement, continue_flow, load_session, member_key};
 use super::membership::on_membership;
-use super::undo::undo_button;
+use super::undo::{undo_button, undo_purchase_button};
 use crate::callback_data::{CallbackPayload, nonce_of, parse};
 use crate::flows::FormInput;
 use crate::gateway::{ButtonPress, GatewayError, IncomingUpdate, TextMessage, UpdateKind};
@@ -127,6 +127,9 @@ async fn on_button(context: &BotContext, press: &ButtonPress) -> Result<(), Gate
     match parse(&press.data) {
         Some(CallbackPayload::Undo(entry_id)) => {
             undo_button(context, press, &member, entry_id).await
+        }
+        Some(CallbackPayload::UndoPurchase(purchase_id)) => {
+            undo_purchase_button(context, press, &member, purchase_id).await
         }
         Some(CallbackPayload::Flow { nonce, value }) => {
             flow_button(context, press, &member, &nonce, value).await

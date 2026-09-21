@@ -8,7 +8,9 @@ use super::undo::undo_last;
 use crate::flows::FormKind;
 use crate::gateway::GatewayError;
 use crate::render::help::help_text;
-use crate::render::reports::{accounts_text, balance_text, categories_text, goals_text};
+use crate::render::reports::{
+    accounts_text, balance_text, cards_text, categories_text, goals_text, invoices_text,
+};
 
 /// `"/gasto@finbot resto"` → `("gasto", "resto")`. Not a command → `None`.
 ///
@@ -38,6 +40,8 @@ pub async fn household_command(
         "contas" => accounts(context, chat_id).await,
         "metas" => goals(context, chat_id).await,
         "categorias" => categories(context, chat_id).await,
+        "fatura" | "faturas" => invoices(context, chat_id).await,
+        "cartoes" => cards(context, chat_id).await,
         "desfazer" => undo_last(context, chat_id, member).await,
         "cancelar" => cancel_current(context, chat_id, member).await,
         "ajuda" | "start" | "help" => context.reply(chat_id, help_text()).await.map(|_| ()),
@@ -48,14 +52,14 @@ pub async fn household_command(
 }
 
 async fn balances(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
-    match context.services.accounts.balance_sheet().await {
+    match context.services.position.balance_sheet().await {
         Ok(sheet) => context.reply(chat_id, balance_text(&sheet)).await.map(|_| ()),
         Err(error) => context.reply_error(chat_id, &error).await,
     }
 }
 
 async fn accounts(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
-    match context.services.accounts.balance_sheet().await {
+    match context.services.position.balance_sheet().await {
         Ok(sheet) => context.reply(chat_id, accounts_text(&sheet)).await.map(|_| ()),
         Err(error) => context.reply_error(chat_id, &error).await,
     }
@@ -64,6 +68,20 @@ async fn accounts(context: &BotContext, chat_id: i64) -> Result<(), GatewayError
 async fn goals(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
     match context.services.goals.list_progress().await {
         Ok(progress) => context.reply(chat_id, goals_text(&progress)).await.map(|_| ()),
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+async fn invoices(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    match context.services.cards.summaries().await {
+        Ok(summaries) => context.reply(chat_id, invoices_text(&summaries)).await.map(|_| ()),
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+async fn cards(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    match context.services.cards.list().await {
+        Ok(found) => context.reply(chat_id, cards_text(&found)).await.map(|_| ()),
         Err(error) => context.reply_error(chat_id, &error).await,
     }
 }

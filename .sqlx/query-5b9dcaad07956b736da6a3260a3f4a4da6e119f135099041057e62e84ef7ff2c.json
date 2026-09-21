@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into ledger_entries\n    (kind, amount_cents, description, category_id, account_id, counter_account_id, accounting_date, created_by)\nvalues ($1, $2, $3, $4, $5, $6, $7, $8)\nreturning id, kind, amount_cents, description, category_id, account_id, counter_account_id,\n          accounting_date, created_by, created_at, deleted_at\n",
+  "query": "-- Null parameters keep the current value.\nupdate ledger_entries set\n    amount_cents = coalesce($2, amount_cents),\n    description = coalesce($3, description),\n    category_id = coalesce($4, category_id),\n    accounting_date = coalesce($5, accounting_date)\nwhere id = $1 and deleted_at is null\nreturning id, kind, amount_cents, description, category_id, account_id, counter_account_id,\n          card_purchase_id, installment_no, invoice_id, accounting_date, created_by, created_at, deleted_at\n",
   "describe": {
     "columns": [
       {
@@ -82,6 +82,39 @@
       },
       {
         "ordinal": 7,
+        "name": "card_purchase_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "card_purchase_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "installment_no",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "installment_no"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "invoice_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "ledger_entries",
+            "name": "invoice_id"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
         "name": "accounting_date",
         "type_info": "Date",
         "origin": {
@@ -92,7 +125,7 @@
         }
       },
       {
-        "ordinal": 8,
+        "ordinal": 11,
         "name": "created_by",
         "type_info": "Uuid",
         "origin": {
@@ -103,7 +136,7 @@
         }
       },
       {
-        "ordinal": 9,
+        "ordinal": 12,
         "name": "created_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -114,7 +147,7 @@
         }
       },
       {
-        "ordinal": 10,
+        "ordinal": 13,
         "name": "deleted_at",
         "type_info": "Timestamptz",
         "origin": {
@@ -127,14 +160,11 @@
     ],
     "parameters": {
       "Left": [
-        "Text",
+        "Uuid",
         "Int8",
         "Text",
         "Uuid",
-        "Uuid",
-        "Uuid",
-        "Date",
-        "Uuid"
+        "Date"
       ]
     },
     "nullable": [
@@ -145,11 +175,14 @@
       true,
       true,
       true,
+      true,
+      true,
+      true,
       false,
       true,
       false,
       true
     ]
   },
-  "hash": "2fab5b8463b3edf8d78c90c7a9c8ffb427c777a580198949acd904c3da3bdcf9"
+  "hash": "5b9dcaad07956b736da6a3260a3f4a4da6e119f135099041057e62e84ef7ff2c"
 }

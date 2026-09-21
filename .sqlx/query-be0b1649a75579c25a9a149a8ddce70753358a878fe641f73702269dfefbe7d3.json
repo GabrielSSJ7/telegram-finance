@@ -1,0 +1,112 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select id, name, closing_day, due_day, closing_day_goes_next, limit_cents, default_payment_account_id, archived_at\n             from credit_cards where id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "credit_cards",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "credit_cards",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "closing_day",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "credit_cards",
+            "name": "closing_day"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "due_day",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "credit_cards",
+            "name": "due_day"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "closing_day_goes_next",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "credit_cards",
+            "name": "closing_day_goes_next"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "limit_cents",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "credit_cards",
+            "name": "limit_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "default_payment_account_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "credit_cards",
+            "name": "default_payment_account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "archived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "credit_cards",
+            "name": "archived_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "be0b1649a75579c25a9a149a8ddce70753358a878fe641f73702269dfefbe7d3"
+}

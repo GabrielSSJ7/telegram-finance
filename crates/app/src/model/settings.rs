@@ -10,6 +10,17 @@ pub struct HouseholdSettings {
     pub daily_report_time: NaiveTime,
 }
 
+/// Same defaults as the database: cycle starts on the 1st, report at 21:00.
+impl Default for HouseholdSettings {
+    fn default() -> Self {
+        Self {
+            telegram_chat_id: None,
+            cycle_start_day: DayOfMonth::FIRST,
+            daily_report_time: NaiveTime::from_hms_opt(21, 0, 0).unwrap_or_default(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SettingsPatch {
     pub cycle_start_day: Option<DayOfMonth>,

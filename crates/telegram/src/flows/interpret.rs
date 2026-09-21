@@ -3,6 +3,7 @@
 
 use app::services::text_rules::{clean_description, clean_name};
 use chrono::{Days, NaiveDate};
+use domain::installments::MAX_INSTALLMENTS;
 use domain::money_parse::parse_brl;
 use domain::{AccountKind, Cents};
 
@@ -23,16 +24,17 @@ pub enum Interpreted {
 }
 
 pub fn interpret(field: Field, input: &FormInput, today: NaiveDate) -> Result<Interpreted, String> {
-    match field {
-        Field::Amount | Field::GoalTarget => positive_amount(input).map(Interpreted::Answer),
-        Field::InitialBalance | Field::AlreadySaved => {
-            amount_or_zero(input).map(Interpreted::Answer)
-        }
-        Field::Description => description(input).map(Interpreted::Answer),
-        Field::AccountName | Field::GoalName => name(input).map(Interpreted::Answer),
-        Field::Date => date(input, today),
-        _ => button_choice(field, input).map(Interpreted::Answer),
-    }
+    let answer = match field {
+        Field::Date => return date(input, today),
+        Field::Amount | Field::GoalTarget => positive_amount(input),
+        Field::InitialBalance | Field::AlreadySaved => amount_or_zero(input),
+        Field::Description => description(input),
+        Field::AccountName | Field::GoalName | Field::CardName => name(input),
+        Field::ClosingDay | Field::DueDay => day_of_month(input),
+        Field::Installments => installments(input),
+        _ => button_choice(field, input),
+    };
+    answer.map(Interpreted::Answer)
 }
 
 pub fn interpret_typed_date(input: &FormInput, today: NaiveDate) -> Result<Answer, String> {
@@ -43,10 +45,37 @@ pub fn interpret_typed_date(input: &FormInput, today: NaiveDate) -> Result<Answe
 }
 
 fn positive_amount(input: &FormInput) -> Result<Answer, String> {
+    match input {
+        FormInput::Text(text) => parse_brl(text).map(Answer::Money).map_err(|_| BAD_AMOUNT.into()),
+        FormInput::Button(ButtonValue::Money(amount)) if amount.is_positive() => {
+            Ok(Answer::Money(*amount))
+        }
+        FormInput::Button(_) => Err("Digite o valor, por exemplo 10,50.".into()),
+    }
+}
+
+fn day_of_month(input: &FormInput) -> Result<Answer, String> {
+    let problem = || "Digite um dia de 1 a 31.".to_owned();
     let FormInput::Text(text) = input else {
-        return Err("Digite o valor, por exemplo 10,50.".into());
+        return Err(problem());
     };
-    parse_brl(text).map(Answer::Money).map_err(|_| BAD_AMOUNT.into())
+    let day: u8 = text.trim().parse().map_err(|_| problem())?;
+    (1..=31).contains(&day).then_some(Answer::Day(day)).ok_or_else(problem)
+}
+
+fn installments(input: &FormInput) -> Result<Answer, String> {
+    let problem = || format!("Escolha as parcelas ou digite um número de 1 a {MAX_INSTALLMENTS}.");
+    let count = match input {
+        FormInput::Button(ButtonValue::Installments(count)) => *count,
+        FormInput::Text(text) => {
+            text.trim().trim_end_matches(['x', 'X']).parse().map_err(|_| problem())?
+        }
+        FormInput::Button(_) => return Err(problem()),
+    };
+    (1..=MAX_INSTALLMENTS)
+        .contains(&count)
+        .then_some(Answer::Installments(count))
+        .ok_or_else(problem)
 }
 
 fn amount_or_zero(input: &FormInput) -> Result<Answer, String> {
@@ -107,12 +136,25 @@ fn button_choice(field: Field, input: &FormInput) -> Result<Answer, String> {
             Answer::AccountKind(kind)
         }
         (
-            Field::PaymentAccount | Field::ReceivingAccount | Field::FromAccount | Field::ToAccount,
-            ButtonValue::Account(id),
-        ) => Answer::Account(id),
+            Field::PaymentAccount | Field::RefundTarget | Field::CardChoice,
+            ButtonValue::Card(id),
+        ) => Answer::Card(id),
+        (Field::InvoiceChoice, ButtonValue::Invoice(id)) => Answer::Invoice(id),
+        (field, ButtonValue::Account(id)) if takes_account(field) => Answer::Account(id),
         _ => return Err(PICK_A_BUTTON.into()),
     };
     Ok(answer)
+}
+
+const fn takes_account(field: Field) -> bool {
+    matches!(
+        field,
+        Field::PaymentAccount
+            | Field::ReceivingAccount
+            | Field::FromAccount
+            | Field::ToAccount
+            | Field::RefundTarget
+    )
 }
 
 #[cfg(test)]
@@ -174,6 +216,37 @@ mod tests {
         assert_eq!(tap(Field::Date, ButtonValue::Skip), Err(PICK_A_BUTTON.into()));
         let tapped = interpret_typed_date(&FormInput::Button(ButtonValue::Today), today());
         assert_eq!(tapped, Err(BAD_DATE.into()));
+    }
+
+    #[test]
+    fn card_fields() {
+        use app::model::{CardId, InvoiceId};
+        let (card, invoice) = (CardId::generate(), InvoiceId::generate());
+        assert_eq!(tap(Field::PaymentAccount, ButtonValue::Card(card)), got(Answer::Card(card)));
+        assert_eq!(
+            tap(Field::InvoiceChoice, ButtonValue::Invoice(invoice)),
+            got(Answer::Invoice(invoice))
+        );
+        assert_eq!(
+            tap(Field::Installments, ButtonValue::Installments(3)),
+            got(Answer::Installments(3))
+        );
+        assert_eq!(typed(Field::Installments, "18x"), got(Answer::Installments(18)));
+        assert!(
+            typed(Field::Installments, "49").is_err()
+                && tap(Field::Installments, ButtonValue::Skip).is_err()
+        );
+        assert_eq!(
+            tap(Field::Amount, ButtonValue::Money(Cents::new(500))),
+            got(Answer::Money(Cents::new(500)))
+        );
+    }
+
+    #[test]
+    fn days_of_month() {
+        assert_eq!(typed(Field::ClosingDay, " 5 "), got(Answer::Day(5)));
+        assert!(typed(Field::DueDay, "32").is_err() && typed(Field::DueDay, "dez").is_err());
+        assert!(tap(Field::ClosingDay, ButtonValue::Skip).is_err());
     }
 
     #[test]

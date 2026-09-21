@@ -1,7 +1,7 @@
 //! `/desfazer` and the [Desfazer] button: only the author may undo.
 
 use app::AppError;
-use app::model::{EntryId, LedgerEntry, Member};
+use app::model::{CardPurchase, EntryId, LedgerEntry, Member, PurchaseId};
 use domain::money_format::format_brl;
 
 use super::BotContext;
@@ -45,6 +45,39 @@ pub async fn undo_button(
     context.edit(press.chat_id, press.message_id, undone_html(&entry, member), None).await
 }
 
+/// [Desfazer] under a card purchase: removes all its installments.
+pub async fn undo_purchase_button(
+    context: &BotContext,
+    press: &ButtonPress,
+    member: &Member,
+    purchase_id: PurchaseId,
+) -> Result<(), GatewayError> {
+    let Ok(purchase) = context.services.cards.find_purchase(purchase_id).await else {
+        return toast(context, press, "Essa compra já foi desfeita.").await;
+    };
+    if purchase.created_by != Some(member.id) {
+        return toast(context, press, "Só quem registrou pode desfazer.").await;
+    }
+    if let Err(error) = context.services.cards.delete_purchase(purchase_id).await {
+        context.gateway.answer_button(&press.callback_id, None).await?;
+        return context.reply_error(press.chat_id, &error).await;
+    }
+    toast(context, press, "Desfeito").await?;
+    context
+        .edit(press.chat_id, press.message_id, undone_purchase_html(&purchase, member), None)
+        .await
+}
+
+fn undone_purchase_html(purchase: &CardPurchase, member: &Member) -> String {
+    let parts = if purchase.installment_count > 1 {
+        format!(" em {}x", purchase.installment_count)
+    } else {
+        String::new()
+    };
+    let summary = format!("{}{parts} no cartão", format_brl(purchase.total));
+    format!("↩️ <s>{summary}</s>\nDesfeito por {}.", escape(&member.display_name))
+}
+
 async fn toast(context: &BotContext, press: &ButtonPress, text: &str) -> Result<(), GatewayError> {
     context.gateway.answer_button(&press.callback_id, Some(text)).await
 }
@@ -78,6 +111,9 @@ mod tests {
             category_id: None,
             account_id: None,
             counter_account_id: None,
+            card_purchase_id: None,
+            installment_no: None,
+            invoice_id: None,
             accounting_date: NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
             created_by: None,
             created_at: Utc::now(),

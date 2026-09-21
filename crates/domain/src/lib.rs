@@ -10,6 +10,7 @@ pub mod entry_kind;
 pub mod goal_progress;
 pub mod installments;
 pub mod invoice_cycle;
+pub mod invoice_settlement;
 pub mod money;
 pub mod money_format;
 pub mod money_parse;

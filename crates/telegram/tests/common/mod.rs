@@ -160,6 +160,22 @@ impl BotHarness {
         self.set.services.accounts.open(request).await.unwrap().id
     }
 
+    /// Registers the "Roxinho" card closing on the 3rd, due on the 10th.
+    pub async fn with_card(self) -> Self {
+        let (closing_day, due_day) =
+            (domain::DayOfMonth::new(3).unwrap(), domain::DayOfMonth::new(10).unwrap());
+        let request = app::services::OpenCard {
+            name: "Roxinho".into(),
+            closing_day,
+            due_day,
+            closing_day_goes_next: true,
+            limit: None,
+            default_payment_account_id: None,
+        };
+        self.set.services.cards.open(request).await.unwrap();
+        self
+    }
+
     /// Nubank account plus mercado/salário categories.
     pub async fn with_basics(self) -> Self {
         self.open_account("Nubank", AccountKind::Checking, 100_000).await;

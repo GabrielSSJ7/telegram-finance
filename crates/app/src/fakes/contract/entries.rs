@@ -35,6 +35,7 @@ impl EntryScene {
             category_id: Some(self.groceries),
             account_id: Some(self.checking),
             counter_account_id: None,
+            invoice_id: None,
             accounting_date: day(4, on),
             created_by,
         }

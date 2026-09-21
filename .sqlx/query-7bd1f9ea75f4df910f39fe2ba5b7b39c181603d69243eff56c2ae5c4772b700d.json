@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update card_purchases set deleted_at = $2 where id = $1 and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7bd1f9ea75f4df910f39fe2ba5b7b39c181603d69243eff56c2ae5c4772b700d"
+}

@@ -19,6 +19,7 @@ async fn unknown_account_is_missing_reference(pool: PgPool) {
         category_id: None,
         account_id: Some(AccountId::generate()),
         counter_account_id: None,
+        invoice_id: None,
         accounting_date: NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
         created_by: None,
     };

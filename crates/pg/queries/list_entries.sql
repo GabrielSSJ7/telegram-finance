@@ -1,6 +1,6 @@
 -- Optional filters: a null parameter matches everything.
 select id, kind, amount_cents, description, category_id, account_id, counter_account_id,
-       accounting_date, created_by, created_at, deleted_at
+       card_purchase_id, installment_no, invoice_id, accounting_date, created_by, created_at, deleted_at
 from ledger_entries
 where deleted_at is null
   and ($1::date is null or accounting_date >= $1)
