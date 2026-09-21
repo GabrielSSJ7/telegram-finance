@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update recurrences set active = false where id = $1 and active",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "827c09f761793e64cdcb6c2dbf2737d9312edca0287f2669482b3b706a490b50"
+}

@@ -12,7 +12,10 @@ mod drafts;
 mod entries;
 mod error_mapping;
 mod goals;
+mod job_runs;
 mod members;
+mod recurrences;
+mod reports;
 mod settings;
 
 use std::time::Duration;

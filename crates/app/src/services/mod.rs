@@ -13,6 +13,8 @@ pub mod ledger;
 pub mod ledger_validation;
 pub mod members;
 pub mod position;
+pub mod recurrences;
+pub mod reports;
 pub mod service_set;
 pub mod settings;
 pub mod text_rules;
@@ -26,6 +28,8 @@ pub use goals::{CreateGoal, GoalService, PotMove};
 pub use ledger::{EntryOrigin, EntryRequest, LedgerService};
 pub use members::{AllowedUsers, MemberService};
 pub use position::PositionService;
+pub use recurrences::{CreateRecurrence, RecurrenceService};
+pub use reports::ReportService;
 pub use service_set::{ServiceEnvironment, ServiceSet, StorePorts};
 pub use settings::SettingsService;
 
@@ -35,3 +39,7 @@ mod card_tests;
 mod goals_tests;
 #[cfg(test)]
 mod ledger_tests;
+#[cfg(test)]
+mod recurrence_tests;
+#[cfg(test)]
+mod report_tests;

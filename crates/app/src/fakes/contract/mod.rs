@@ -17,6 +17,7 @@ mod chat_flows;
 mod entries;
 mod goals;
 mod members;
+mod scheduling;
 mod settings;
 
 #[cfg(test)]
@@ -30,6 +31,7 @@ pub use chat_flows::*;
 pub use entries::*;
 pub use goals::*;
 pub use members::*;
+pub use scheduling::*;
 pub use settings::*;
 
 use chrono::NaiveDate;
@@ -70,6 +72,13 @@ macro_rules! store_contract_cases {
         $case!(card_purchase_spreads_installments);
         $case!(card_purchase_delete_removes_installments);
         $case!(card_invoice_entries_count_as_credits_and_payments);
+        $case!(recurrence_create_find_list_deactivate);
+        $case!(recurrence_mark_generated_only_moves_forward);
+        $case!(job_runs_once_per_day);
+        $case!(job_failures_retry_until_max_attempts);
+        $case!(job_stale_run_is_reclaimed);
+        $case!(report_flows_group_by_category_author_and_kind);
+        $case!(report_pot_net_inflow_counts_both_directions);
     };
 }
 

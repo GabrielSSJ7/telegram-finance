@@ -1,3 +1,4 @@
+use app::model::{RecurrenceKind, RecurrenceMode};
 use chrono::{Days, NaiveDate};
 use domain::money_format::format_brl;
 
@@ -69,18 +70,41 @@ pub fn answer_value(answer: &Answer, context: CardContext<'_>) -> String {
         Answer::Money(amount) => format_brl(*amount),
         Answer::Text(text) if !text.is_empty() => escape(text),
         Answer::Text(_) | Answer::Skipped => "—".to_owned(),
-        Answer::Category(id) => context.catalog.category_label(*id),
-        Answer::Account(id) => context.catalog.account_label(*id),
-        Answer::Goal(id) => context.catalog.goal_label(*id),
         Answer::Date(date) => relative_date(*date, context.today),
         Answer::AccountKind(kind) => kind_name(*kind).to_owned(),
-        Answer::Card(id) => context.catalog.card_label(*id),
-        Answer::Invoice(id) => context
-            .catalog
-            .invoice(*id)
-            .map_or_else(|| "fatura".to_owned(), |view| invoice_label(&view)),
         Answer::Installments(count) => format!("{count}x"),
         Answer::Day(day) => format!("dia {day}"),
+        Answer::RecurrenceKind(kind) => recurrence_kind_name(*kind).to_owned(),
+        Answer::RecurrenceMode(mode) => recurrence_mode_name(*mode).to_owned(),
+        reference => referenced_name(reference, context.catalog),
+    }
+}
+
+/// Answers that point at the couple's own records.
+fn referenced_name(answer: &Answer, catalog: &Catalog) -> String {
+    match answer {
+        Answer::Category(id) => catalog.category_label(*id),
+        Answer::Account(id) => catalog.account_label(*id),
+        Answer::Goal(id) => catalog.goal_label(*id),
+        Answer::Card(id) => catalog.card_label(*id),
+        Answer::Invoice(id) => {
+            catalog.invoice(*id).map_or_else(|| "fatura".to_owned(), |view| invoice_label(&view))
+        }
+        _ => String::new(),
+    }
+}
+
+const fn recurrence_kind_name(kind: RecurrenceKind) -> &'static str {
+    match kind {
+        RecurrenceKind::Income => "Entrada",
+        RecurrenceKind::Expense => "Gasto",
+    }
+}
+
+const fn recurrence_mode_name(mode: RecurrenceMode) -> &'static str {
+    match mode {
+        RecurrenceMode::Auto => "Automático",
+        RecurrenceMode::Confirm => "Perguntar antes",
     }
 }
 
@@ -119,6 +143,10 @@ const FIELD_TEXT: &[(Field, &str, &str)] = &[
     (Field::CardChoice, "💳", "Cartão"),
     (Field::InvoiceChoice, "🧾", "Fatura"),
     (Field::RefundTarget, "↩️", "Volta para"),
+    (Field::RecurrenceKindChoice, "🔁", "Tipo"),
+    (Field::RecurrenceName, "✏️", "Nome"),
+    (Field::RecurrenceDay, "📆", "Todo dia"),
+    (Field::RecurrenceModeChoice, "⚙️", "Registro"),
 ];
 
 fn field_text(field: Field) -> (&'static str, &'static str) {
@@ -168,6 +196,16 @@ const QUESTIONS: &[(Option<FormKind>, Field, &str)] = &[
     (None, Field::GoalName, "Nome da meta? (ex.: Casa própria)"),
     (None, Field::GoalTarget, "Quanto quer juntar?"),
     (None, Field::AlreadySaved, "Quanto já tem guardado? Digite o valor ou toque em Zero."),
+    (Some(FormKind::NewRecurrence), Field::Amount, "Qual o valor todo mês?"),
+    (Some(FormKind::NewRecurrence), Field::ReceivingAccount, "Cai em qual conta?"),
+    (None, Field::RecurrenceKindChoice, "É um gasto ou uma entrada?"),
+    (None, Field::RecurrenceName, "Nome? (ex.: Aluguel, Salário, Netflix)"),
+    (None, Field::RecurrenceDay, "Que dia do mês? (1 a 31)"),
+    (
+        None,
+        Field::RecurrenceModeChoice,
+        "Registro automático ou pergunto antes? (Pergunte para contas que variam, como luz.)",
+    ),
 ];
 
 fn field_question(form: FormKind, field: Field) -> &'static str {

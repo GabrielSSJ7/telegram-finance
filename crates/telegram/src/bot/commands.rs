@@ -8,8 +8,10 @@ use super::undo::undo_last;
 use crate::flows::FormKind;
 use crate::gateway::GatewayError;
 use crate::render::help::help_text;
+use crate::render::report_text::daily_report_text;
 use crate::render::reports::{
     accounts_text, balance_text, cards_text, categories_text, goals_text, invoices_text,
+    recurrences_view,
 };
 
 /// `"/gasto@finbot resto"` → `("gasto", "resto")`. Not a command → `None`.
@@ -36,15 +38,28 @@ pub async fn household_command(
         return start_flow(context, chat_id, member, form).await;
     }
     match command {
+        "desfazer" => undo_last(context, chat_id, member).await,
+        "cancelar" => cancel_current(context, chat_id, member).await,
+        "ajuda" | "start" | "help" => context.reply(chat_id, help_text()).await.map(|_| ()),
+        report => report_command(context, chat_id, report).await,
+    }
+}
+
+/// Commands that only read and reply.
+async fn report_command(
+    context: &BotContext,
+    chat_id: i64,
+    command: &str,
+) -> Result<(), GatewayError> {
+    match command {
         "saldo" => balances(context, chat_id).await,
         "contas" => accounts(context, chat_id).await,
         "metas" => goals(context, chat_id).await,
         "categorias" => categories(context, chat_id).await,
         "fatura" | "faturas" => invoices(context, chat_id).await,
         "cartoes" => cards(context, chat_id).await,
-        "desfazer" => undo_last(context, chat_id, member).await,
-        "cancelar" => cancel_current(context, chat_id, member).await,
-        "ajuda" | "start" | "help" => context.reply(chat_id, help_text()).await.map(|_| ()),
+        "recorrentes" => recurrences(context, chat_id).await,
+        "resumo" => summary(context, chat_id).await,
         other => {
             context.reply(chat_id, format!("Não conheço /{other}. Veja /ajuda.")).await.map(|_| ())
         }
@@ -82,6 +97,24 @@ async fn invoices(context: &BotContext, chat_id: i64) -> Result<(), GatewayError
 async fn cards(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
     match context.services.cards.list().await {
         Ok(found) => context.reply(chat_id, cards_text(&found)).await.map(|_| ()),
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+async fn recurrences(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    match context.services.recurrences.list(false).await {
+        Ok(found) => {
+            let (html, keyboard) = recurrences_view(&found);
+            context.send(chat_id, html, keyboard).await.map(|_| ())
+        }
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+/// `/resumo`: today's report on demand.
+async fn summary(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    match context.services.reports.daily(context.clock.today()).await {
+        Ok(report) => context.reply(chat_id, daily_report_text(&report)).await.map(|_| ()),
         Err(error) => context.reply_error(chat_id, &error).await,
     }
 }

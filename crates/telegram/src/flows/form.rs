@@ -14,6 +14,7 @@ pub enum FormKind {
     NewCard,
     PayInvoice,
     Refund,
+    NewRecurrence,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -49,17 +50,35 @@ pub enum Field {
     InvoiceChoice,
     /// Where a refund goes back to: an account or a card.
     RefundTarget,
+    RecurrenceKindChoice,
+    RecurrenceName,
+    RecurrenceDay,
+    RecurrenceModeChoice,
 }
 
 use Field::{
     AccountKind as KindField, AccountName, AlreadySaved, Amount, CardChoice, CardName, ClosingDay,
     Date, Description, DueDay, ExpenseCategory, FromAccount, Goal, GoalName, GoalTarget,
     IncomeCategory, InitialBalance, Installments, InvoiceChoice, PaymentAccount, ReceivingAccount,
-    RefundTarget, ToAccount,
+    RecurrenceDay, RecurrenceKindChoice, RecurrenceModeChoice, RecurrenceName, RefundTarget,
+    ToAccount,
 };
 
+/// Expense-only and income-only fields are skipped by `Field::applies`.
+const RECURRENCE_FIELDS: &[Field] = &[
+    RecurrenceKindChoice,
+    RecurrenceName,
+    Amount,
+    ExpenseCategory,
+    IncomeCategory,
+    PaymentAccount,
+    ReceivingAccount,
+    RecurrenceDay,
+    RecurrenceModeChoice,
+];
+
 impl FormKind {
-    pub const ALL: [FormKind; 10] = [
+    pub const ALL: [FormKind; 11] = [
         FormKind::Expense,
         FormKind::Income,
         FormKind::Transfer,
@@ -70,6 +89,7 @@ impl FormKind {
         FormKind::NewCard,
         FormKind::PayInvoice,
         FormKind::Refund,
+        FormKind::NewRecurrence,
     ];
 
     pub const fn fields(self) -> &'static [Field] {
@@ -86,6 +106,7 @@ impl FormKind {
             FormKind::NewCard => &[CardName, ClosingDay, DueDay],
             FormKind::PayInvoice => &[CardChoice, InvoiceChoice, Amount, FromAccount, Date],
             FormKind::Refund => &[Amount, Description, ExpenseCategory, RefundTarget, Date],
+            FormKind::NewRecurrence => RECURRENCE_FIELDS,
         }
     }
 
@@ -102,6 +123,7 @@ impl FormKind {
             FormKind::NewCard => "novocartao",
             FormKind::PayInvoice => "pagarfatura",
             FormKind::Refund => "estorno",
+            FormKind::NewRecurrence => "recorrente",
         }
     }
 
@@ -117,6 +139,7 @@ impl FormKind {
             FormKind::NewCard => "Novo cartão",
             FormKind::PayInvoice => "Pagar fatura",
             FormKind::Refund => "Estorno",
+            FormKind::NewRecurrence => "Nova recorrência",
         }
     }
 
@@ -128,9 +151,17 @@ impl FormKind {
 impl Field {
     /// Whether this field is asked given the answers so far. Installments
     /// only make sense for an expense paid by card.
-    pub fn applies(self, answers: &super::Answers) -> bool {
-        match self {
-            Field::Installments => answers.card(Field::PaymentAccount).is_some(),
+    pub fn applies(self, form: FormKind, answers: &super::Answers) -> bool {
+        use app::model::RecurrenceKind::{Expense, Income};
+        let recurrence_kind = answers.recurrence_kind();
+        match (form, self) {
+            (_, Field::Installments) => answers.card(Field::PaymentAccount).is_some(),
+            (FormKind::NewRecurrence, Field::ExpenseCategory | Field::PaymentAccount) => {
+                recurrence_kind == Some(Expense)
+            }
+            (FormKind::NewRecurrence, Field::IncomeCategory | Field::ReceivingAccount) => {
+                recurrence_kind == Some(Income)
+            }
             _ => true,
         }
     }

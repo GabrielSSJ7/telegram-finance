@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "-- Transfers into pots minus transfers out of pots in the period.\nselect coalesce(\n           sum(case when destination.kind = 'pot' then entries.amount_cents else 0 end)\n         - sum(case when source.kind = 'pot' then entries.amount_cents else 0 end), 0)::bigint as \"net!\"\nfrom ledger_entries entries\njoin accounts source on source.id = entries.account_id\njoin accounts destination on destination.id = entries.counter_account_id\nwhere entries.deleted_at is null and entries.kind = 'transfer'\n  and entries.accounting_date >= $1 and entries.accounting_date < $2\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "net!",
+        "type_info": "Int8",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Date",
+        "Date"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "63c66f97501cbfeec205d4c2582abc26a4088e11acedb1d61234470d77afdb3e"
+}

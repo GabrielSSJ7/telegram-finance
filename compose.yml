@@ -57,6 +57,8 @@ services:
       HOUSEHOLD_TIMEZONE: ${HOUSEHOLD_TIMEZONE:-America/Sao_Paulo}
       HTTP_BIND: 0.0.0.0:8080
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
+      # The backup sidecar below records its runs; warn if it stops.
+      BACKUP_WATCH_ENABLED: "true"
       LOG_FORMAT: json
       RUST_LOG: ${RUST_LOG:-info,sqlx=warn}
     secrets: [database_url, telegram_bot_token]

@@ -1,9 +1,10 @@
 //! Turns a confirmed form into the use-case request it stands for.
 
+use app::model::{RecurrenceKind, RecurrenceTarget};
 use app::services::ledger::{AccountEntry, EntryRequest, TransferEntry};
 use app::services::{
-    CardCreditRequest, CardPurchaseRequest, CreateGoal, InvoicePaymentRequest, OpenAccount,
-    OpenCard, PotMove,
+    CardCreditRequest, CardPurchaseRequest, CreateGoal, CreateRecurrence, InvoicePaymentRequest,
+    OpenAccount, OpenCard, PotMove,
 };
 use domain::DayOfMonth;
 
@@ -20,6 +21,7 @@ pub enum FormCommand {
     CardCredit(CardCreditRequest),
     PayInvoice(InvoicePaymentRequest),
     OpenCard(OpenCard),
+    CreateRecurrence(CreateRecurrence),
 }
 
 /// `None` when a required answer is missing (the engine never confirms
@@ -40,6 +42,7 @@ pub fn build_command(state: &FormState) -> Option<FormCommand> {
         FormKind::NewCard => open_card(answers).map(FormCommand::OpenCard),
         FormKind::PayInvoice => pay_invoice(answers).map(FormCommand::PayInvoice),
         FormKind::Refund => refund(answers),
+        FormKind::NewRecurrence => create_recurrence(answers).map(FormCommand::CreateRecurrence),
     }
 }
 
@@ -73,6 +76,32 @@ fn refund(answers: &Answers) -> Option<FormCommand> {
         description: answers.text(Field::Description)?,
         date: Some(answers.date()?),
     }))
+}
+
+fn create_recurrence(answers: &Answers) -> Option<CreateRecurrence> {
+    let kind = answers.recurrence_kind()?;
+    let (category, target) = match kind {
+        RecurrenceKind::Income => (
+            Field::IncomeCategory,
+            RecurrenceTarget::Account(answers.account(Field::ReceivingAccount)?),
+        ),
+        RecurrenceKind::Expense => (Field::ExpenseCategory, recurrence_target(answers)?),
+    };
+    Some(CreateRecurrence {
+        kind,
+        amount: answers.money(Field::Amount)?,
+        description: answers.text(Field::RecurrenceName)?,
+        category_id: answers.category(category)?,
+        target,
+        day: DayOfMonth::new(answers.day(Field::RecurrenceDay)?).ok()?,
+        mode: answers.recurrence_mode()?,
+        starts_on: None,
+    })
+}
+
+fn recurrence_target(answers: &Answers) -> Option<RecurrenceTarget> {
+    let card = answers.card(Field::PaymentAccount).map(RecurrenceTarget::Card);
+    card.or_else(|| answers.account(Field::PaymentAccount).map(RecurrenceTarget::Account))
 }
 
 fn open_card(answers: &Answers) -> Option<OpenCard> {

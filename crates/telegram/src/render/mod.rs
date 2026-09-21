@@ -7,6 +7,8 @@ pub mod catalog;
 pub mod errors;
 pub mod help;
 pub mod keyboards;
+pub mod notices;
+pub mod report_text;
 pub mod reports;
 
 pub use card::{CardContext, CardView, card_view, committed_card};

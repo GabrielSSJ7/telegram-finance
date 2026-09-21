@@ -8,6 +8,7 @@ pub mod context;
 pub mod executor;
 pub mod flow_runner;
 pub mod membership;
+pub mod recurrence_buttons;
 pub mod router;
 pub mod undo;
 

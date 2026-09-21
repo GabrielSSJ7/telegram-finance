@@ -22,7 +22,7 @@ impl FakeServiceSet {
             tokens: Arc::new(SequentialTokenSource::default()),
             allowed_users,
         };
-        let services = ServiceSet::wire(StorePorts::from_single(&store), environment);
+        let services = ServiceSet::wire(&StorePorts::from_single(&store), environment);
         Self { store, clock, services }
     }
 }

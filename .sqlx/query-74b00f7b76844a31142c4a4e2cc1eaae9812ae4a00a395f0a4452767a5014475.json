@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into job_runs (job, run_date, status, updated_at) values ($1, $2, $3, $4)\n             on conflict (job, run_date) do update set status = excluded.status, updated_at = excluded.updated_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Date",
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "74b00f7b76844a31142c4a4e2cc1eaae9812ae4a00a395f0a4452767a5014475"
+}

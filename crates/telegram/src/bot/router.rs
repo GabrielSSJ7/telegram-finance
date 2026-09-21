@@ -8,6 +8,7 @@ use super::access::{Audience, identify};
 use super::commands::{household_command, parse_command};
 use super::flow_runner::{Placement, continue_flow, load_session, member_key};
 use super::membership::on_membership;
+use super::recurrence_buttons::{deactivate_recurrence, record_recurrence, skip_recurrence};
 use super::undo::{undo_button, undo_purchase_button};
 use crate::callback_data::{CallbackPayload, nonce_of, parse};
 use crate::flows::FormInput;
@@ -124,17 +125,35 @@ async fn on_button(context: &BotContext, press: &ButtonPress) -> Result<(), Gate
     let Ok(Audience::Household(member)) = audience else {
         return context.gateway.answer_button(&press.callback_id, Some(STALE_BUTTON)).await;
     };
-    match parse(&press.data) {
-        Some(CallbackPayload::Undo(entry_id)) => {
-            undo_button(context, press, &member, entry_id).await
+    let Some(payload) = parse(&press.data) else {
+        return context.gateway.answer_button(&press.callback_id, Some(STALE_BUTTON)).await;
+    };
+    dispatch_button(context, press, &member, payload).await
+}
+
+async fn dispatch_button(
+    context: &BotContext,
+    press: &ButtonPress,
+    member: &Member,
+    payload: CallbackPayload,
+) -> Result<(), GatewayError> {
+    match payload {
+        CallbackPayload::Flow { nonce, value } => {
+            flow_button(context, press, member, &nonce, value).await
         }
-        Some(CallbackPayload::UndoPurchase(purchase_id)) => {
-            undo_purchase_button(context, press, &member, purchase_id).await
+        CallbackPayload::Undo(entry) => undo_button(context, press, member, entry).await,
+        CallbackPayload::UndoPurchase(purchase) => {
+            undo_purchase_button(context, press, member, purchase).await
         }
-        Some(CallbackPayload::Flow { nonce, value }) => {
-            flow_button(context, press, &member, &nonce, value).await
+        CallbackPayload::RecordRecurrence(id, date) => {
+            record_recurrence(context, press, member, id, date).await
         }
-        None => context.gateway.answer_button(&press.callback_id, Some(STALE_BUTTON)).await,
+        CallbackPayload::SkipRecurrence(id, date) => {
+            skip_recurrence(context, press, member, id, date).await
+        }
+        CallbackPayload::DeactivateRecurrence(id) => {
+            deactivate_recurrence(context, press, id).await
+        }
     }
 }
 

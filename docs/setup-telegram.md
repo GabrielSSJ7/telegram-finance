@@ -51,9 +51,15 @@ Restart finbot. `/healthz` now shows a `telegram` check.
 ```
 /novaconta   → Nubank, Conta corrente, saldo atual
 /novameta    → Casa própria, 100.000, já guardado 20.000
-/gasto       → valor, descrição, categoria, conta, data, confirmar
-/saldo
+/gasto       → valor, descrição, categoria, conta ou cartão, (parcelas), data
+/novocartao  → nome, dia de fechamento, dia de vencimento
+/recorrente  → salário todo dia 5, aluguel todo dia 10...
+/saldo, /resumo, /fatura
 ```
+
+The daily summary arrives at 21:00 (change it with the API's
+`PATCH /api/v1/settings`), and the closing of the financial month on the
+first day of each cycle.
 
 Each confirmation has a **↩️ Desfazer** button; only the person who
 recorded the entry can use it. `/desfazer` undoes your own last entry.

@@ -15,8 +15,8 @@ choose, such as payday). A REST API exposes the same data.
 | 3 | Telegram bot MVP | done |
 | 4 | Docker, Caddy, backups, deploy | done |
 | 5 | Credit cards and invoices | done |
-| 6 | Scheduler and reports | next |
-| 7 | Budgets and goals | |
+| 6 | Scheduler and reports | done |
+| 7 | Budgets and goals | next |
 | 8 | Edit flows, CSV export, hardening | |
 
 ## Layout
@@ -57,7 +57,24 @@ finbot migrate                  # apply migrations only
 finbot api-key create <name>    # prints the token once
 finbot api-key revoke <name>
 finbot healthcheck              # exit 0 when /healthz answers 200
+finbot run-job <job> [--date D] # run a scheduled job now
 ```
+
+## Scheduled messages
+
+When the bot runs, a scheduler checks every minute (household timezone) and
+runs each job once per day, recorded in `job_runs` so restarts never repeat
+a message:
+
+| Job | When | What |
+|---|---|---|
+| recurrences | 06:00 | Records due recurring entries (backfills up to 3 months); bills set to "ask first" get [Registrar] [Pular] buttons |
+| invoice_events | 09:00 | Invoice closed today; unpaid invoice due in 3 days or today |
+| daily_report | report time (default 21:00) | Today's entries, the cycle so far, balances, cards, goals, what is coming |
+| cycle_report | report time, first day of a cycle | Closing of the financial month: income, spending, savings rate, categories, per person |
+| backup_watch | 10:00 | Private-chat warning when no backup succeeded in 26 hours |
+
+`finbot run-job daily-report --date 2026-10-05` runs one job immediately.
 
 ## Deploy
 
@@ -86,7 +103,8 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/estorno` | Refund back to an account or a card invoice |
 | `/fatura`, `/cartoes` | Card invoices (open, due, future installments); cards |
 | `/novaconta`, `/novameta`, `/novocartao` | Create an account, a savings goal or a card |
-| `/saldo`, `/contas`, `/metas`, `/categorias` | Reports |
+| `/saldo`, `/resumo`, `/contas`, `/metas`, `/categorias` | Reports (`/resumo` is the daily report on demand) |
+| `/recorrente`, `/recorrentes` | Create a monthly entry (salary, rent, subscription); list and deactivate |
 | `/desfazer` | Undo your own last entry |
 | `/cancelar`, `/ajuda` | Cancel the current form, list commands |
 

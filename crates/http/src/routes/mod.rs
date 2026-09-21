@@ -6,6 +6,8 @@ pub mod cards;
 pub mod categories;
 pub mod entries;
 pub mod goals;
+pub mod recurrences;
+pub mod reports;
 pub mod settings;
 
 use utoipa_axum::router::OpenApiRouter;
@@ -15,7 +17,7 @@ use crate::state::ApiState;
 
 /// Every `/api/v1` route with its API documentation.
 pub fn v1_routes() -> OpenApiRouter<ApiState> {
-    ledger_routes().merge(card_routes())
+    ledger_routes().merge(card_routes()).merge(schedule_routes())
 }
 
 fn ledger_routes() -> OpenApiRouter<ApiState> {
@@ -44,4 +46,12 @@ fn card_routes() -> OpenApiRouter<ApiState> {
         .routes(routes!(cards::delete_purchase))
         .routes(routes!(cards::create_credit))
         .routes(routes!(cards::pay_invoice))
+}
+
+fn schedule_routes() -> OpenApiRouter<ApiState> {
+    OpenApiRouter::new()
+        .routes(routes!(recurrences::list_recurrences, recurrences::create_recurrence))
+        .routes(routes!(recurrences::deactivate_recurrence))
+        .routes(routes!(reports::daily_report))
+        .routes(routes!(reports::cycle_report))
 }

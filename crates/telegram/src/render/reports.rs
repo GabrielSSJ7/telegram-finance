@@ -2,13 +2,16 @@
 
 use app::model::{
     BalanceSheet, CardSummary, Category, CategoryKind, CreditCard, GoalProgress, InvoiceView,
+    Recurrence, RecurrenceKind, RecurrenceMode,
 };
 use domain::invoice_settlement::InvoiceStatus;
 use domain::money_format::format_brl;
 use domain::{AccountKind, Cents};
 
 use super::catalog::{account_label, category_label, kind_name};
+use crate::callback_data::deactivate_recurrence_button;
 use crate::flows::dates::short_date;
+use crate::gateway::{Button, Keyboard};
 use crate::html::escape;
 
 /// `/saldo`: spendable accounts, "Disponível" and pots apart.
@@ -139,6 +142,32 @@ pub fn cards_text(cards: &[CreditCard]) -> String {
         })
         .collect();
     format!("<b>💳 Cartões</b>\n{}\n\nNovo cartão: /novocartao", lines.join("\n"))
+}
+
+/// `/recorrentes`: active recurrences, each with a [Desativar] button.
+pub fn recurrences_view(recurrences: &[Recurrence]) -> (String, Option<Keyboard>) {
+    if recurrences.is_empty() {
+        return ("Nenhuma recorrência ativa. Crie uma com /recorrente.".into(), None);
+    }
+    let lines: Vec<String> = recurrences.iter().map(recurrence_line).collect();
+    let rows = recurrences
+        .iter()
+        .map(|recurrence| {
+            let label = format!("🛑 Desativar {}", recurrence.description);
+            vec![Button { label, data: deactivate_recurrence_button(recurrence.id) }]
+        })
+        .collect();
+    (
+        format!("<b>🔁 Recorrentes</b>\n{}\n\nNova: /recorrente", lines.join("\n")),
+        Some(Keyboard { rows }),
+    )
+}
+
+fn recurrence_line(recurrence: &Recurrence) -> String {
+    let sign = if recurrence.kind == RecurrenceKind::Income { "💰" } else { "💸" };
+    let mode = if recurrence.mode == RecurrenceMode::Confirm { " (pergunta antes)" } else { "" };
+    let (name, amount) = (escape(&recurrence.description), format_brl(recurrence.amount));
+    format!("{sign} {name}: {amount}, todo dia {}{mode}", recurrence.day.get())
 }
 
 /// `/categorias`: expense and income categories.

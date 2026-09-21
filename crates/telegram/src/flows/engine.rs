@@ -102,11 +102,10 @@ impl FormState {
     }
 
     fn next_awaiting(&self) -> Awaiting {
-        let pending = self
-            .form
-            .fields()
-            .iter()
-            .find(|field| field.applies(&self.answers) && !self.answers.has(**field));
+        let pending =
+            self.form.fields().iter().find(|field| {
+                field.applies(self.form, &self.answers) && !self.answers.has(**field)
+            });
         pending.map_or(Awaiting::Confirmation, |field| Awaiting::Field(*field))
     }
 }

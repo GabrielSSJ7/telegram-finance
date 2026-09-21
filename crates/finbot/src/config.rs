@@ -57,6 +57,8 @@ pub struct AppConfig {
     pub allowed_users: AllowedUsers,
     pub swagger: bool,
     pub log_format: LogFormat,
+    /// Warn when the nightly backup has not run (needs the backup sidecar).
+    pub backup_watch: bool,
 }
 
 impl AppConfig {
@@ -71,6 +73,7 @@ impl AppConfig {
             timezone: timezone(source)?,
             allowed_users: allowed_users(source)?,
             swagger: flag(source, "SWAGGER_ENABLED")?,
+            backup_watch: flag(source, "BACKUP_WATCH_ENABLED")?,
             log_format: log_format(source)?,
         })
     }

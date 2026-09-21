@@ -1,4 +1,6 @@
-use app::model::{AccountId, CardId, CategoryId, GoalId, InvoiceId};
+use app::model::{
+    AccountId, CardId, CategoryId, GoalId, InvoiceId, RecurrenceKind, RecurrenceMode,
+};
 use chrono::NaiveDate;
 use domain::{AccountKind, Cents};
 use serde::{Deserialize, Serialize};
@@ -20,6 +22,8 @@ pub enum Answer {
     Invoice(InvoiceId),
     Installments(u32),
     Day(u8),
+    RecurrenceKind(RecurrenceKind),
+    RecurrenceMode(RecurrenceMode),
 }
 
 /// Answers given so far, in the order the fields were asked.
@@ -109,6 +113,20 @@ impl Answers {
     pub fn day(&self, field: Field) -> Option<u8> {
         match self.get(field) {
             Some(Answer::Day(day)) => Some(*day),
+            _ => None,
+        }
+    }
+
+    pub fn recurrence_kind(&self) -> Option<RecurrenceKind> {
+        match self.get(Field::RecurrenceKindChoice) {
+            Some(Answer::RecurrenceKind(kind)) => Some(*kind),
+            _ => None,
+        }
+    }
+
+    pub fn recurrence_mode(&self) -> Option<RecurrenceMode> {
+        match self.get(Field::RecurrenceModeChoice) {
+            Some(Answer::RecurrenceMode(mode)) => Some(*mode),
             _ => None,
         }
     }

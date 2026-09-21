@@ -11,6 +11,7 @@ pub mod callback_data;
 pub mod flows;
 pub mod gateway;
 pub mod html;
+pub mod notifier;
 pub mod poller;
 pub mod render;
 

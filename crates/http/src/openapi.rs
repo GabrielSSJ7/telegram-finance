@@ -10,7 +10,7 @@ use crate::error::Problem;
     modifiers(&BearerSecurity),
     tags(
         (name = "accounts"), (name = "cards"), (name = "categories"), (name = "entries"),
-        (name = "goals"), (name = "settings"), (name = "health"),
+        (name = "goals"), (name = "recurrences"), (name = "reports"), (name = "settings"), (name = "health"),
     )
 )]
 pub struct ApiDoc;

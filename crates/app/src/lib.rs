@@ -3,6 +3,7 @@
 //! Telegram, HTTP) live in other crates.
 
 pub mod error;
+pub mod jobs;
 pub mod model;
 pub mod ports;
 pub mod services;

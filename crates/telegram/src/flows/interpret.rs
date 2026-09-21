@@ -29,8 +29,10 @@ pub fn interpret(field: Field, input: &FormInput, today: NaiveDate) -> Result<In
         Field::Amount | Field::GoalTarget => positive_amount(input),
         Field::InitialBalance | Field::AlreadySaved => amount_or_zero(input),
         Field::Description => description(input),
-        Field::AccountName | Field::GoalName | Field::CardName => name(input),
-        Field::ClosingDay | Field::DueDay => day_of_month(input),
+        Field::AccountName | Field::GoalName | Field::CardName | Field::RecurrenceName => {
+            name(input)
+        }
+        Field::ClosingDay | Field::DueDay | Field::RecurrenceDay => day_of_month(input),
         Field::Installments => installments(input),
         _ => button_choice(field, input),
     };
@@ -141,9 +143,21 @@ fn button_choice(field: Field, input: &FormInput) -> Result<Answer, String> {
         ) => Answer::Card(id),
         (Field::InvoiceChoice, ButtonValue::Invoice(id)) => Answer::Invoice(id),
         (field, ButtonValue::Account(id)) if takes_account(field) => Answer::Account(id),
-        _ => return Err(PICK_A_BUTTON.into()),
+        (field, value) => return recurrence_choice(field, value),
     };
     Ok(answer)
+}
+
+fn recurrence_choice(field: Field, value: ButtonValue) -> Result<Answer, String> {
+    match (field, value) {
+        (Field::RecurrenceKindChoice, ButtonValue::RecurrenceKind(kind)) => {
+            Ok(Answer::RecurrenceKind(kind))
+        }
+        (Field::RecurrenceModeChoice, ButtonValue::RecurrenceMode(mode)) => {
+            Ok(Answer::RecurrenceMode(mode))
+        }
+        _ => Err(PICK_A_BUTTON.into()),
+    }
 }
 
 const fn takes_account(field: Field) -> bool {

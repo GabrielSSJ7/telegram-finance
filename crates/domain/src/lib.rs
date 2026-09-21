@@ -14,6 +14,7 @@ pub mod invoice_settlement;
 pub mod money;
 pub mod money_format;
 pub mod money_parse;
+pub mod recurrence;
 pub mod spend;
 
 pub use account_kind::AccountKind;

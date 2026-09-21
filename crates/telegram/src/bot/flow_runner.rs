@@ -270,12 +270,20 @@ async fn show_committed(
         today: context.clock.today(),
     };
     let html = committed_card(state, card, headline(state.form));
-    let keyboard = match committed {
+    let keyboard = undo_keyboard_for(committed);
+    place(context, &mut session, html, keyboard, placement).await
+}
+
+/// [Desfazer] for what created ledger rows; setup commands have none.
+fn undo_keyboard_for(committed: &Committed) -> Option<Keyboard> {
+    match committed {
         Committed::Entry(entry) => Some(undo_keyboard(undo_button(entry.id))),
         Committed::Purchase(purchase) => Some(undo_keyboard(undo_purchase_button(purchase.id))),
-        Committed::Account(_) | Committed::Goal(_) | Committed::Card(_) => None,
-    };
-    place(context, &mut session, html, keyboard, placement).await
+        Committed::Account(_)
+        | Committed::Goal(_)
+        | Committed::Card(_)
+        | Committed::Recurrence(_) => None,
+    }
 }
 
 /// A single [Desfazer] button carrying `data`.

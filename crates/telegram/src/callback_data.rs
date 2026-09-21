@@ -4,7 +4,11 @@
 //! on an old keyboard, or on the other spouse's keyboard, is recognised
 //! and rejected instead of answering the wrong flow.
 
-use app::model::{AccountId, CardId, CategoryId, DraftId, EntryId, GoalId, InvoiceId, PurchaseId};
+use app::model::{
+    AccountId, CardId, CategoryId, DraftId, EntryId, GoalId, InvoiceId, PurchaseId, RecurrenceId,
+    RecurrenceKind, RecurrenceMode,
+};
+use chrono::NaiveDate;
 use domain::{AccountKind, Cents};
 
 pub const MAX_CALLBACK_BYTES: usize = 64;
@@ -24,6 +28,8 @@ pub enum ButtonValue {
     Installments(u32),
     /// A suggested amount, such as the full invoice total.
     Money(Cents),
+    RecurrenceKind(RecurrenceKind),
+    RecurrenceMode(RecurrenceMode),
     Confirm,
     Cancel,
 }
@@ -38,6 +44,12 @@ pub enum CallbackPayload {
     Undo(EntryId),
     /// [Desfazer] under a card purchase: removes every installment.
     UndoPurchase(PurchaseId),
+    /// [Registrar] on a bill that asks before recording.
+    RecordRecurrence(RecurrenceId, NaiveDate),
+    /// [Pular] on the same message.
+    SkipRecurrence(RecurrenceId, NaiveDate),
+    /// [Desativar] in `/recorrentes`.
+    DeactivateRecurrence(RecurrenceId),
 }
 
 /// Short, per-flow tag: the random tail of the draft UUID.
@@ -63,6 +75,18 @@ pub fn undo_purchase_button(purchase: PurchaseId) -> String {
     format!("up|{purchase}")
 }
 
+pub fn record_recurrence_button(recurrence: RecurrenceId, date: NaiveDate) -> String {
+    format!("rr|{recurrence}|{date}")
+}
+
+pub fn skip_recurrence_button(recurrence: RecurrenceId, date: NaiveDate) -> String {
+    format!("rs|{recurrence}|{date}")
+}
+
+pub fn deactivate_recurrence_button(recurrence: RecurrenceId) -> String {
+    format!("rd|{recurrence}")
+}
+
 fn encode_value(value: ButtonValue) -> String {
     match value {
         ButtonValue::Skip => "s".into(),
@@ -77,6 +101,8 @@ fn encode_value(value: ButtonValue) -> String {
         ButtonValue::Invoice(id) => format!("i:{id}"),
         ButtonValue::Installments(count) => format!("n:{count}"),
         ButtonValue::Money(amount) => format!("m:{}", amount.value()),
+        ButtonValue::RecurrenceKind(kind) => format!("rk:{}", kind.as_str()),
+        ButtonValue::RecurrenceMode(mode) => format!("rm:{}", mode.as_str()),
         ButtonValue::Confirm => "ok".into(),
         ButtonValue::Cancel => "x".into(),
     }
@@ -88,10 +114,22 @@ pub fn parse(data: &str) -> Option<CallbackPayload> {
     match head {
         "u" => return tail.parse().ok().map(CallbackPayload::Undo),
         "up" => return tail.parse().ok().map(CallbackPayload::UndoPurchase),
+        "rd" => return tail.parse().ok().map(CallbackPayload::DeactivateRecurrence),
+        "rr" | "rs" => return recurrence_payload(head, tail),
         _ => {}
     }
     let value = decode_value(tail)?;
     Some(CallbackPayload::Flow { nonce: head.to_owned(), value })
+}
+
+fn recurrence_payload(head: &str, tail: &str) -> Option<CallbackPayload> {
+    let (id, date) = tail.split_once('|')?;
+    let (id, date) = (id.parse().ok()?, date.parse().ok()?);
+    Some(if head == "rr" {
+        CallbackPayload::RecordRecurrence(id, date)
+    } else {
+        CallbackPayload::SkipRecurrence(id, date)
+    })
 }
 
 fn decode_value(code: &str) -> Option<ButtonValue> {
@@ -118,6 +156,8 @@ fn decode_tagged(code: &str) -> Option<ButtonValue> {
         "i" => value.parse().ok().map(ButtonValue::Invoice),
         "n" => value.parse().ok().map(ButtonValue::Installments),
         "m" => value.parse().ok().map(|cents| ButtonValue::Money(Cents::new(cents))),
+        "rk" => value.parse().ok().map(ButtonValue::RecurrenceKind),
+        "rm" => value.parse().ok().map(ButtonValue::RecurrenceMode),
         _ => None,
     }
 }
@@ -140,6 +180,8 @@ mod tests {
             ButtonValue::Invoice(InvoiceId::generate()),
             ButtonValue::Installments(12),
             ButtonValue::Money(Cents::new(123_456)),
+            ButtonValue::RecurrenceKind(RecurrenceKind::Income),
+            ButtonValue::RecurrenceMode(RecurrenceMode::Confirm),
             ButtonValue::Confirm,
             ButtonValue::Cancel,
         ]

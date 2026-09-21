@@ -28,6 +28,7 @@ fn test_config() -> AppConfig {
         allowed_users: AllowedUsers::default(),
         swagger: false,
         log_format: LogFormat::Json,
+        backup_watch: false,
     }
 }
 
@@ -60,6 +61,25 @@ async fn api_key_create_then_revoke() {
         .unwrap();
     let again = run(Command::ApiKey(ApiKeyCommand::Revoke { name }), test_config()).await;
     assert!(again.unwrap_err().to_string().contains("not found"));
+}
+
+#[tokio::test]
+async fn run_job_validates_name_and_token() {
+    let unknown =
+        run(Command::RunJob { job: "sleep".into(), date: None }, test_config()).await.unwrap_err();
+    assert!(unknown.to_string().contains("daily-report"), "{unknown}");
+    let no_token = run(Command::RunJob { job: "daily-report".into(), date: None }, test_config())
+        .await
+        .unwrap_err();
+    assert!(no_token.to_string().contains("TELEGRAM_BOT_TOKEN"), "{no_token}");
+}
+
+#[tokio::test]
+async fn run_job_without_group_drops_message_quietly() {
+    let config = AppConfig { telegram_bot_token: Some(Secret::new("0:fake")), ..test_config() };
+    let date = chrono::NaiveDate::from_ymd_opt(2026, 3, 1);
+    // No group is bound in a fresh database, so the report is dropped quietly.
+    run(Command::RunJob { job: "daily-report".into(), date }, config).await.unwrap();
 }
 
 #[tokio::test]

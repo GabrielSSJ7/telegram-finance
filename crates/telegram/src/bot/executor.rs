@@ -1,7 +1,7 @@
 //! Runs a confirmed form against the services.
 
 use app::AppResult;
-use app::model::{Account, CardPurchase, CreditCard, Goal, LedgerEntry};
+use app::model::{Account, CardPurchase, CreditCard, Goal, LedgerEntry, Recurrence};
 use app::services::{EntryOrigin, ServiceSet};
 
 use crate::flows::{FormCommand, FormKind};
@@ -13,6 +13,7 @@ pub enum Committed {
     Account(Account),
     Goal(Goal),
     Card(CreditCard),
+    Recurrence(Recurrence),
 }
 
 pub async fn execute(
@@ -28,6 +29,9 @@ pub async fn execute(
             services.goals.create(request).await.map(Committed::Goal)
         }
         FormCommand::OpenCard(request) => services.cards.open(request).await.map(Committed::Card),
+        FormCommand::CreateRecurrence(request) => {
+            services.recurrences.create(request).await.map(Committed::Recurrence)
+        }
         FormCommand::CardPurchase(request) => {
             services.cards.purchase(request, origin).await.map(Committed::Purchase)
         }
@@ -67,5 +71,6 @@ pub const fn headline(form: FormKind) -> &'static str {
         FormKind::NewCard => "Cartão cadastrado",
         FormKind::PayInvoice => "Pagamento registrado",
         FormKind::Refund => "Estorno registrado",
+        FormKind::NewRecurrence => "Recorrência criada",
     }
 }

@@ -4,11 +4,13 @@
 use std::sync::Arc;
 
 use anyhow::Context;
+use app::jobs::{JobKind, JobRunner, Scheduler};
 use app::ports::{Clock, SystemClock};
 use app::services::{ServiceEnvironment, ServiceSet, StorePorts};
 use pg::PgStore;
 use telegram::bot::BotContext;
-use telegram::gateway::{FrankensteinGateway, RetryingGateway};
+use telegram::gateway::{FrankensteinGateway, RetryingGateway, TelegramGateway};
+use telegram::notifier::TelegramNotifier;
 use telegram::poller::{LONG_POLL, PollHeartbeat, Poller};
 
 use crate::config::AppConfig;
@@ -38,21 +40,23 @@ pub async fn build_runtime(config: &AppConfig) -> anyhow::Result<Runtime> {
         tokens: Arc::new(OsTokenSource),
         allowed_users: config.allowed_users.clone(),
     };
-    let services = ServiceSet::wire(StorePorts::from_single(&store), environment);
+    let services = ServiceSet::wire(&StorePorts::from_single(&store), environment);
     Ok(Runtime { store, services, clock })
 }
 
-/// The long-poll loop for `token`, retrying rate-limited replies.
-pub fn telegram_poller(
-    runtime: &Runtime,
-    config: &AppConfig,
-    token: &Secret,
-    heartbeat: Arc<PollHeartbeat>,
-) -> Poller {
+/// The Telegram client for `token`, retrying rate-limited replies.
+pub fn telegram_gateway(config: &AppConfig, token: &Secret) -> Arc<dyn TelegramGateway> {
     let base = config.telegram_api_base.trim_end_matches('/');
     let api_url = format!("{base}/bot{}", token.expose());
-    let gateway =
-        Arc::new(RetryingGateway::new(Arc::new(FrankensteinGateway::with_api_url(&api_url))));
+    Arc::new(RetryingGateway::new(Arc::new(FrankensteinGateway::with_api_url(&api_url))))
+}
+
+/// The long-poll loop over `gateway`.
+pub fn telegram_poller(
+    runtime: &Runtime,
+    gateway: Arc<dyn TelegramGateway>,
+    heartbeat: Arc<PollHeartbeat>,
+) -> Poller {
     let context = BotContext {
         services: runtime.services.clone(),
         flows: runtime.store.clone(),
@@ -60,4 +64,30 @@ pub fn telegram_poller(
         clock: runtime.clock.clone(),
     };
     Poller { context, offsets: runtime.store.clone(), heartbeat, long_poll: LONG_POLL }
+}
+
+/// Runs jobs and sends their messages through `gateway`.
+pub fn job_runner(runtime: &Runtime, gateway: Arc<dyn TelegramGateway>) -> Arc<JobRunner> {
+    let notifier = Arc::new(TelegramNotifier::new(gateway, runtime.services.clone()));
+    Arc::new(JobRunner::new(
+        runtime.services.clone(),
+        notifier,
+        runtime.store.clone(),
+        runtime.clock.clone(),
+    ))
+}
+
+/// Every job, minus the backup watch when backups are not deployed.
+pub fn scheduler(runtime: &Runtime, runner: Arc<JobRunner>, config: &AppConfig) -> Scheduler {
+    let jobs = JobKind::ALL
+        .into_iter()
+        .filter(|kind| config.backup_watch || *kind != JobKind::BackupWatch)
+        .collect();
+    Scheduler::new(
+        runner,
+        runtime.store.clone(),
+        runtime.services.settings.clone(),
+        runtime.clock.clone(),
+        jobs,
+    )
 }

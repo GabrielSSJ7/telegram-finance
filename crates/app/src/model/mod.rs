@@ -9,6 +9,8 @@ pub mod entry;
 pub mod goal;
 pub mod ids;
 pub mod member;
+pub mod recurrence;
+pub mod report;
 pub mod settings;
 
 pub use account::{Account, AccountBalance, BalanceSheet, NewAccount};
@@ -21,7 +23,9 @@ pub use entry::{EntryFilter, EntryPatch, LedgerEntry, NewEntry};
 pub use goal::{Goal, GoalProgress, GoalTarget};
 pub use ids::{
     AccountId, ApiKeyId, CardId, CategoryId, DraftId, EntryId, GoalId, InvoiceId, MemberId,
-    PurchaseId,
+    PurchaseId, RecurrenceId,
 };
 pub use member::{Member, MemberProfile};
+pub use recurrence::{NewRecurrence, Recurrence, RecurrenceKind, RecurrenceMode, RecurrenceTarget};
+pub use report::{CycleReport, DailyReport, PeriodFlow, PeriodTotals};
 pub use settings::{HouseholdSettings, SettingsPatch};

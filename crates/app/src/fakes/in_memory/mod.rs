@@ -9,17 +9,21 @@ mod categories;
 mod chat_flows;
 mod entries;
 mod goals;
+mod job_runs;
 mod members;
+mod recurrences;
+mod reports;
 mod settings;
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 
 use crate::model::{
     Account, AccountId, ApiKey, CardPurchase, Category, CategoryId, CategoryKind, CreditCard,
     DraftId, GoalId, GoalTarget, HouseholdSettings, Invoice, LedgerEntry, Member, NewAccount,
+    Recurrence,
 };
 use crate::ports::{ChatUserKey, StoreError, StoredFlow};
 
@@ -52,6 +56,16 @@ struct MemoryState {
     cards: Vec<CreditCard>,
     invoices: Vec<Invoice>,
     purchases: Vec<CardPurchase>,
+    recurrences: Vec<Recurrence>,
+    job_runs: HashMap<(String, NaiveDate), JobRunRow>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct JobRunRow {
+    succeeded: bool,
+    running: bool,
+    attempts: u32,
+    updated_at: DateTime<Utc>,
 }
 
 #[derive(Debug)]

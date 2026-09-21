@@ -3,13 +3,17 @@
 
 use std::sync::Arc;
 
+use super::recurrences::RecurrenceDependencies;
+use super::reports::ReportSources;
 use super::{
     AccountService, AllowedUsers, ApiKeyService, CardService, CategoryService, GoalService,
-    LedgerService, MemberService, PositionService, SettingsService,
+    LedgerService, MemberService, PositionService, RecurrenceService, ReportService,
+    SettingsService,
 };
 use crate::ports::{
     AccountStore, ApiKeyStore, BotStateStore, CardStore, CategoryStore, ChatFlowStore, Clock,
-    EntryStore, GoalStore, MemberStore, SettingsStore, TokenSource,
+    EntryStore, GoalStore, JobRunStore, MemberStore, RecurrenceStore, ReportStore, SettingsStore,
+    TokenSource,
 };
 
 /// One handle per store port.
@@ -25,6 +29,9 @@ pub struct StorePorts {
     pub flows: Arc<dyn ChatFlowStore>,
     pub bot_state: Arc<dyn BotStateStore>,
     pub cards: Arc<dyn CardStore>,
+    pub recurrences: Arc<dyn RecurrenceStore>,
+    pub job_runs: Arc<dyn JobRunStore>,
+    pub reports: Arc<dyn ReportStore>,
 }
 
 impl StorePorts {
@@ -41,6 +48,9 @@ impl StorePorts {
             + ChatFlowStore
             + BotStateStore
             + CardStore
+            + RecurrenceStore
+            + JobRunStore
+            + ReportStore
             + 'static,
     {
         Self {
@@ -54,6 +64,9 @@ impl StorePorts {
             flows: store.clone(),
             bot_state: store.clone(),
             cards: store.clone(),
+            recurrences: store.clone(),
+            job_runs: store.clone(),
+            reports: store.clone(),
         }
     }
 }
@@ -77,28 +90,59 @@ pub struct ServiceSet {
     pub api_keys: Arc<ApiKeyService>,
     pub cards: Arc<CardService>,
     pub position: Arc<PositionService>,
+    pub recurrences: Arc<RecurrenceService>,
+    pub reports: Arc<ReportService>,
+    /// The household clock, for callers that need "today".
+    pub clock: Arc<dyn Clock>,
 }
 
 impl ServiceSet {
     /// Wires services in dependency order.
     ///
     /// ```ignore
-    /// let services = ServiceSet::wire(StorePorts::from_single(&pg_store), environment);
+    /// let services = ServiceSet::wire(&StorePorts::from_single(&pg_store), environment);
     /// ```
-    pub fn wire(stores: StorePorts, environment: ServiceEnvironment) -> Self {
-        let money = MoneyServices::wire(&stores, &environment.clock);
-        let clock = environment.clock;
+    pub fn wire(stores: &StorePorts, environment: ServiceEnvironment) -> Self {
+        let clock = environment.clock.clone();
+        let money = MoneyServices::wire(stores, &environment.clock);
+        let people = PeopleServices::wire(stores, environment);
+        let recurrences = Arc::new(money.recurrences(stores));
+        let reports = Arc::new(money.reports(stores, &people, &recurrences));
         Self {
-            api_keys: Arc::new(ApiKeyService::new(stores.api_keys, environment.tokens, clock)),
-            members: Arc::new(MemberService::new(stores.members, environment.allowed_users)),
-            settings: Arc::new(SettingsService::new(stores.settings)),
             accounts: money.accounts,
             categories: money.categories,
             ledger: money.ledger,
             goals: money.goals,
             cards: money.cards,
             position: money.position,
+            members: people.members,
+            settings: people.settings,
+            api_keys: people.api_keys,
+            recurrences,
+            reports,
+            clock,
         }
+    }
+}
+
+/// Who may use finbot and how it is set up.
+struct PeopleServices {
+    members: Arc<MemberService>,
+    settings: Arc<SettingsService>,
+    api_keys: Arc<ApiKeyService>,
+}
+
+impl PeopleServices {
+    fn wire(stores: &StorePorts, environment: ServiceEnvironment) -> Self {
+        let members =
+            Arc::new(MemberService::new(stores.members.clone(), environment.allowed_users));
+        let settings = Arc::new(SettingsService::new(stores.settings.clone()));
+        let api_keys = Arc::new(ApiKeyService::new(
+            stores.api_keys.clone(),
+            environment.tokens,
+            environment.clock,
+        ));
+        Self { members, settings, api_keys }
     }
 }
 
@@ -110,6 +154,7 @@ struct MoneyServices {
     goals: Arc<GoalService>,
     cards: Arc<CardService>,
     position: Arc<PositionService>,
+    clock: Arc<dyn Clock>,
 }
 
 impl MoneyServices {
@@ -120,19 +165,38 @@ impl MoneyServices {
         let cards = Arc::new(base.cards(stores));
         let ledger = Arc::new(base.ledger(stores));
         let goals = Arc::new(base.goals(stores, &ledger));
-        let position = Arc::new(PositionService::new(
-            base.accounts.clone(),
-            cards.clone(),
-            base.clock.clone(),
-        ));
-        Self {
-            accounts: base.accounts,
-            categories: base.categories,
-            ledger,
-            goals,
-            cards,
-            position,
-        }
+        let position = Arc::new(base.position(&cards));
+        let (accounts, categories, clock) = (base.accounts, base.categories, base.clock);
+        Self { accounts, categories, ledger, goals, cards, position, clock }
+    }
+
+    fn recurrences(&self, stores: &StorePorts) -> RecurrenceService {
+        let dependencies = RecurrenceDependencies {
+            ledger: self.ledger.clone(),
+            cards: self.cards.clone(),
+            accounts: self.accounts.clone(),
+            categories: self.categories.clone(),
+        };
+        RecurrenceService::new(stores.recurrences.clone(), dependencies, self.clock.clone())
+    }
+
+    fn reports(
+        &self,
+        stores: &StorePorts,
+        people: &PeopleServices,
+        recurrences: &Arc<RecurrenceService>,
+    ) -> ReportService {
+        let sources = ReportSources {
+            position: self.position.clone(),
+            cards: self.cards.clone(),
+            goals: self.goals.clone(),
+            recurrences: recurrences.clone(),
+            categories: self.categories.clone(),
+            members: people.members.clone(),
+            settings: people.settings.clone(),
+            ledger: self.ledger.clone(),
+        };
+        ReportService::new(stores.reports.clone(), sources)
     }
 }
 
@@ -171,5 +235,9 @@ impl BaseServices {
             ledger.clone(),
             self.clock.clone(),
         )
+    }
+
+    fn position(&self, cards: &Arc<CardService>) -> PositionService {
+        PositionService::new(self.accounts.clone(), cards.clone(), self.clock.clone())
     }
 }

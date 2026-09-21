@@ -1,0 +1,168 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "insert into recurrences\n    (kind, amount_cents, description, category_id, account_id, card_id, day_of_month, mode, starts_on)\nvalues ($1, $2, $3, $4, $5, $6, $7, $8, $9)\nreturning id, kind, amount_cents, description, category_id, account_id, card_id, day_of_month, mode,\n          active, starts_on, last_generated_on\n",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "amount_cents",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "amount_cents"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "description"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "category_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "category_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "account_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "account_id"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "card_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "card_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "day_of_month",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "day_of_month"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "mode",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "mode"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "active",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "active"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "starts_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "starts_on"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "last_generated_on",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "last_generated_on"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Text",
+        "Date"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "919b4fe657290a56a067ffa5fd7bd9bb2116a09969711405bd00b14e62d48a1a"
+}

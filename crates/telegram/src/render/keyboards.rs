@@ -1,7 +1,7 @@
 //! Inline keyboards for each question. Every flow keyboard ends with a
 //! [Cancelar] row so the couple can always back out.
 
-use app::model::{AccountId, CategoryKind};
+use app::model::{AccountId, CategoryKind, RecurrenceKind, RecurrenceMode};
 use domain::AccountKind;
 use domain::money_format::format_brl;
 
@@ -40,6 +40,8 @@ fn field_choices(
         Field::InitialBalance | Field::AlreadySaved => vec![(ButtonValue::Skip, "Zero".to_owned())],
         Field::Date => date_choices(),
         Field::AccountKind => kind_choices(),
+        Field::RecurrenceKindChoice => recurrence_kind_choices(),
+        Field::RecurrenceModeChoice => recurrence_mode_choices(),
         field if typed_only(field) => return Some(Vec::new()),
         other => catalog_choices(form, other, answers, catalog),
     };
@@ -58,6 +60,8 @@ const fn typed_only(field: Field) -> bool {
             | Field::ClosingDay
             | Field::DueDay
             | Field::Installments
+            | Field::RecurrenceName
+            | Field::RecurrenceDay
     )
 }
 
@@ -71,7 +75,7 @@ fn catalog_choices(form: FormKind, field: Field, answers: &Answers, catalog: &Ca
         Field::CardChoice => card_choices(catalog),
         Field::InvoiceChoice => invoice_choices(answers, catalog),
         Field::RefundTarget => [account_choices(catalog, None), card_choices(catalog)].concat(),
-        Field::PaymentAccount if form == FormKind::Expense => {
+        Field::PaymentAccount if matches!(form, FormKind::Expense | FormKind::NewRecurrence) => {
             [account_choices(catalog, None), card_choices(catalog)].concat()
         }
         _ => account_choices(catalog, None),
@@ -122,6 +126,20 @@ fn full_payment_choice(answers: &Answers, catalog: &Catalog) -> Choices {
     let owed = owed.filter(|amount| amount.is_positive());
     owed.map(|amount| vec![(ButtonValue::Money(amount), format!("Total {}", format_brl(amount)))])
         .unwrap_or_default()
+}
+
+fn recurrence_kind_choices() -> Choices {
+    vec![
+        (ButtonValue::RecurrenceKind(RecurrenceKind::Expense), "💸 Gasto".to_owned()),
+        (ButtonValue::RecurrenceKind(RecurrenceKind::Income), "💰 Entrada".to_owned()),
+    ]
+}
+
+fn recurrence_mode_choices() -> Choices {
+    vec![
+        (ButtonValue::RecurrenceMode(RecurrenceMode::Auto), "🤖 Automático".to_owned()),
+        (ButtonValue::RecurrenceMode(RecurrenceMode::Confirm), "🙋 Perguntar antes".to_owned()),
+    ]
 }
 
 fn installment_choices() -> Choices {

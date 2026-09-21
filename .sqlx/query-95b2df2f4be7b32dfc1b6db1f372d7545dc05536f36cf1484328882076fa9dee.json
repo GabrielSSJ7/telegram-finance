@@ -1,0 +1,23 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select max(updated_at) from job_runs where job = $1 and status = 'succeeded'",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "max",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "95b2df2f4be7b32dfc1b6db1f372d7545dc05536f36cf1484328882076fa9dee"
+}
