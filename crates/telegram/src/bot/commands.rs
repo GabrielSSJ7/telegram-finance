@@ -1,6 +1,7 @@
 //! Slash commands: guided forms start a flow; the rest answer at once.
 
-use app::model::Member;
+use app::model::{Member, ReportDay};
+use chrono::{Datelike, NaiveDate};
 
 use super::BotContext;
 use super::entry_actions::recent_entries;
@@ -8,10 +9,9 @@ use super::export::export_entries;
 use super::flow_runner::{cancel_current, start_flow};
 use super::undo::undo_last;
 use crate::flows::FormKind;
+use crate::flows::dates::parse_typed_date;
 use crate::gateway::GatewayError;
 use crate::render::help::help_text;
-use app::model::ReportDay;
-
 use crate::render::report_text::{daily_report_text, month_report_text};
 use crate::render::reports::{
     accounts_text, balance_text, budgets_text, cards_text, categories_text, goals_text,
@@ -46,6 +46,7 @@ pub async fn household_command(
         "desfazer" => undo_last(context, chat_id, member).await,
         "exportar" => export_entries(context, chat_id, args).await,
         "ultimos" => recent_entries(context, chat_id).await,
+        "resumo" => day_summary(context, chat_id, args).await,
         "cancelar" => cancel_current(context, chat_id, member).await,
         "ajuda" | "start" | "help" => context.reply(chat_id, help_text()).await.map(|_| ()),
         report => report_command(context, chat_id, report).await,
@@ -66,8 +67,7 @@ async fn report_command(
         "fatura" | "faturas" => invoices(context, chat_id).await,
         "cartoes" => cards(context, chat_id).await,
         "recorrentes" => recurrences(context, chat_id).await,
-        "resumo" => summary(context, chat_id, ReportDay::Today).await,
-        "ontem" => summary(context, chat_id, ReportDay::Yesterday).await,
+        "ontem" => yesterday_summary(context, chat_id).await,
         "mes" => month(context, chat_id).await,
         "orcamentos" => budgets(context, chat_id).await,
         other => {
@@ -123,13 +123,46 @@ async fn recurrences(context: &BotContext, chat_id: i64) -> Result<(), GatewayEr
     }
 }
 
-/// `/resumo` and `/ontem`: today's or yesterday's summary on demand.
-async fn summary(context: &BotContext, chat_id: i64, day: ReportDay) -> Result<(), GatewayError> {
+const SUMMARY_USAGE: &str = "Não entendi a data. Use /resumo 15/09 ou /resumo 15/09/2026.";
+
+/// `/resumo [dd/mm]`: today's summary, or the summary of an earlier day.
+async fn day_summary(context: &BotContext, chat_id: i64, args: &str) -> Result<(), GatewayError> {
     let today = context.clock.today();
-    let date = match day {
-        ReportDay::Today => today,
-        ReportDay::Yesterday => today.pred_opt().unwrap_or(today),
+    let Some(date) = summary_date(args, today) else {
+        return context.reply(chat_id, SUMMARY_USAGE).await.map(|_| ());
     };
+    let Some(day) = ReportDay::relative_to(date, today) else {
+        return context.reply(chat_id, "Esse dia ainda não chegou. 🙂").await.map(|_| ());
+    };
+    summary_on(context, chat_id, date, day).await
+}
+
+/// `/ontem`: yesterday's summary on demand.
+async fn yesterday_summary(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    let today = context.clock.today();
+    summary_on(context, chat_id, today.pred_opt().unwrap_or(today), ReportDay::Yesterday).await
+}
+
+/// The day asked for: today when `args` is empty. A `dd/mm` still ahead
+/// this year means last year's (in January, `/resumo 20/12` is December).
+fn summary_date(args: &str, today: NaiveDate) -> Option<NaiveDate> {
+    if args.is_empty() {
+        return Some(today);
+    }
+    let date = parse_typed_date(args, today)?;
+    let without_year = args.matches(['/', '-', '.']).count() == 1;
+    if date > today && without_year {
+        return date.with_year(today.year() - 1);
+    }
+    Some(date)
+}
+
+async fn summary_on(
+    context: &BotContext,
+    chat_id: i64,
+    date: NaiveDate,
+    day: ReportDay,
+) -> Result<(), GatewayError> {
     match context.services.reports.daily(date).await {
         Ok(report) => context.reply(chat_id, daily_report_text(&report, day)).await.map(|_| ()),
         Err(error) => context.reply_error(chat_id, &error).await,
@@ -185,5 +218,16 @@ mod tests {
         assert_eq!(parse_command("gasto"), None);
         assert_eq!(parse_command("/"), None);
         assert_eq!(parse_command("/@bot"), None);
+    }
+
+    #[test]
+    fn summary_dates() {
+        let today = NaiveDate::from_ymd_opt(2026, 1, 10).unwrap();
+        let on = |year, month, day| NaiveDate::from_ymd_opt(year, month, day);
+        assert_eq!(summary_date("", today), Some(today));
+        assert_eq!(summary_date("05/01", today), on(2026, 1, 5));
+        assert_eq!(summary_date("20/12", today), on(2025, 12, 20));
+        assert_eq!(summary_date("20/12/2026", today), on(2026, 12, 20));
+        assert_eq!(summary_date("amanhã", today), None);
     }
 }

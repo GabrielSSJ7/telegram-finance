@@ -9,7 +9,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("estorno", "Registrar um estorno ou reembolso"),
     ("fatura", "Faturas dos cartões"),
     ("saldo", "Saldo das contas e disponível"),
-    ("resumo", "Resumo de hoje e do ciclo"),
+    ("resumo", "Resumo de hoje; /resumo 15/09 para outro dia"),
     ("ontem", "Resumo de ontem"),
     ("metas", "Progresso das metas"),
     ("mes", "Como está o ciclo até agora"),

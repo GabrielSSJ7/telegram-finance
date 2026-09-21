@@ -36,7 +36,8 @@ pub fn daily_report_text(report: &DailyReport, day: ReportDay) -> String {
     if !report.goals.is_empty() {
         sections.push(goals_text(&report.goals, report.date));
     }
-    if !report.upcoming.is_empty() {
+    // What is coming only makes sense from today's point of view.
+    if !report.upcoming.is_empty() && day != ReportDay::Earlier {
         sections.push(upcoming_section(report));
     }
     sections.join("\n\n")
@@ -103,7 +104,9 @@ impl Names<'_> {
 /// `📊 Resumo de ontem (segunda, 21/09)` or `📊 Resumo de terça, 22/09`.
 fn summary_title(date: NaiveDate, day: ReportDay) -> String {
     match day {
-        ReportDay::Today => format!("<b>📊 Resumo de {}</b>", weekday_date(date)),
+        ReportDay::Today | ReportDay::Earlier => {
+            format!("<b>📊 Resumo de {}</b>", weekday_date(date))
+        }
         ReportDay::Yesterday => format!("<b>📊 Resumo de ontem ({})</b>", weekday_date(date)),
     }
 }
@@ -111,8 +114,9 @@ fn summary_title(date: NaiveDate, day: ReportDay) -> String {
 /// The entries of the day the summary covers.
 fn day_section(report: &DailyReport, names: &Names<'_>, day: ReportDay) -> String {
     let (title, word) = match day {
-        ReportDay::Today => ("Hoje", "hoje"),
-        ReportDay::Yesterday => ("Ontem", "ontem"),
+        ReportDay::Today => ("Hoje".to_owned(), "hoje"),
+        ReportDay::Yesterday => ("Ontem".to_owned(), "ontem"),
+        ReportDay::Earlier => (format!("Dia {}", report.date.format("%d/%m")), "no dia"),
     };
     if report.entries_today.is_empty() {
         return format!("<b>{title}</b>\nNenhum lançamento {word}.");

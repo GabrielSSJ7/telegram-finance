@@ -36,6 +36,26 @@ pub struct PeriodTotals {
 pub enum ReportDay {
     Today,
     Yesterday,
+    /// Any day before yesterday, asked for with `/resumo dd/mm`.
+    Earlier,
+}
+
+impl ReportDay {
+    /// How `date` relates to `today`; `None` when it has not come yet.
+    ///
+    /// ```
+    /// use app::model::ReportDay;
+    /// let day = |d| chrono::NaiveDate::from_ymd_opt(2026, 9, d).unwrap();
+    /// assert_eq!(ReportDay::relative_to(day(20), day(21)), Some(ReportDay::Yesterday));
+    /// ```
+    pub fn relative_to(date: NaiveDate, today: NaiveDate) -> Option<ReportDay> {
+        match (today - date).num_days() {
+            0 => Some(ReportDay::Today),
+            1 => Some(ReportDay::Yesterday),
+            days if days > 1 => Some(ReportDay::Earlier),
+            _ => None,
+        }
+    }
 }
 
 /// A day's summary: that day, the cycle up to it, and what is coming.

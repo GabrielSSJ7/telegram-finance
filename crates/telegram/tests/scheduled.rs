@@ -7,11 +7,14 @@ use std::sync::Arc;
 
 use app::fakes::requests::monthly_expense;
 use app::jobs::{JobKind, JobRunner};
-use app::model::{EntryFilter, RecurrenceMode, ReportDay};
+use app::model::{CategoryKind, EntryFilter, RecurrenceMode, ReportDay};
 use app::ports::HouseholdNotifier;
 use app::services::CreateRecurrence;
+use app::services::EntryOrigin;
+use app::services::ledger::{AccountEntry, EntryRequest};
 use chrono::NaiveDate;
 use common::{ANA, BIA, BotHarness, GROUP};
+use domain::Cents;
 use telegram::gateway::ChatKind;
 use telegram::notifier::TelegramNotifier;
 
@@ -146,4 +149,32 @@ async fn scheduled_messages_are_dropped_before_binding_and_backups_go_to_dms() {
     harness.say_in(ANA, ChatKind::Private, ANA, "/start").await;
     notifier.backup_missing(None).await.unwrap();
     assert!(harness.gateway.last_message(ANA).unwrap().html.contains("nunca rodou"));
+}
+
+#[tokio::test]
+async fn resumo_with_a_date_shows_that_day() {
+    let mut harness = BotHarness::bound().await.with_basics().await;
+    let account_id = harness.set.services.accounts.list(false).await.unwrap()[0].id;
+    let expense = CategoryKind::Expense;
+    let category_id = harness.set.services.categories.list(Some(expense)).await.unwrap()[0].id;
+    let bread = AccountEntry {
+        account_id,
+        category_id,
+        amount: Cents::new(2_500),
+        description: "pão".into(),
+        date: Some(date(3, 5)),
+    };
+    let request = EntryRequest::Expense(bread);
+    harness.set.services.ledger.record(request, EntryOrigin::default()).await.unwrap();
+    harness.say(ANA, "/resumo 05/03").await;
+    let report = harness.last_html();
+    assert!(report.starts_with("<b>📊 Resumo de quinta, 05/03</b>"), "{report}");
+    assert!(report.contains("<b>Dia 05/03</b> (1 lançamentos)"), "{report}");
+    assert!(report.contains("Gasto no dia: R$ 25,00"), "{report}");
+    harness.say(ANA, "/resumo 09/03").await;
+    harness.expect_last("Resumo de ontem (segunda, 09/03)");
+    harness.say(ANA, "/resumo 11/03/2026").await;
+    harness.expect_last("Esse dia ainda não chegou.");
+    harness.say(ANA, "/resumo semana passada").await;
+    harness.expect_last("Não entendi a data.");
 }
