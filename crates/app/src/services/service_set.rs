@@ -6,7 +6,7 @@ use std::sync::Arc;
 use super::budgets::BudgetSources;
 use super::exports::{ExportService, ExportSources};
 use super::installments::{InstallmentService, InstallmentSources};
-use super::living_cost::{LivingCostService, LivingCostSources};
+use super::outlook::{OutlookService, OutlookSources};
 use super::recurrences::RecurrenceDependencies;
 use super::reports::ReportSources;
 use super::{
@@ -102,7 +102,7 @@ pub struct ServiceSet {
     pub reports: Arc<ReportService>,
     pub budgets: Arc<BudgetService>,
     pub exports: Arc<ExportService>,
-    pub living_costs: Arc<LivingCostService>,
+    pub outlook: Arc<OutlookService>,
     pub installments: Arc<InstallmentService>,
     /// The household clock, for callers that need "today".
     pub clock: Arc<dyn Clock>,
@@ -184,9 +184,9 @@ impl MoneyServices {
         let budgets = Arc::new(self.budgets(stores, people));
         let reports = Arc::new(self.reports(stores, people, &recurrences, &budgets));
         let exports = Arc::new(self.exports(stores, people));
-        let living_costs = Arc::new(self.living_costs(people, &recurrences));
+        let outlook = Arc::new(self.outlook(people, &recurrences));
         let installments = Arc::new(self.installments(stores, &recurrences));
-        PlanningServices { recurrences, budgets, reports, exports, living_costs, installments }
+        PlanningServices { recurrences, budgets, reports, exports, outlook, installments }
     }
 
     /// The last wiring step: planning services, then the whole set.
@@ -206,7 +206,7 @@ impl MoneyServices {
             reports: planning.reports,
             budgets: planning.budgets,
             exports: planning.exports,
-            living_costs: planning.living_costs,
+            outlook: planning.outlook,
             installments: planning.installments,
             clock: self.clock,
         }
@@ -226,20 +226,21 @@ impl MoneyServices {
         InstallmentService::new(sources, self.clock.clone())
     }
 
-    fn living_costs(
+    fn outlook(
         &self,
         people: &PeopleServices,
         recurrences: &Arc<RecurrenceService>,
-    ) -> LivingCostService {
-        let sources = LivingCostSources {
+    ) -> OutlookService {
+        let sources = OutlookSources {
             ledger: self.ledger.clone(),
             categories: self.categories.clone(),
             recurrences: recurrences.clone(),
             settings: people.settings.clone(),
             position: self.position.clone(),
             accounts: self.accounts.clone(),
+            cards: self.cards.clone(),
         };
-        LivingCostService::new(sources, self.clock.clone())
+        OutlookService::new(sources, self.clock.clone())
     }
 
     fn exports(&self, stores: &StorePorts, people: &PeopleServices) -> ExportService {
@@ -290,7 +291,7 @@ struct PlanningServices {
     budgets: Arc<BudgetService>,
     reports: Arc<ReportService>,
     exports: Arc<ExportService>,
-    living_costs: Arc<LivingCostService>,
+    outlook: Arc<OutlookService>,
     installments: Arc<InstallmentService>,
 }
 

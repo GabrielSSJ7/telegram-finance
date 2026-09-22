@@ -61,6 +61,7 @@ fn schedule_routes() -> OpenApiRouter<ApiState> {
         .routes(routes!(reports::daily_report))
         .routes(routes!(reports::cycle_report))
         .routes(routes!(reports::living_cost))
+        .routes(routes!(reports::projection))
         .routes(routes!(installments::list_installment_plans))
         .routes(routes!(budgets::list_budgets))
         .routes(routes!(budgets::set_budget, budgets::remove_budget))

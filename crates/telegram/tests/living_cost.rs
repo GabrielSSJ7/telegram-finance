@@ -73,3 +73,19 @@ async fn cycle_closing_splits_essential_other_and_saved() {
         "🏠 Essencial R$ 300,00 (30%) · Outros R$ 0,00 (0%) · Guardado R$ 700,00 (70%)",
     );
 }
+
+#[tokio::test]
+async fn projecao_shows_how_the_cycle_should_end() {
+    let mut harness = BotHarness::bound().await.with_basics().await;
+    harness.record_entry(CategoryKind::Expense, 30_000, "feira", today(), None).await;
+    harness.record_entry(CategoryKind::Income, 500_000, "salário", today(), None).await;
+    harness.say(ANA, "/projecao").await;
+    harness.expect_last("<b>🔮 Projeção do ciclo</b> · 01/03 → 31/03/2026 (faltam 22 dias)");
+    harness.expect_last("Entradas: R$ 5.000,00");
+    harness.expect_last("Gastos: R$ 300,00");
+    harness.expect_last("<b>Sobra prevista: R$ 4.700,00</b> (94% das entradas)");
+    harness.expect_last("Disponível hoje: R$ 5.700,00");
+    harness.expect_last("<b>Maiores gastos previstos</b>\nmercado: R$ 300,00");
+    harness.say(BIA, "/projecao 13/2026").await;
+    harness.expect_last("Use /projecao para o ciclo atual");
+}

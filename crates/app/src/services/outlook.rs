@@ -1,5 +1,5 @@
-//! `/custodevida`: what the household's basic life costs, from the
-//! categories marked essential.
+//! How the running cycle should end: `/custodevida` (the basic cost of
+//! living) and `/projecao` (income, spending and cash at the last day).
 
 use std::sync::Arc;
 
@@ -9,14 +9,18 @@ use domain::cycle::Cycle;
 
 use super::category_activity::{category_activity, category_effect};
 use super::{
-    AccountService, CategoryService, LedgerService, PositionService, RecurrenceService,
-    SettingsService,
+    AccountService, CardService, CategoryService, LedgerService, PositionService,
+    RecurrenceService, SettingsService,
 };
 use crate::AppResult;
 use crate::model::{
-    Category, CategoryKind, EntryFilter, LedgerEntry, LivingCost, Recurrence, RecurrenceKind,
+    Category, CategoryKind, CycleProjection, EntryFilter, Flow, LedgerEntry, LivingCost,
+    Recurrence, RecurrenceKind, RecurrenceMode, RecurrenceTarget,
 };
 use crate::ports::Clock;
+
+/// Categories listed in the projection.
+pub const TOP_CATEGORIES: usize = 5;
 
 /// Earlier cycles averaged into the monthly cost.
 pub const AVERAGED_CYCLES: usize = 3;
@@ -24,32 +28,33 @@ pub const AVERAGED_CYCLES: usize = 3;
 /// Far more entries than a couple records in a cycle.
 const MAX_CYCLE_ENTRIES: u32 = 20_000;
 
-pub struct LivingCostSources {
+pub struct OutlookSources {
     pub ledger: Arc<LedgerService>,
     pub categories: Arc<CategoryService>,
     pub recurrences: Arc<RecurrenceService>,
     pub settings: Arc<SettingsService>,
     pub position: Arc<PositionService>,
     pub accounts: Arc<AccountService>,
+    pub cards: Arc<CardService>,
 }
 
-pub struct LivingCostService {
-    sources: LivingCostSources,
+pub struct OutlookService {
+    sources: OutlookSources,
     clock: Arc<dyn Clock>,
 }
 
-impl LivingCostService {
-    pub fn new(sources: LivingCostSources, clock: Arc<dyn Clock>) -> Self {
+impl OutlookService {
+    pub fn new(sources: OutlookSources, clock: Arc<dyn Clock>) -> Self {
         Self { sources, clock }
     }
 
     /// The basic cost of living in `cycle`, with what is still to come.
     ///
     /// ```ignore
-    /// let cost = living_costs.for_cycle(cycle).await?;
+    /// let cost = outlook.living_cost(cycle).await?;
     /// println!("{}", cost.projected().value());
     /// ```
-    pub async fn for_cycle(&self, cycle: Cycle) -> AppResult<LivingCost> {
+    pub async fn living_cost(&self, cycle: Cycle) -> AppResult<LivingCost> {
         let essentials = self.essential_categories().await?;
         let entries = self.entries_in(cycle).await?;
         let bills = self.bills_still_due(cycle).await?;
@@ -65,6 +70,55 @@ impl LivingCostService {
             expected_income: income_of(&entries) + bill_total(&bills, RecurrenceKind::Income, None),
             reserved: self.sources.position.balance_sheet().await?.position.reserved_in_pots,
         })
+    }
+
+    /// How the cycle should end: what is recorded plus what is known to
+    /// come, and the cash left after the bills due before the last day.
+    ///
+    /// ```ignore
+    /// let projection = outlook.projection(cycle).await?;
+    /// println!("{}", projection.cash_at_end().value());
+    /// ```
+    pub async fn projection(&self, cycle: Cycle) -> AppResult<CycleProjection> {
+        let today = self.clock.today();
+        let entries = self.entries_in(cycle).await?;
+        let bills = self.bills_still_due(cycle).await?;
+        let categories = self.sources.categories.list(None).await?;
+        Ok(CycleProjection {
+            cycle,
+            days_left: (cycle.last_day() - today.min(cycle.last_day())).num_days() + 1,
+            income: flow_of(&entries, today, CategoryKind::Income, &bills),
+            spending: flow_of(&entries, today, CategoryKind::Expense, &bills),
+            by_category: top_categories(&entries, &bills, &categories),
+            available: self.sources.position.balance_sheet().await?.position.available,
+            due_from_accounts: self.due_from_accounts(cycle, &bills).await?,
+            bills_to_confirm: bills
+                .iter()
+                .filter(|bill| bill.mode == RecurrenceMode::Confirm)
+                .count(),
+        })
+    }
+
+    /// Invoices to pay before the cycle ends plus the bills charged to an
+    /// account; card bills only leave the account through an invoice.
+    async fn due_from_accounts(&self, cycle: Cycle, bills: &[Recurrence]) -> AppResult<Cents> {
+        let mut total = Cents::ZERO;
+        for card in self.sources.cards.list().await? {
+            let invoices = self.sources.cards.invoices(card.id).await?;
+            let due_now = invoices.iter().filter(|view| {
+                view.statement.outstanding.is_positive()
+                    && view.invoice.period.due_date <= cycle.last_day()
+            });
+            total += due_now.map(|view| view.statement.outstanding).sum();
+        }
+        let from_accounts =
+            bills.iter().filter(|bill| matches!(bill.target, RecurrenceTarget::Account(_)));
+        Ok(total
+            + bill_total(
+                &from_accounts.cloned().collect::<Vec<_>>(),
+                RecurrenceKind::Expense,
+                None,
+            ))
     }
 
     async fn essential_categories(&self) -> AppResult<Vec<Category>> {
@@ -191,5 +245,39 @@ fn projected_by_category(
         .filter(|(_, total)| total.value() != 0)
         .collect();
     totals.sort_by_key(|(_, total)| -total.value());
+    totals
+}
+
+/// Recorded up to `today` and still coming, for one side of the ledger.
+fn flow_of(
+    entries: &[LedgerEntry],
+    today: NaiveDate,
+    kind: CategoryKind,
+    bills: &[Recurrence],
+) -> Flow {
+    let effect = |entry: &LedgerEntry| category_effect(entry, kind);
+    let recorded = entries.iter().filter(|entry| entry.accounting_date <= today).map(effect).sum();
+    let dated_later: Cents =
+        entries.iter().filter(|entry| entry.accounting_date > today).map(effect).sum();
+    let bill_kind = match kind {
+        CategoryKind::Expense => RecurrenceKind::Expense,
+        CategoryKind::Income => RecurrenceKind::Income,
+    };
+    Flow { recorded, coming: dated_later + bill_total(bills, bill_kind, None) }
+}
+
+/// Biggest projected spending per category.
+fn top_categories(
+    entries: &[LedgerEntry],
+    bills: &[Recurrence],
+    categories: &[Category],
+) -> Vec<(Category, Cents)> {
+    let expenses: Vec<Category> = categories
+        .iter()
+        .filter(|category| category.kind == CategoryKind::Expense)
+        .cloned()
+        .collect();
+    let mut totals = projected_by_category(entries, bills, &expenses);
+    totals.truncate(TOP_CATEGORIES);
     totals
 }

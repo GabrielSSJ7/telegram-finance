@@ -66,10 +66,16 @@ impl Household {
         self.set.services.recurrences.create(request).await.unwrap();
     }
 
+    async fn projection(&self) -> crate::model::CycleProjection {
+        let services = &self.set.services;
+        let cycle = services.reports.cycle_of(date(2026, 3, 10)).await.unwrap();
+        services.outlook.projection(cycle).await.unwrap()
+    }
+
     async fn cost(&self) -> crate::model::LivingCost {
         let services = &self.set.services;
         let cycle = services.reports.cycle_of(date(2026, 3, 10)).await.unwrap();
-        services.living_costs.for_cycle(cycle).await.unwrap()
+        services.outlook.living_cost(cycle).await.unwrap()
     }
 }
 
@@ -105,7 +111,42 @@ async fn cycles_before_tracking_started_are_not_averaged() {
     let set = FakeServiceSet::new(date(2026, 3, 10), AllowedUsers::default());
     set.services.accounts.open(open_checking("Nubank", 0)).await.unwrap();
     let cycle = set.services.reports.cycle_of(date(2026, 3, 10)).await.unwrap();
-    let cost = set.services.living_costs.for_cycle(cycle).await.unwrap();
+    let cost = set.services.outlook.living_cost(cycle).await.unwrap();
     assert_eq!((cost.recent_average, cost.averaged_cycles), (None, 0));
     assert_eq!(cost.projected(), Cents::ZERO);
+}
+
+#[tokio::test]
+async fn projection_joins_what_is_recorded_with_what_is_coming() {
+    let home = household().await;
+    home.spend(&home.home, 100_000, date(2026, 3, 5)).await;
+    home.spend(&home.fun, 30_000, date(2026, 3, 6)).await;
+    let rent = monthly_expense("aluguel", 200_000, home.home.id, home.account, 25);
+    home.set.services.recurrences.create(rent).await.unwrap();
+    home.expect_salary_on(28).await;
+    let projection = home.projection().await;
+    assert_eq!(projection.days_left, 22, "10/03 to 31/03");
+    assert_eq!(projection.spending.recorded, Cents::new(130_000));
+    assert_eq!(projection.spending.coming, Cents::new(200_000));
+    assert_eq!(projection.income.total(), Cents::new(800_000));
+    assert_eq!(projection.result(), Cents::new(470_000));
+    assert_eq!(projection.saved_bp(), Some(5_875));
+    let names: Vec<&str> =
+        projection.by_category.iter().map(|(category, _)| category.name.as_str()).collect();
+    assert_eq!(names, vec!["casa", "lazer"], "biggest first, income left out");
+    assert_eq!(projection.by_category[0].1, Cents::new(300_000), "rent is counted too");
+}
+
+#[tokio::test]
+async fn projection_counts_the_cash_leaving_the_accounts() {
+    let home = household().await;
+    home.spend(&home.home, 100_000, date(2026, 3, 5)).await;
+    let rent = monthly_expense("aluguel", 200_000, home.home.id, home.account, 25);
+    let confirmed = crate::fakes::requests::confirming(rent, date(2026, 3, 1));
+    home.set.services.recurrences.create(confirmed).await.unwrap();
+    let projection = home.projection().await;
+    assert_eq!(projection.available, Cents::new(-100_000), "the account only had the expense");
+    assert_eq!(projection.due_from_accounts, Cents::new(200_000), "the rent is paid from it");
+    assert_eq!(projection.cash_at_end(), Cents::new(-300_000));
+    assert_eq!(projection.bills_to_confirm, 1);
 }

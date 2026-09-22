@@ -8,7 +8,7 @@ use super::category_statement::category_overview;
 use super::entry_actions::recent_entries;
 use super::export::export_entries;
 use super::flow_runner::{cancel_current, start_flow};
-use super::living_cost::{essential_categories, living_cost};
+use super::outlook::{essential_categories, living_cost, projection};
 use super::undo::undo_last;
 use crate::flows::FormKind;
 use crate::flows::dates::parse_typed_date;
@@ -54,6 +54,7 @@ pub async fn household_command(
         "resumo" => day_summary(context, chat_id, args).await,
         "extrato" => category_overview(context, chat_id, args).await,
         "custodevida" => living_cost(context, chat_id, args).await,
+        "projecao" => projection(context, chat_id, args).await,
         "cancelar" => cancel_current(context, chat_id, member).await,
         "ajuda" | "start" | "help" => context.reply(chat_id, help_text()).await.map(|_| ()),
         report => report_command(context, chat_id, report).await,

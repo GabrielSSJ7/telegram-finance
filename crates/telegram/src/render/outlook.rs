@@ -1,7 +1,8 @@
-//! `/essenciais` and `/custodevida`: which categories make up the basic
-//! cost of living, and what it adds up to.
+//! How the cycle should end: which categories make up the basic cost of
+//! living (`/essenciais`), what it adds up to (`/custodevida`) and where
+//! the cycle lands (`/projecao`).
 
-use app::model::{Category, CategoryKind, LivingCost, RESERVE_MONTHS};
+use app::model::{Category, CategoryKind, CycleProjection, Flow, LivingCost, RESERVE_MONTHS};
 use domain::money_format::format_brl;
 
 use super::catalog::category_label;
@@ -100,6 +101,78 @@ fn reserve_lines(cost: &LivingCost) -> String {
     }
 }
 
+/// `/projecao`: the cycle's result and the cash left at its last day.
+pub fn projection_text(projected: &CycleProjection) -> String {
+    let title = format!(
+        "<b>🔮 Projeção do ciclo</b> · {} → {} (faltam {} dias)",
+        projected.cycle.start.format("%d/%m"),
+        projected.cycle.last_day().format("%d/%m/%Y"),
+        projected.days_left
+    );
+    let mut sections = vec![title, result_lines(projected), cash_lines(projected)];
+    if !projected.by_category.is_empty() {
+        sections.push(biggest_lines(projected));
+    }
+    if projected.bills_to_confirm > 0 {
+        sections.push(format!(
+            "⚠️ {} recorrente(s) esperando confirmação; veja /recorrentes.",
+            projected.bills_to_confirm
+        ));
+    }
+    sections.join("\n\n")
+}
+
+fn result_lines(projected: &CycleProjection) -> String {
+    let result = projected.result();
+    let (label, amount) =
+        if result.value() < 0 { ("Falta", -result) } else { ("Sobra prevista", result) };
+    // A negative result would read as "-3% das entradas", which says nothing.
+    let share = projected
+        .saved_bp()
+        .filter(|_| result.value() > 0)
+        .map(|bp| format!(" ({}% das entradas)", bp / 100))
+        .unwrap_or_default();
+    format!(
+        "<b>Resultado</b>\nEntradas: {}\nGastos: {}\n<b>{label}: {}</b>{share}",
+        flow_line(projected.income, "recebidas", "a receber"),
+        flow_line(projected.spending, "lançados", "a lançar"),
+        format_brl(amount)
+    )
+}
+
+/// `R$ 12.000,00 (R$ 8.000,00 recebidas · R$ 4.000,00 a receber)`.
+fn flow_line(flow: Flow, done: &str, coming: &str) -> String {
+    if !flow.coming.is_positive() {
+        return format_brl(flow.total());
+    }
+    format!(
+        "{} ({} {done} · {} {coming})",
+        format_brl(flow.total()),
+        format_brl(flow.recorded),
+        format_brl(flow.coming)
+    )
+}
+
+fn cash_lines(projected: &CycleProjection) -> String {
+    format!(
+        "<b>Caixa até {}</b>\nDisponível hoje: {}\n+ a receber: {}\n− faturas e contas a pagar: {}\n<b>= no fim do ciclo: {}</b>",
+        projected.cycle.last_day().format("%d/%m"),
+        format_brl(projected.available),
+        format_brl(projected.income.coming),
+        format_brl(projected.due_from_accounts),
+        format_brl(projected.cash_at_end())
+    )
+}
+
+fn biggest_lines(projected: &CycleProjection) -> String {
+    let lines: Vec<String> = projected
+        .by_category
+        .iter()
+        .map(|(category, total)| format!("{}: {}", category_label(category), format_brl(*total)))
+        .collect();
+    format!("<b>Maiores gastos previstos</b>\n{}", lines.join("\n"))
+}
+
 #[cfg(test)]
 mod tests {
     use app::model::CategoryId;
@@ -168,5 +241,51 @@ mod tests {
     fn nothing_essential_points_to_the_setup() {
         let text = living_cost_text(&cost(Vec::new(), None));
         assert!(text.contains("Marque as categorias em /essenciais."), "{text}");
+    }
+
+    fn projection(result_positive: bool) -> CycleProjection {
+        let today = NaiveDate::from_ymd_opt(2026, 9, 22).unwrap();
+        let income = if result_positive { 1_200_000 } else { 300_000 };
+        CycleProjection {
+            cycle: Cycle::containing(today, DayOfMonth::new(5).unwrap()),
+            days_left: 13,
+            income: Flow { recorded: Cents::new(income), coming: Cents::new(400_000) },
+            spending: Flow { recorded: Cents::new(407_923), coming: Cents::new(313_890) },
+            by_category: vec![(category("casa", CategoryKind::Expense, true), Cents::new(328_218))],
+            available: Cents::new(540_384),
+            due_from_accounts: Cents::new(313_890),
+            bills_to_confirm: 1,
+        }
+    }
+
+    #[test]
+    fn projection_shows_result_cash_and_warnings() {
+        let text = projection_text(&projection(true));
+        assert!(
+            text.starts_with("<b>🔮 Projeção do ciclo</b> · 05/09 → 04/10/2026 (faltam 13 dias)"),
+            "{text}"
+        );
+        assert!(
+            text.contains(
+                "Entradas: R$ 16.000,00 (R$ 12.000,00 recebidas · R$ 4.000,00 a receber)"
+            ),
+            "{text}"
+        );
+        assert!(
+            text.contains("Gastos: R$ 7.218,13 (R$ 4.079,23 lançados · R$ 3.138,90 a lançar)"),
+            "{text}"
+        );
+        assert!(text.contains("<b>Sobra prevista: R$ 8.781,87</b> (54% das entradas)"), "{text}");
+        assert!(text.contains("Disponível hoje: R$ 5.403,84\n+ a receber: R$ 4.000,00"), "{text}");
+        assert!(text.contains("<b>= no fim do ciclo: R$ 6.264,94</b>"), "{text}");
+        assert!(text.contains("<b>Maiores gastos previstos</b>\ncasa: R$ 3.282,18"), "{text}");
+        assert!(text.contains("⚠️ 1 recorrente(s) esperando confirmação"), "{text}");
+    }
+
+    #[test]
+    fn a_cycle_that_ends_short_says_falta() {
+        let text = projection_text(&projection(false));
+        assert!(text.contains("<b>Falta: R$ 218,13</b>"), "{text}");
+        assert!(!text.contains("das entradas"), "no negative share: {text}");
     }
 }

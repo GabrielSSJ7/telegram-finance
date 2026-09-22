@@ -113,6 +113,7 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/parcelas` | Card purchases and financings still being paid: paid so far, what is left, monthly installment and last month |
 | `/orcamento`, `/orcamentos` | Set (or remove) a category's limit per cycle; see how much of each is used. Alerts at 80% and 100% |
 | `/mes` | The current cycle so far |
+| `/projecao [mm/aaaa]` | How the cycle should end: income and spending recorded plus what is still coming, the result, and the cash left after the invoices and bills due before the last day |
 | `/custodevida [mm/aaaa]` | Basic cost of living: essential spending so far and still coming, the average of the last 3 cycles, share of income and the 6-month emergency reserve |
 | `/essenciais` | Mark which expense categories are essential (casa, mercado, saúde, transporte and educação start marked) |
 | `/desfazer` | Undo your own last entry |
@@ -140,7 +141,7 @@ instead of saving twice. Amounts are integer cents; dates are ISO 8601.
 | Goals | `GET/POST /goals`, `PUT /goals/{id}/target`, `POST /goals/{id}/deposits`, `POST /goals/{id}/withdrawals` |
 | Installments | `GET /installments` |
 | Planning | `GET/POST /recurrences` (`installment_count`, `installments_paid`), `DELETE /recurrences/{id}`, `GET /budgets`, `PUT/DELETE /budgets/{category_id}` |
-| Reports | `GET /reports/daily?date=`, `GET /reports/cycle?date=`, `GET /reports/living-cost?date=` |
+| Reports | `GET /reports/daily?date=`, `GET /reports/cycle?date=`, `GET /reports/living-cost?date=`, `GET /reports/projection?date=` |
 | Exports | `GET /exports/entries.csv` (cycle containing `date`, default today; or `from` and `to`) |
 | Household | `GET/PATCH /settings`, `GET /members` |
 

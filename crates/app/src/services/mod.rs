@@ -16,8 +16,8 @@ pub mod goals;
 pub mod installments;
 pub mod ledger;
 pub mod ledger_validation;
-pub mod living_cost;
 pub mod members;
+pub mod outlook;
 pub mod position;
 pub mod recurrences;
 pub mod reports;
@@ -36,8 +36,8 @@ pub use exports::ExportService;
 pub use goals::{CreateGoal, GoalService, PotMove};
 pub use installments::InstallmentService;
 pub use ledger::{EntryOrigin, EntryRequest, LedgerService};
-pub use living_cost::LivingCostService;
 pub use members::{AllowedUsers, MemberService};
+pub use outlook::OutlookService;
 pub use position::PositionService;
 pub use recurrences::{CreateRecurrence, RecurrenceService};
 pub use reports::ReportService;
@@ -57,7 +57,7 @@ mod installment_tests;
 #[cfg(test)]
 mod ledger_tests;
 #[cfg(test)]
-mod living_cost_tests;
+mod outlook_tests;
 #[cfg(test)]
 mod recurrence_tests;
 #[cfg(test)]

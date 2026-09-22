@@ -28,6 +28,7 @@ pub const SECTIONS: &[CommandSection] = &[
             ("resumo", "Resumo de hoje; /resumo 15/09 para outro dia"),
             ("ontem", "Resumo de ontem"),
             ("mes", "Como está o ciclo até agora"),
+            ("projecao", "Como o ciclo deve terminar: entradas, gastos e caixa"),
             ("extrato", "Gastos e entradas por categoria; /extrato 08/2026 para outro ciclo"),
             ("custodevida", "Quanto custa a vida básica; /custodevida 08/2026 para outro ciclo"),
             ("metas", "Progresso das metas"),

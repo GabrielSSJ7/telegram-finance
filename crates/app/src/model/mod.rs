@@ -12,6 +12,7 @@ pub mod ids;
 pub mod installment_plan;
 pub mod living_cost;
 pub mod member;
+pub mod projection;
 pub mod recurrence;
 pub mod report;
 pub mod settings;
@@ -32,6 +33,7 @@ pub use ids::{
 pub use installment_plan::{InstallmentProgress, PlanSource};
 pub use living_cost::{LivingCost, RESERVE_MONTHS};
 pub use member::{Member, MemberProfile};
+pub use projection::{CycleProjection, Flow};
 pub use recurrence::{NewRecurrence, Recurrence, RecurrenceKind, RecurrenceMode, RecurrenceTarget};
 pub use report::{CycleReport, DailyReport, PeriodFlow, PeriodTotals, ReportDay};
 pub use settings::{HouseholdSettings, SettingsPatch};

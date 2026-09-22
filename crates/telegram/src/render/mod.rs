@@ -10,8 +10,8 @@ pub mod errors;
 pub mod help;
 pub mod installments;
 pub mod keyboards;
-pub mod living_cost;
 pub mod notices;
+pub mod outlook;
 pub mod report_text;
 pub mod reports;
 

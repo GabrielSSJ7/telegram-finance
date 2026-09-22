@@ -1,4 +1,4 @@
-use app::model::{CycleReport, DailyReport, LivingCost};
+use app::model::{CycleProjection, CycleReport, DailyReport, LivingCost};
 use axum::Json;
 use axum::extract::State;
 use chrono::NaiveDate;
@@ -75,5 +75,41 @@ pub async fn living_cost(
 ) -> Result<Json<LivingCostResponse>, ApiError> {
     let date = query.date.unwrap_or_else(|| state.services.clock.today());
     let cycle = state.services.reports.cycle_of(date).await?;
-    Ok(Json(state.services.living_costs.for_cycle(cycle).await?.into()))
+    Ok(Json(state.services.outlook.living_cost(cycle).await?.into()))
+}
+
+/// The cycle's projected end, with the figures the bot shows.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct ProjectionResponse {
+    #[schema(value_type = Object)]
+    pub projection: CycleProjection,
+    /// Income minus spending over the whole cycle.
+    pub result_cents: i64,
+    /// Result over income, basis points.
+    pub saved_bp: Option<i64>,
+    /// Available now plus income still to come, minus what is due.
+    pub cash_at_end_cents: i64,
+}
+
+impl From<CycleProjection> for ProjectionResponse {
+    fn from(projection: CycleProjection) -> Self {
+        Self {
+            result_cents: projection.result().value(),
+            saved_bp: projection.saved_bp(),
+            cash_at_end_cents: projection.cash_at_end().value(),
+            projection,
+        }
+    }
+}
+
+#[utoipa::path(get, path = "/reports/projection", tag = "reports", params(ReportQuery),
+    responses((status = 200, description = "How the cycle containing `date` should end", body = ProjectionResponse)),
+    security(("api_key" = [])))]
+pub async fn projection(
+    State(state): State<ApiState>,
+    ApiQuery(query): ApiQuery<ReportQuery>,
+) -> Result<Json<ProjectionResponse>, ApiError> {
+    let date = query.date.unwrap_or_else(|| state.services.clock.today());
+    let cycle = state.services.reports.cycle_of(date).await?;
+    Ok(Json(state.services.outlook.projection(cycle).await?.into()))
 }

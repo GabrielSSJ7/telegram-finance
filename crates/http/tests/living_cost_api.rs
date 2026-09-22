@@ -58,3 +58,18 @@ async fn financings_and_card_plans_are_listed() {
     );
     assert_eq!(plans[0]["remaining_cents"].as_i64(), Some(1_680_000));
 }
+
+#[tokio::test]
+async fn projection_reports_the_end_of_the_cycle() {
+    let api = ApiHarness::new().await;
+    let checking = api.open_checking("Nubank", 100_000).await;
+    let category = api.category("mercado", "expense").await;
+    let expense = json!({"kind": "expense", "account_id": checking, "category_id": category,
+        "amount_cents": 30_000, "description": "feira"});
+    assert_eq!(api.post("/api/v1/entries", expense).await.0, StatusCode::CREATED);
+    let (status, report) = api.get("/api/v1/reports/projection").await;
+    assert_eq!(status, StatusCode::OK, "{report}");
+    assert_eq!(report["projection"]["spending"]["recorded"].as_i64(), Some(30_000));
+    assert_eq!(report["result_cents"].as_i64(), Some(-30_000));
+    assert_eq!(report["cash_at_end_cents"].as_i64(), Some(70_000));
+}
