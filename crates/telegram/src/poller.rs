@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::bot::{BotContext, handle_update};
 use crate::gateway::{GatewayError, IncomingUpdate};
-use crate::render::help::COMMANDS;
+use crate::render::help::commands;
 
 /// Telegram holds a `getUpdates` call open up to this long.
 pub const LONG_POLL: Duration = Duration::from_secs(50);
@@ -89,7 +89,7 @@ impl Poller {
         if let Err(error) = self.context.gateway.delete_webhook().await {
             tracing::warn!(%error, "could not delete webhook");
         }
-        if let Err(error) = self.context.gateway.set_commands(COMMANDS).await {
+        if let Err(error) = self.context.gateway.set_commands(&commands()).await {
             tracing::warn!(%error, "could not publish command menu");
         }
     }
