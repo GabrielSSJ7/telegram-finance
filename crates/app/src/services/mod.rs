@@ -10,6 +10,7 @@ pub mod card_spending;
 pub mod card_statements;
 pub mod cards;
 pub mod categories;
+pub mod category_activity;
 pub mod exports;
 pub mod goals;
 pub mod ledger;

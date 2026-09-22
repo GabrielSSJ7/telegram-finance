@@ -6,8 +6,9 @@
 use std::sync::Arc;
 
 use app::fakes::FakeServiceSet;
-use app::model::{AccountId, CategoryKind};
-use app::services::{AllowedUsers, OpenAccount};
+use app::model::{AccountId, CategoryKind, LedgerEntry, MemberId};
+use app::services::ledger::{AccountEntry, EntryRequest};
+use app::services::{AllowedUsers, EntryOrigin, OpenAccount};
 use chrono::NaiveDate;
 use domain::{AccountKind, Cents};
 use telegram::bot::{BotContext, handle_update};
@@ -181,6 +182,35 @@ impl BotHarness {
         };
         self.set.services.cards.open(request).await.unwrap();
         self
+    }
+
+    /// Records an entry at the first account in the first category of
+    /// `kind` (expense or income), dated `day`.
+    pub async fn record_entry(
+        &self,
+        kind: CategoryKind,
+        cents: i64,
+        description: &str,
+        day: NaiveDate,
+        author: Option<MemberId>,
+    ) -> LedgerEntry {
+        let services = &self.set.services;
+        let entry = AccountEntry {
+            account_id: services.accounts.list(false).await.unwrap()[0].id,
+            category_id: services.categories.list(Some(kind)).await.unwrap()[0].id,
+            amount: Cents::new(cents),
+            description: description.into(),
+            date: Some(day),
+        };
+        let request = match kind {
+            CategoryKind::Expense => EntryRequest::Expense(entry),
+            CategoryKind::Income => EntryRequest::Income(entry),
+        };
+        services
+            .ledger
+            .record(request, EntryOrigin { created_by: author, draft: None })
+            .await
+            .unwrap()
     }
 
     /// Nubank account plus mercado/salário categories.

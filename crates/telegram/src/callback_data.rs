@@ -58,6 +58,12 @@ pub enum CallbackPayload {
     EditEntry(EntryId),
     /// [🗑️] in `/ultimos`.
     DeleteEntry(EntryId),
+    /// A category button in `/extrato`: its entries between two dates.
+    CategoryStatement {
+        category: CategoryId,
+        from: NaiveDate,
+        to: NaiveDate,
+    },
 }
 
 /// Short, per-flow tag: the random tail of the draft UUID.
@@ -99,6 +105,11 @@ pub fn edit_entry_button(entry: EntryId) -> String {
     format!("ee|{entry}")
 }
 
+/// Dates as `yyyymmdd` keep the payload at 57 bytes.
+pub fn category_statement_button(category: CategoryId, from: NaiveDate, to: NaiveDate) -> String {
+    format!("cs|{category}|{}|{}", from.format("%Y%m%d"), to.format("%Y%m%d"))
+}
+
 pub fn delete_entry_button(entry: EntryId) -> String {
     format!("ed|{entry}")
 }
@@ -135,11 +146,20 @@ pub fn parse(data: &str) -> Option<CallbackPayload> {
         "rd" => return tail.parse().ok().map(CallbackPayload::DeactivateRecurrence),
         "ee" => return tail.parse().ok().map(CallbackPayload::EditEntry),
         "ed" => return tail.parse().ok().map(CallbackPayload::DeleteEntry),
+        "cs" => return category_statement_payload(tail),
         "rr" | "rs" => return recurrence_payload(head, tail),
         _ => {}
     }
     let value = decode_value(tail)?;
     Some(CallbackPayload::Flow { nonce: head.to_owned(), value })
+}
+
+fn category_statement_payload(tail: &str) -> Option<CallbackPayload> {
+    let mut parts = tail.split('|');
+    let category = parts.next()?.parse().ok()?;
+    let date = |text: &str| NaiveDate::parse_from_str(text, "%Y%m%d").ok();
+    let (from, to) = (date(parts.next()?)?, date(parts.next()?)?);
+    Some(CallbackPayload::CategoryStatement { category, from, to })
 }
 
 fn recurrence_payload(head: &str, tail: &str) -> Option<CallbackPayload> {
@@ -219,6 +239,20 @@ mod tests {
             assert!(data.len() <= MAX_CALLBACK_BYTES, "{data} is {} bytes", data.len());
             assert_eq!(parse(&data), Some(CallbackPayload::Flow { nonce: nonce.clone(), value }));
         }
+    }
+
+    #[test]
+    fn category_statement_round_trips_within_limit() {
+        let category = CategoryId::generate();
+        let (from, to) = (
+            NaiveDate::from_ymd_opt(2026, 9, 5).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 10, 4).unwrap(),
+        );
+        let data = category_statement_button(category, from, to);
+        assert!(data.len() <= MAX_CALLBACK_BYTES, "{data} is {} bytes", data.len());
+        assert_eq!(parse(&data), Some(CallbackPayload::CategoryStatement { category, from, to }));
+        assert_eq!(parse(&format!("cs|{category}|20261304|20261004")), None);
+        assert_eq!(parse(&format!("cs|{category}|20260905")), None);
     }
 
     #[test]

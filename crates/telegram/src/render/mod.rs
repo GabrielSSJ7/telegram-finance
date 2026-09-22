@@ -4,6 +4,7 @@
 
 pub mod card;
 pub mod catalog;
+pub mod category_statement;
 pub mod entries;
 pub mod errors;
 pub mod help;

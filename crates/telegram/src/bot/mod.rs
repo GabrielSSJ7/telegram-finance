@@ -4,6 +4,7 @@
 
 pub mod access;
 pub mod budget_alerts;
+pub mod category_statement;
 pub mod commands;
 pub mod context;
 pub mod entry_actions;
@@ -11,6 +12,7 @@ pub mod executor;
 pub mod export;
 pub mod flow_runner;
 pub mod membership;
+pub mod periods;
 pub mod recurrence_buttons;
 pub mod router;
 pub mod undo;

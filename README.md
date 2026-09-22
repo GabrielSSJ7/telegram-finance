@@ -115,6 +115,7 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/desfazer` | Undo your own last entry |
 | `/ultimos` | Last 10 entries with ✏️ edit (value, description, category or date) and 🗑️ delete; only the author (or anyone, for automatic entries) |
 | `/ajuste` | Make an account match the bank: type the real balance, the difference is recorded as an adjustment (not income or spending) |
+| `/extrato [mm/aaaa]` | Spending and income per category for the cycle; each category button lists its entries |
 | `/exportar [mm/aaaa]` | The cycle's entries as a CSV spreadsheet (`;`, decimal comma) |
 | `/config` | Day the cycle starts; times of yesterday's summary (any hour) and today's (19:00 or later) |
 | `/cancelar`, `/ajuda` | Cancel the current form, list commands |

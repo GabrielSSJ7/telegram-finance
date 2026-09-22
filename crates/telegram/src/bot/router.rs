@@ -5,6 +5,7 @@ use app::model::Member;
 
 use super::BotContext;
 use super::access::{Audience, identify};
+use super::category_statement::category_entries;
 use super::commands::{household_command, parse_command};
 use super::entry_actions::{delete_entry, edit_entry};
 use super::flow_runner::{Placement, continue_flow, load_session, member_key};
@@ -154,11 +155,13 @@ async fn dispatch_button(
         }
         CallbackPayload::EditEntry(id) => edit_entry(context, press, member, id).await,
         CallbackPayload::DeleteEntry(id) => delete_entry(context, press, member, id).await,
-        recurrence => dispatch_recurrence_button(context, press, member, recurrence).await,
+        other => dispatch_message_button(context, press, member, other).await,
     }
 }
 
-async fn dispatch_recurrence_button(
+/// Buttons on messages the bot sent by itself: bill prompts, the
+/// recurrence list and `/extrato`.
+async fn dispatch_message_button(
     context: &BotContext,
     press: &ButtonPress,
     member: &Member,
@@ -173,6 +176,9 @@ async fn dispatch_recurrence_button(
         }
         CallbackPayload::DeactivateRecurrence(id) => {
             deactivate_recurrence(context, press, id).await
+        }
+        CallbackPayload::CategoryStatement { category, from, to } => {
+            category_entries(context, press, category, (from, to)).await
         }
         _ => context.gateway.answer_button(&press.callback_id, Some(STALE_BUTTON)).await,
     }

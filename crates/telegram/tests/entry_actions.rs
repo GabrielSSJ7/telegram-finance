@@ -5,7 +5,6 @@ mod common;
 
 use app::model::{CategoryKind, EntryFilter, LedgerEntry, MemberId};
 use app::services::EntryOrigin;
-use app::services::ledger::{AccountEntry, EntryRequest};
 use common::{ANA, BIA, BotHarness, GROUP, today};
 use domain::Cents;
 
@@ -14,28 +13,14 @@ async fn member_id(harness: &BotHarness, telegram_user_id: i64) -> MemberId {
     members.into_iter().find(|member| member.telegram_user_id == telegram_user_id).unwrap().id
 }
 
-/// Records "feira" at the Nubank account with the first category of `kind`.
-async fn record(
+/// A "feira" entry dated today in the first category of `kind`.
+async fn feira(
     harness: &BotHarness,
-    author: Option<MemberId>,
-    cents: i64,
     kind: CategoryKind,
+    cents: i64,
+    author: Option<MemberId>,
 ) -> LedgerEntry {
-    let account_id = harness.set.services.accounts.list(false).await.unwrap()[0].id;
-    let categories = harness.set.services.categories.list(Some(kind)).await.unwrap();
-    let entry = AccountEntry {
-        account_id,
-        category_id: categories[0].id,
-        amount: Cents::new(cents),
-        description: "feira".into(),
-        date: Some(today()),
-    };
-    let request = match kind {
-        CategoryKind::Expense => EntryRequest::Expense(entry),
-        CategoryKind::Income => EntryRequest::Income(entry),
-    };
-    let origin = EntryOrigin { created_by: author, draft: None };
-    harness.set.services.ledger.record(request, origin).await.unwrap()
+    harness.record_entry(kind, cents, "feira", today(), author).await
 }
 
 async fn entries(harness: &BotHarness) -> Vec<LedgerEntry> {
@@ -47,8 +32,9 @@ async fn ultimos_lists_entries_with_edit_and_delete_buttons() {
     let mut harness = BotHarness::bound().await.with_basics().await;
     harness.say(ANA, "/ultimos").await;
     harness.expect_last("Nenhum lançamento ainda.");
-    record(&harness, Some(member_id(&harness, ANA).await), 1050, CategoryKind::Expense).await;
-    record(&harness, None, 500_000, CategoryKind::Income).await;
+    let ana = Some(member_id(&harness, ANA).await);
+    feira(&harness, CategoryKind::Expense, 1050, ana).await;
+    feira(&harness, CategoryKind::Income, 500_000, None).await;
     harness.say(ANA, "/ultimos").await;
     harness.expect_last("1. hoje 💰 R$ 5.000,00 · salário — feira (automático)");
     harness.expect_last("2. hoje 💸 R$ 10,50");
@@ -59,7 +45,8 @@ async fn ultimos_lists_entries_with_edit_and_delete_buttons() {
 #[tokio::test]
 async fn delete_is_limited_to_the_author() {
     let mut harness = BotHarness::bound().await.with_basics().await;
-    record(&harness, Some(member_id(&harness, ANA).await), 1050, CategoryKind::Expense).await;
+    let ana = Some(member_id(&harness, ANA).await);
+    feira(&harness, CategoryKind::Expense, 1050, ana).await;
     harness.say(ANA, "/ultimos").await;
     let (message_id, delete) = harness.gateway.find_button(GROUP, "🗑️ 1").unwrap();
     harness.press(BIA, message_id, &delete).await;
@@ -75,7 +62,8 @@ async fn delete_is_limited_to_the_author() {
 #[tokio::test]
 async fn edit_changes_the_amount() {
     let mut harness = BotHarness::bound().await.with_basics().await;
-    record(&harness, Some(member_id(&harness, ANA).await), 1050, CategoryKind::Expense).await;
+    let ana = Some(member_id(&harness, ANA).await);
+    feira(&harness, CategoryKind::Expense, 1050, ana).await;
     harness.say(ANA, "/ultimos").await;
     harness.tap(ANA, "✏️ 1").await;
     harness.expect_last("Editar lançamento");
@@ -93,7 +81,7 @@ async fn edit_changes_the_amount() {
 async fn editing_income_category_offers_income_categories() {
     let mut harness = BotHarness::bound().await.with_basics().await;
     harness.set.store.seed_category("extra", CategoryKind::Income);
-    record(&harness, None, 500_000, CategoryKind::Income).await;
+    feira(&harness, CategoryKind::Income, 500_000, None).await;
     harness.say(BIA, "/ultimos").await;
     harness.tap(BIA, "✏️ 1").await;
     harness.tap(BIA, "Categoria").await;
@@ -124,7 +112,8 @@ async fn card_installments_are_not_editable() {
 #[tokio::test]
 async fn exportar_sends_the_cycle_as_csv() {
     let mut harness = BotHarness::bound().await.with_basics().await;
-    record(&harness, Some(member_id(&harness, ANA).await), 1050, CategoryKind::Expense).await;
+    let ana = Some(member_id(&harness, ANA).await);
+    feira(&harness, CategoryKind::Expense, 1050, ana).await;
     harness.say(ANA, "/exportar").await;
     harness.say(ANA, "/exportar 02/2026").await;
     harness.say(ANA, "/exportar fevereiro").await;

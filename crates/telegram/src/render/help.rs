@@ -17,6 +17,7 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("orcamentos", "Orçamentos do ciclo"),
     ("desfazer", "Desfazer seu último lançamento"),
     ("ultimos", "Últimos lançamentos, com editar e apagar"),
+    ("extrato", "Gastos e entradas por categoria; /extrato 08/2026 para outro ciclo"),
     ("exportar", "Planilha (CSV) do ciclo; /exportar 03/2026 para outro"),
     ("novaconta", "Cadastrar uma conta"),
     ("novameta", "Criar uma meta de economia"),

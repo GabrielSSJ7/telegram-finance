@@ -4,6 +4,7 @@ use app::model::{Member, ReportDay};
 use chrono::{Datelike, NaiveDate};
 
 use super::BotContext;
+use super::category_statement::category_overview;
 use super::entry_actions::recent_entries;
 use super::export::export_entries;
 use super::flow_runner::{cancel_current, start_flow};
@@ -49,6 +50,7 @@ pub async fn household_command(
         "exportar" => export_entries(context, chat_id, args).await,
         "ultimos" => recent_entries(context, chat_id).await,
         "resumo" => day_summary(context, chat_id, args).await,
+        "extrato" => category_overview(context, chat_id, args).await,
         "cancelar" => cancel_current(context, chat_id, member).await,
         "ajuda" | "start" | "help" => context.reply(chat_id, help_text()).await.map(|_| ()),
         report => report_command(context, chat_id, report).await,
