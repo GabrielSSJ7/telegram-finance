@@ -58,6 +58,8 @@ fn field_choices(
 const fn skip_label(field: Field) -> Option<&'static str> {
     match field {
         Field::Description | Field::CategoryEmoji => Some("Pular"),
+        Field::RecurrenceInstallments => Some("Sem fim"),
+        Field::RecurrencePaid => Some("Nenhuma"),
         Field::InitialBalance | Field::AlreadySaved | Field::ActualBalance => Some("Zero"),
         Field::BudgetLimit => Some("🗑️ Remover orçamento"),
         Field::GoalDeadline => Some("Sem prazo"),

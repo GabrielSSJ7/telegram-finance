@@ -35,3 +35,26 @@ async fn living_cost_report_sums_essential_spending() {
     assert_eq!(report["cost"]["by_category"][0][1].as_i64(), Some(12_345), "{report}");
     assert_eq!(report["reserve_target_cents"].as_i64(), Some(74_070));
 }
+
+#[tokio::test]
+async fn financings_and_card_plans_are_listed() {
+    let api = ApiHarness::new().await;
+    let checking = api.open_checking("BTG", 0).await;
+    let category = api.category("transporte", "expense").await;
+    let financing = json!({"kind": "expense", "amount_cents": 120_000, "description": "Financiamento",
+        "category_id": category, "account_id": checking, "day_of_month": 5,
+        "installment_count": 36, "installments_paid": 22});
+    let (status, created) = api.post("/api/v1/recurrences", financing).await;
+    assert_eq!(status, StatusCode::CREATED, "{created}");
+    assert_eq!(
+        (created["installment_count"].as_u64(), created["first_installment_no"].as_u64()),
+        (Some(36), Some(23))
+    );
+    let (status, plans) = api.get("/api/v1/installments").await;
+    assert_eq!(status, StatusCode::OK, "{plans}");
+    assert_eq!(
+        (plans[0]["source"].as_str(), plans[0]["paid_count"].as_u64()),
+        (Some("account"), Some(22))
+    );
+    assert_eq!(plans[0]["remaining_cents"].as_i64(), Some(1_680_000));
+}

@@ -22,6 +22,14 @@ pub enum Answer {
     Card(CardId),
     Invoice(InvoiceId),
     Installments(u32),
+    /// `3/10` typed for a plan already under way: this installment of that
+    /// many, and the amount typed is the value of one installment.
+    InstallmentsFrom {
+        current: u32,
+        total: u32,
+    },
+    /// A plain number, such as how many installments a financing has.
+    Count(u32),
     Day(u8),
     RecurrenceKind(RecurrenceKind),
     RecurrenceMode(RecurrenceMode),
@@ -154,7 +162,28 @@ impl Answers {
     pub fn installments(&self) -> u32 {
         match self.get(Field::Installments) {
             Some(Answer::Installments(count)) => *count,
+            Some(Answer::InstallmentsFrom { total, .. }) => *total,
             _ => 1,
+        }
+    }
+
+    /// The installment the purchase starts at: above 1 when it was typed
+    /// as `3/10`, in which case the amount is per installment.
+    pub fn first_installment(&self) -> u32 {
+        match self.get(Field::Installments) {
+            Some(Answer::InstallmentsFrom { current, .. }) => *current,
+            _ => 1,
+        }
+    }
+
+    pub fn amount_is_per_installment(&self) -> bool {
+        matches!(self.get(Field::Installments), Some(Answer::InstallmentsFrom { .. }))
+    }
+
+    pub fn count(&self, field: Field) -> Option<u32> {
+        match self.get(field) {
+            Some(Answer::Count(count)) => Some(*count),
+            _ => None,
         }
     }
 

@@ -41,6 +41,7 @@ fn salary(setup: &Setup) -> CreateRecurrence {
         day: DayOfMonth::new(5).unwrap(),
         mode: RecurrenceMode::Auto,
         starts_on: None,
+        plan: None,
     }
 }
 
@@ -97,4 +98,40 @@ async fn due_upcoming_and_deactivate() {
     assert!(recurrences.deactivate(created.id).await.is_err());
     assert_eq!(recurrences.list(true).await.unwrap().len(), 1);
     assert!(!recurrences.find(created.id).await.unwrap().active);
+}
+
+#[tokio::test]
+async fn a_plan_names_each_installment_and_ends_after_the_last() {
+    let setup = setup().await;
+    let recurrences = &setup.set.services.recurrences;
+    // Day 5, starting 10/03: the first due date is 05/04, installment 35 of 36.
+    let plan = Some(domain::recurrence::InstallmentPlan { first_number: 35, count: 36 });
+    let starts_on = Some(date(3, 10));
+    let request = CreateRecurrence { starts_on, plan, ..salary(&setup) };
+    let financing = recurrences.create(request).await.unwrap();
+    assert_eq!(financing.last_due(), Some(date(5, 5)));
+    let may = date(5, 5);
+    assert_eq!(financing.description_on(may), "Salário (36/36)");
+    let due: Vec<NaiveDate> = recurrences
+        .due(date(7, 10))
+        .await
+        .unwrap()
+        .into_iter()
+        .flat_map(|(_, dates)| dates)
+        .collect();
+    assert_eq!(due.len(), 2, "only 05/04 and 05/05: {due:?}");
+    recurrences.mark_generated(financing.id, may).await.unwrap();
+    assert!(!recurrences.find(financing.id).await.unwrap().active);
+}
+
+#[tokio::test]
+async fn impossible_plans_are_refused() {
+    let setup = setup().await;
+    let recurrences = &setup.set.services.recurrences;
+    for (first_number, count) in [(0, 10), (11, 10), (1, 481)] {
+        let plan = Some(domain::recurrence::InstallmentPlan { first_number, count });
+        let error =
+            recurrences.create(CreateRecurrence { plan, ..salary(&setup) }).await.unwrap_err();
+        assert!(error.to_string().contains("installments"), "{error}");
+    }
 }

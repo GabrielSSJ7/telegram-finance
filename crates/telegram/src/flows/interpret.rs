@@ -2,6 +2,7 @@
 //! field. Problems come back as pt-BR text for the chat.
 
 use app::services::categories::MAX_CATEGORY_NAME_CHARS;
+use app::services::recurrences::MAX_PLAN_INSTALLMENTS;
 use app::services::settings::{EARLIEST_TODAY_REPORT, is_evening_report_time};
 use app::services::text_rules::{clean_description, clean_name};
 use chrono::{Days, NaiveDate};
@@ -36,6 +37,14 @@ pub fn interpret(field: Field, input: &FormInput, today: NaiveDate) -> Result<In
         Field::YesterdayReportTime => keep_or(input, report_time),
         Field::TodayReportTime => keep_or(input, evening_report_time),
         Field::Description => description(input),
+        other => typed_or_chosen(other, input),
+    };
+    answer.map(Interpreted::Answer)
+}
+
+/// Names, days and counts are typed; everything else is a button.
+fn typed_or_chosen(field: Field, input: &FormInput) -> Result<Answer, String> {
+    match field {
         Field::AccountName | Field::GoalName | Field::CardName | Field::RecurrenceName => {
             name(input, MAX_NAME_CHARS)
         }
@@ -43,9 +52,10 @@ pub fn interpret(field: Field, input: &FormInput, today: NaiveDate) -> Result<In
         Field::CategoryEmoji => keep_or(input, emoji),
         Field::ClosingDay | Field::DueDay | Field::RecurrenceDay => day_of_month(input),
         Field::Installments => installments(input),
+        Field::RecurrenceInstallments => plan_length(input),
+        Field::RecurrencePaid => installments_paid(input),
         _ => button_choice(field, input),
-    };
-    answer.map(Interpreted::Answer)
+    }
 }
 
 pub fn interpret_typed_date(input: &FormInput, today: NaiveDate) -> Result<Answer, String> {
@@ -76,6 +86,13 @@ fn day_of_month(input: &FormInput) -> Result<Answer, String> {
 
 fn installments(input: &FormInput) -> Result<Answer, String> {
     let problem = || format!("Escolha as parcelas ou digite um número de 1 a {MAX_INSTALLMENTS}.");
+    if let FormInput::Text(text) = input
+        && text.contains('/')
+    {
+        return installments_from(text).ok_or_else(|| {
+            "Para parcelamento em andamento, digite parcela/total, por exemplo 3/10.".into()
+        });
+    }
     let count = match input {
         FormInput::Button(ButtonValue::Installments(count)) => *count,
         FormInput::Text(text) => {
@@ -87,6 +104,42 @@ fn installments(input: &FormInput) -> Result<Answer, String> {
         .contains(&count)
         .then_some(Answer::Installments(count))
         .ok_or_else(problem)
+}
+
+/// `3/10`: the third of ten installments.
+fn installments_from(text: &str) -> Option<Answer> {
+    let (current, total) = text.split_once('/')?;
+    let (current, total): (u32, u32) = (current.trim().parse().ok()?, total.trim().parse().ok()?);
+    let valid = (1..=MAX_INSTALLMENTS).contains(&total) && (1..=total).contains(&current);
+    valid.then_some(Answer::InstallmentsFrom { current, total })
+}
+
+/// A financing's total installments; [Sem fim] means it never ends.
+fn plan_length(input: &FormInput) -> Result<Answer, String> {
+    let problem =
+        || format!("Digite o total de parcelas (1 a {MAX_PLAN_INSTALLMENTS}) ou toque em Sem fim.");
+    match input {
+        FormInput::Button(ButtonValue::Skip) => Ok(Answer::Skipped),
+        FormInput::Text(text) => text
+            .trim()
+            .trim_end_matches(['x', 'X'])
+            .parse()
+            .ok()
+            .filter(|count| (1..=MAX_PLAN_INSTALLMENTS).contains(count))
+            .map(Answer::Count)
+            .ok_or_else(problem),
+        FormInput::Button(_) => Err(problem()),
+    }
+}
+
+/// Installments already paid; [Nenhuma] is zero.
+fn installments_paid(input: &FormInput) -> Result<Answer, String> {
+    let problem = || "Digite quantas parcelas já foram pagas (0 se nenhuma).".to_owned();
+    match input {
+        FormInput::Button(ButtonValue::Skip) => Ok(Answer::Count(0)),
+        FormInput::Text(text) => text.trim().parse().map(Answer::Count).map_err(|_| problem()),
+        FormInput::Button(_) => Err(problem()),
+    }
 }
 
 fn amount_or_zero(input: &FormInput) -> Result<Answer, String> {

@@ -99,7 +99,7 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 
 | Command | What it does |
 |---|---|
-| `/gasto` | Guided expense: value, description, category, account or card (with installments), date |
+| `/gasto` | Guided expense: value, description, category, account or card (with installments), date. A card plan already under way: type `3/10` at the installments step, the value is then per installment and the date is the original purchase's |
 | `/entrada` | Guided income |
 | `/transferir` | Move money between accounts |
 | `/guardar`, `/resgatar` | Move money into or out of a goal's pot |
@@ -109,7 +109,8 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/novaconta`, `/novameta`, `/novocartao` | Create an account, a savings goal (optional deadline shows the monthly pace) or a card |
 | `/novacategoria` | Create an expense or income category, with an optional emoji (`/nova-categoria` also works when typed) |
 | `/saldo`, `/resumo`, `/ontem`, `/contas`, `/metas`, `/categorias` | Reports (`/resumo` and `/ontem` are today's and yesterday's summaries on demand; `/resumo 15/09` shows any earlier day) |
-| `/recorrente`, `/recorrentes` | Create a monthly entry (salary, rent, subscription); list and deactivate |
+| `/recorrente`, `/recorrentes` | Create a monthly entry (salary, rent, subscription), optionally with a number of installments (financing, loan) and how many are already paid; list and deactivate |
+| `/parcelas` | Card purchases and financings still being paid: paid so far, what is left, monthly installment and last month |
 | `/orcamento`, `/orcamentos` | Set (or remove) a category's limit per cycle; see how much of each is used. Alerts at 80% and 100% |
 | `/mes` | The current cycle so far |
 | `/custodevida [mm/aaaa]` | Basic cost of living: essential spending so far and still coming, the average of the last 3 cycles, share of income and the 6-month emergency reserve |
@@ -137,7 +138,8 @@ instead of saving twice. Amounts are integer cents; dates are ISO 8601.
 | Categories | `GET/POST /categories`, `PATCH /categories/{id}` (`essential`), `DELETE /categories/{id}` |
 | Cards | `GET/POST /cards`, `DELETE /cards/{id}`, `GET /cards/summaries`, `GET /cards/{id}/invoices`, `POST /cards/{id}/purchases`, `DELETE /card-purchases/{id}`, `POST /cards/{id}/credits`, `POST /invoices/{id}/payments` |
 | Goals | `GET/POST /goals`, `PUT /goals/{id}/target`, `POST /goals/{id}/deposits`, `POST /goals/{id}/withdrawals` |
-| Planning | `GET/POST /recurrences`, `DELETE /recurrences/{id}`, `GET /budgets`, `PUT/DELETE /budgets/{category_id}` |
+| Installments | `GET /installments` |
+| Planning | `GET/POST /recurrences` (`installment_count`, `installments_paid`), `DELETE /recurrences/{id}`, `GET /budgets`, `PUT/DELETE /budgets/{category_id}` |
 | Reports | `GET /reports/daily?date=`, `GET /reports/cycle?date=`, `GET /reports/living-cost?date=` |
 | Exports | `GET /exports/entries.csv` (cycle containing `date`, default today; or `from` and `to`) |
 | Household | `GET/PATCH /settings`, `GET /members` |

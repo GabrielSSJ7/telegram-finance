@@ -76,6 +76,7 @@ macro_rules! store_contract_cases {
         $case!(card_purchase_delete_removes_installments);
         $case!(card_invoice_entries_count_as_credits_and_payments);
         $case!(recurrence_create_find_list_deactivate);
+        $case!(recurrence_keeps_its_installment_plan);
         $case!(recurrence_mark_generated_only_moves_forward);
         $case!(job_runs_once_per_day);
         $case!(job_failures_retry_until_max_attempts);

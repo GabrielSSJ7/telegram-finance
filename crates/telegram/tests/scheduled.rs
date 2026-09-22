@@ -114,6 +114,7 @@ async fn new_recurrence_flow_and_deactivation() {
     harness.tap(ANA, "salário").await;
     harness.tap(ANA, "Nubank").await;
     harness.say(ANA, "5").await;
+    harness.tap(ANA, "Sem fim").await;
     harness.tap(ANA, "Automático").await;
     harness.tap(ANA, "Confirmar").await;
     harness.expect_last("Recorrência criada");

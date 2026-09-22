@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, kind, amount_cents, description, category_id, account_id, card_id, day_of_month, mode,\n                    active, starts_on, last_generated_on\n             from recurrences where id = $1",
+  "query": "insert into recurrences\n    (kind, amount_cents, description, category_id, account_id, card_id, day_of_month, mode, starts_on,\n     installment_count, first_installment_no)\nvalues ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)\nreturning id, kind, amount_cents, description, category_id, account_id, card_id, day_of_month, mode,\n          active, starts_on, last_generated_on, installment_count, first_installment_no\n",
   "describe": {
     "columns": [
       {
@@ -134,11 +134,43 @@
             "name": "last_generated_on"
           }
         }
+      },
+      {
+        "ordinal": 12,
+        "name": "installment_count",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "installment_count"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "first_installment_no",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "recurrences",
+            "name": "first_installment_no"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text",
+        "Int8",
+        "Text",
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Int2",
+        "Text",
+        "Date",
+        "Int2",
+        "Int2"
       ]
     },
     "nullable": [
@@ -153,8 +185,10 @@
       false,
       false,
       false,
+      true,
+      true,
       true
     ]
   },
-  "hash": "770527c58a7168acd93d8947b1ccafce6225b8dee2f949ef2c1d71e6f604bc32"
+  "hash": "8a3f88a643ddebd25e3fcfeec9d471c3f69e714bb935ba1235a2c2c0371e818c"
 }

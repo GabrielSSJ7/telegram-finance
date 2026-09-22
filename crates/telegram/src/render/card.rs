@@ -35,7 +35,7 @@ pub fn card_view(state: &FormState, context: CardContext<'_>, problem: Option<&s
     };
     let warning = problem.map(|text| format!("⚠️ {}\n\n", escape(text))).unwrap_or_default();
     let body = answered_card(state, context, &format!("<b>{}</b>", state.form.title()));
-    let html = format!("{warning}{body}\n\n{}", question(state.form, state.awaiting));
+    let html = format!("{warning}{body}\n\n{}", question_for(state));
     CardView::Ask { html, keyboard }
 }
 
@@ -71,14 +71,25 @@ pub fn answer_value(answer: &Answer, context: CardContext<'_>) -> String {
         Answer::Text(text) if !text.is_empty() => escape(text),
         Answer::Text(_) | Answer::Skipped => "—".to_owned(),
         Answer::Date(date) => relative_date(*date, context.today),
-        Answer::AccountKind(kind) => kind_name(*kind).to_owned(),
         Answer::Installments(count) => format!("{count}x"),
+        Answer::InstallmentsFrom { current, total } => {
+            format!("parcela {current} de {total} (valor por parcela)")
+        }
+        Answer::Count(count) => count.to_string(),
         Answer::Day(day) => format!("dia {day}"),
+        Answer::Entry { label, .. } => label.clone(),
+        Answer::Time(time) => time.format("%H:%M").to_string(),
+        other => option_name(other, context),
+    }
+}
+
+/// Answers picked from a fixed set of buttons or from the couple's records.
+fn option_name(answer: &Answer, context: CardContext<'_>) -> String {
+    match answer {
+        Answer::AccountKind(kind) => kind_name(*kind).to_owned(),
         Answer::RecurrenceKind(kind) => recurrence_kind_name(*kind).to_owned(),
         Answer::RecurrenceMode(mode) => recurrence_mode_name(*mode).to_owned(),
-        Answer::Entry { label, .. } => label.clone(),
         Answer::EditChoice(choice) => edit_choice_name(*choice).to_owned(),
-        Answer::Time(time) => time.format("%H:%M").to_string(),
         Answer::CategoryKind(CategoryKind::Expense) => "Gasto".to_owned(),
         Answer::CategoryKind(CategoryKind::Income) => "Entrada".to_owned(),
         Answer::Essential(true) => "Sim".to_owned(),
@@ -174,12 +185,24 @@ const FIELD_TEXT: &[(Field, &str, &str)] = &[
     (Field::CategoryName, "✏️", "Nome"),
     (Field::CategoryKindChoice, "🗂️", "Tipo"),
     (Field::EssentialChoice, "🏠", "Essencial"),
+    (Field::RecurrenceInstallments, "🔢", "Parcelas"),
+    (Field::RecurrencePaid, "✅", "Já pagas"),
     (Field::CategoryEmoji, "🙂", "Emoji"),
 ];
 
 fn field_text(field: Field) -> (&'static str, &'static str) {
     let found = FIELD_TEXT.iter().find(|(known, _, _)| *known == field);
     found.map_or(("•", "Campo"), |(_, icon, label)| (*icon, *label))
+}
+
+/// A purchase entered midway (`3/10`) needs the date of the original
+/// purchase, so each installment lands on the right invoice.
+fn question_for(state: &FormState) -> &'static str {
+    let midway = state.answers.first_installment() > 1;
+    if midway && state.awaiting == Awaiting::Field(Field::Date) {
+        return "Data da compra original (a da 1ª parcela)? Toque em Outra data e digite dd/mm/aaaa.";
+    }
+    question(state.form, state.awaiting)
 }
 
 fn question(form: FormKind, awaiting: Awaiting) -> &'static str {
@@ -206,7 +229,17 @@ const QUESTIONS: &[(Option<FormKind>, Field, &str)] = &[
     (None, Field::ExpenseCategory, "Qual categoria?"),
     (None, Field::IncomeCategory, "Qual categoria?"),
     (None, Field::PaymentAccount, "Pago com qual conta ou cartão?"),
-    (None, Field::Installments, "Em quantas parcelas? Toque ou digite (ex.: 18)."),
+    (
+        None,
+        Field::Installments,
+        "Em quantas parcelas? Toque ou digite (ex.: 18). Já em andamento? Digite parcela/total, ex.: 3/10, e o valor informado vira o de cada parcela.",
+    ),
+    (
+        None,
+        Field::RecurrenceInstallments,
+        "Tem número de parcelas? (financiamento, empréstimo) Digite o total, ex.: 36, ou toque em Sem fim.",
+    ),
+    (None, Field::RecurrencePaid, "Quantas já foram pagas? (0 se nenhuma)"),
     (None, Field::CardName, "Nome do cartão? (ex.: Nubank, Itaú)"),
     (None, Field::ClosingDay, "Em que dia a fatura fecha? (1 a 31)"),
     (None, Field::DueDay, "Em que dia ela vence? (1 a 31)"),

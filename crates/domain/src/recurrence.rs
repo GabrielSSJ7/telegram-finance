@@ -1,6 +1,7 @@
 //! When a monthly recurring entry (salary, rent, subscriptions) is due.
 
 use chrono::{Days, NaiveDate};
+use serde::{Deserialize, Serialize};
 
 use crate::{DayOfMonth, YearMonth};
 
@@ -35,6 +36,47 @@ pub fn due_dates(
         .map(|month| month.clamped(day))
         .filter(|date| *date >= from && *date <= today)
         .collect()
+}
+
+/// The first date on `day` (clamped) that is not before `starts_on`.
+///
+/// ```
+/// use chrono::NaiveDate;
+/// use domain::{DayOfMonth, recurrence::first_due_date};
+/// let date = |month, day| NaiveDate::from_ymd_opt(2026, month, day).unwrap();
+/// assert_eq!(first_due_date(DayOfMonth::new(10).unwrap(), date(9, 22)), date(10, 10));
+/// ```
+pub fn first_due_date(day: DayOfMonth, starts_on: NaiveDate) -> NaiveDate {
+    let this_month = YearMonth::of(starts_on).clamped(day);
+    if this_month >= starts_on {
+        return this_month;
+    }
+    YearMonth::of(starts_on).next().clamped(day)
+}
+
+/// A recurrence that ends: a financing or loan paid monthly. The first due
+/// date pays installment `first_number` (above 1 for a plan already under
+/// way) and the last one pays installment `count`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InstallmentPlan {
+    pub first_number: u32,
+    pub count: u32,
+}
+
+impl InstallmentPlan {
+    /// The installment paid on `date`, counting from the first due date.
+    #[allow(clippy::cast_sign_loss)]
+    pub fn number_on(self, first_due: NaiveDate, date: NaiveDate) -> u32 {
+        let months = YearMonth::of(first_due).months_until(YearMonth::of(date)).max(0);
+        self.first_number + months as u32
+    }
+
+    /// The date of the last installment.
+    #[allow(clippy::cast_possible_wrap)]
+    pub fn last_due(self, day: DayOfMonth, first_due: NaiveDate) -> NaiveDate {
+        let remaining = self.count.saturating_sub(self.first_number) as i32;
+        YearMonth::of(first_due).plus_months(remaining).clamped(day)
+    }
 }
 
 #[cfg(test)]
@@ -78,5 +120,22 @@ mod tests {
     fn backfill_is_capped() {
         let due = due_dates(day(1), date(1, 1), None, date(12, 15));
         assert_eq!(due, vec![date(9, 1), date(10, 1), date(11, 1), date(12, 1)]);
+    }
+
+    #[test]
+    fn installment_plan_numbers_and_end() {
+        let day = DayOfMonth::new(31).unwrap();
+        let first_due = first_due_date(day, date(1, 15));
+        assert_eq!(first_due, date(1, 31));
+        let plan = InstallmentPlan { first_number: 23, count: 36 };
+        assert_eq!(plan.number_on(first_due, date(1, 31)), 23);
+        assert_eq!(plan.number_on(first_due, date(2, 28)), 24);
+        assert_eq!(
+            plan.number_on(first_due, date(1, 1)),
+            23,
+            "before the start counts as the first"
+        );
+        assert_eq!(plan.last_due(day, first_due), NaiveDate::from_ymd_opt(2027, 2, 28).unwrap());
+        assert_eq!(first_due_date(DayOfMonth::new(5).unwrap(), date(3, 5)), date(3, 5));
     }
 }

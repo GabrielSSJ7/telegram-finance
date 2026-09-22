@@ -70,6 +70,7 @@ pub fn monthly_expense(
         day: day(day_of_month),
         mode: RecurrenceMode::Auto,
         starts_on: None,
+        plan: None,
     }
 }
 

@@ -62,6 +62,18 @@ impl YearMonth {
         self.plus_months(1)
     }
 
+    /// Whole months from `self` to `later` (negative when `later` is earlier).
+    ///
+    /// ```
+    /// use domain::YearMonth;
+    /// let month = |year, month| YearMonth::new(year, month).unwrap();
+    /// assert_eq!(month(2026, 11).months_until(month(2027, 2)), 3);
+    /// ```
+    #[allow(clippy::cast_possible_wrap)]
+    pub fn months_until(self, later: YearMonth) -> i32 {
+        (later.year - self.year) * 12 + (later.month as i32 - self.month as i32)
+    }
+
     pub fn prev(self) -> Self {
         self.plus_months(-1)
     }

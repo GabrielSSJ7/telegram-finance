@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use chrono::NaiveDate;
+use domain::recurrence::{InstallmentPlan, first_due_date};
 use domain::{Cents, DayOfMonth};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -99,6 +100,44 @@ pub struct Recurrence {
     pub active: bool,
     pub starts_on: NaiveDate,
     pub last_generated_on: Option<NaiveDate>,
+    /// Set when the recurrence ends after a number of installments.
+    pub plan: Option<InstallmentPlan>,
+}
+
+impl Recurrence {
+    pub fn first_due(&self) -> NaiveDate {
+        first_due_date(self.day, self.starts_on)
+    }
+
+    /// The date of the last installment; `None` when it never ends.
+    pub fn last_due(&self) -> Option<NaiveDate> {
+        self.plan.map(|plan| plan.last_due(self.day, self.first_due()))
+    }
+
+    /// Whether an occurrence on `date` is still part of the recurrence.
+    pub fn runs_on(&self, date: NaiveDate) -> bool {
+        self.last_due().is_none_or(|last| date <= last)
+    }
+
+    /// The entry description for `date`: `Financiamento (23/36)` for a
+    /// plan, the plain description otherwise.
+    ///
+    /// ```ignore
+    /// assert_eq!(car_loan.description_on(date), "Financiamento (23/36)");
+    /// ```
+    pub fn description_on(&self, date: NaiveDate) -> String {
+        match self.plan {
+            Some(plan) => {
+                format!(
+                    "{} ({}/{})",
+                    self.description,
+                    plan.number_on(self.first_due(), date),
+                    plan.count
+                )
+            }
+            None => self.description.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -111,6 +150,7 @@ pub struct NewRecurrence {
     pub day: DayOfMonth,
     pub mode: RecurrenceMode,
     pub starts_on: NaiveDate,
+    pub plan: Option<InstallmentPlan>,
 }
 
 #[cfg(test)]

@@ -8,6 +8,7 @@ pub mod categories;
 pub mod entries;
 pub mod exports;
 pub mod goals;
+pub mod installments;
 pub mod members;
 pub mod recurrences;
 pub mod reports;
@@ -60,6 +61,7 @@ fn schedule_routes() -> OpenApiRouter<ApiState> {
         .routes(routes!(reports::daily_report))
         .routes(routes!(reports::cycle_report))
         .routes(routes!(reports::living_cost))
+        .routes(routes!(installments::list_installment_plans))
         .routes(routes!(budgets::list_budgets))
         .routes(routes!(budgets::set_budget, budgets::remove_budget))
         .routes(routes!(exports::export_entries))

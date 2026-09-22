@@ -20,7 +20,17 @@ async fn rent(stores: &StorePorts) -> NewRecurrence {
         day: DayOfMonth::new(5).unwrap(),
         mode: RecurrenceMode::Auto,
         starts_on: day(1, 1),
+        plan: None,
     }
+}
+
+pub async fn recurrence_keeps_its_installment_plan(stores: StorePorts) {
+    let plan = Some(domain::recurrence::InstallmentPlan { first_number: 23, count: 36 });
+    let financing = NewRecurrence { plan, ..rent(&stores).await };
+    let created = stores.recurrences.create_recurrence(financing).await.unwrap();
+    assert_eq!(created.plan, plan);
+    let found = stores.recurrences.find_recurrence(created.id).await.unwrap().unwrap();
+    assert_eq!(found.plan, plan);
 }
 
 pub async fn recurrence_create_find_list_deactivate(stores: StorePorts) {

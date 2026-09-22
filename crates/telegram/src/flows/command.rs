@@ -10,6 +10,7 @@ use app::services::{
 };
 use domain::Cents;
 use domain::DayOfMonth;
+use domain::recurrence::InstallmentPlan;
 
 use super::{Answers, EditChoice, Field, FormKind, FormState};
 
@@ -139,12 +140,21 @@ fn expense(answers: &Answers) -> Option<FormCommand> {
     Some(FormCommand::CardPurchase(CardPurchaseRequest {
         card_id,
         category_id: answers.category(Field::ExpenseCategory)?,
-        total: answers.money(Field::Amount)?,
+        total: purchase_total(answers)?,
         installments: answers.installments(),
-        first_installment_no: 1,
+        first_installment_no: answers.first_installment(),
         description: answers.text(Field::Description)?,
         purchased_on: Some(answers.date()?),
     }))
+}
+
+/// The amount typed, or one installment times the count for `3/10`.
+fn purchase_total(answers: &Answers) -> Option<Cents> {
+    let amount = answers.money(Field::Amount)?;
+    if answers.amount_is_per_installment() {
+        return Some(amount.times(i64::from(answers.installments())));
+    }
+    Some(amount)
 }
 
 /// A refund goes back to a card invoice or to an account.
@@ -164,13 +174,7 @@ fn refund(answers: &Answers) -> Option<FormCommand> {
 
 fn create_recurrence(answers: &Answers) -> Option<CreateRecurrence> {
     let kind = answers.recurrence_kind()?;
-    let (category, target) = match kind {
-        RecurrenceKind::Income => (
-            Field::IncomeCategory,
-            RecurrenceTarget::Account(answers.account(Field::ReceivingAccount)?),
-        ),
-        RecurrenceKind::Expense => (Field::ExpenseCategory, recurrence_target(answers)?),
-    };
+    let (category, target) = recurrence_destination(kind, answers)?;
     Some(CreateRecurrence {
         kind,
         amount: answers.money(Field::Amount)?,
@@ -180,7 +184,30 @@ fn create_recurrence(answers: &Answers) -> Option<CreateRecurrence> {
         day: DayOfMonth::new(answers.day(Field::RecurrenceDay)?).ok()?,
         mode: answers.recurrence_mode()?,
         starts_on: None,
+        plan: recurrence_plan(answers),
     })
+}
+
+/// The category field to read and where the money goes or comes from.
+fn recurrence_destination(
+    kind: RecurrenceKind,
+    answers: &Answers,
+) -> Option<(Field, RecurrenceTarget)> {
+    match kind {
+        RecurrenceKind::Income => Some((
+            Field::IncomeCategory,
+            RecurrenceTarget::Account(answers.account(Field::ReceivingAccount)?),
+        )),
+        RecurrenceKind::Expense => Some((Field::ExpenseCategory, recurrence_target(answers)?)),
+    }
+}
+
+/// A financing when a total was typed; the next installment follows the
+/// ones already paid.
+fn recurrence_plan(answers: &Answers) -> Option<InstallmentPlan> {
+    let count = answers.count(Field::RecurrenceInstallments)?;
+    let paid = answers.count(Field::RecurrencePaid).unwrap_or(0);
+    Some(InstallmentPlan { first_number: paid + 1, count })
 }
 
 fn recurrence_target(answers: &Answers) -> Option<RecurrenceTarget> {

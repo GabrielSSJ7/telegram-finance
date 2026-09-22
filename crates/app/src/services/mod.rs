@@ -13,6 +13,7 @@ pub mod categories;
 pub mod category_activity;
 pub mod exports;
 pub mod goals;
+pub mod installments;
 pub mod ledger;
 pub mod ledger_validation;
 pub mod living_cost;
@@ -33,6 +34,7 @@ pub use cards::{CardService, OpenCard};
 pub use categories::{CategoryService, CreateCategory};
 pub use exports::ExportService;
 pub use goals::{CreateGoal, GoalService, PotMove};
+pub use installments::InstallmentService;
 pub use ledger::{EntryOrigin, EntryRequest, LedgerService};
 pub use living_cost::LivingCostService;
 pub use members::{AllowedUsers, MemberService};
@@ -50,6 +52,8 @@ mod card_tests;
 mod export_tests;
 #[cfg(test)]
 mod goals_tests;
+#[cfg(test)]
+mod installment_tests;
 #[cfg(test)]
 mod ledger_tests;
 #[cfg(test)]

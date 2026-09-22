@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use chrono::{Days, NaiveDate};
 use domain::Cents;
-use domain::recurrence::due_dates;
+use domain::recurrence::{InstallmentPlan, due_dates};
 
 use super::card_spending::CardPurchaseRequest;
 use super::ledger::{AccountEntry, EntryOrigin, EntryRequest};
@@ -30,6 +30,8 @@ pub struct CreateRecurrence {
     pub mode: RecurrenceMode,
     /// Defaults to today.
     pub starts_on: Option<NaiveDate>,
+    /// Ends the recurrence after a number of installments (a financing).
+    pub plan: Option<InstallmentPlan>,
 }
 
 pub struct RecurrenceService {
@@ -74,6 +76,7 @@ impl RecurrenceService {
         };
         self.categories.require_kind(request.category_id, expected).await?;
         self.check_target(request.kind, request.target).await?;
+        check_plan(request.plan)?;
         let description = clean_name("description", &request.description, 60)?;
         let starts_on = request.starts_on.unwrap_or_else(|| self.clock.today());
         Ok(self.store.create_recurrence(new_recurrence(&request, description, starts_on)).await?)
@@ -99,12 +102,13 @@ impl RecurrenceService {
     pub async fn due(&self, today: NaiveDate) -> AppResult<Vec<(Recurrence, Vec<NaiveDate>)>> {
         let active = self.store.list_recurrences(false).await?;
         let due = active.into_iter().map(|recurrence| {
-            let dates = due_dates(
+            let mut dates = due_dates(
                 recurrence.day,
                 recurrence.starts_on,
                 recurrence.last_generated_on,
                 today,
             );
+            dates.retain(|date| recurrence.runs_on(*date));
             (recurrence, dates)
         });
         Ok(due.filter(|(_, dates)| !dates.is_empty()).collect())
@@ -125,6 +129,8 @@ impl RecurrenceService {
                 None,
                 horizon,
             );
+            let dates =
+                dates.into_iter().filter(|date| recurrence.runs_on(*date)).collect::<Vec<_>>();
             dates.into_iter().map(move |date| (recurrence.clone(), date))
         });
         Ok(upcoming.collect())
@@ -147,8 +153,15 @@ impl RecurrenceService {
         }
     }
 
+    /// Records that `date` was generated; a plan's last installment also
+    /// ends the recurrence, so it leaves `/recorrentes`.
     pub async fn mark_generated(&self, id: RecurrenceId, date: NaiveDate) -> AppResult<()> {
-        Ok(self.store.mark_generated(id, date).await?)
+        self.store.mark_generated(id, date).await?;
+        let finished = self.find(id).await?.last_due().is_some_and(|last| date >= last);
+        if finished {
+            self.store.deactivate_recurrence(id).await?;
+        }
+        Ok(())
     }
 
     async fn record_with(
@@ -167,7 +180,7 @@ impl RecurrenceService {
             total: amount,
             installments: 1,
             first_installment_no: 1,
-            description: recurrence.description.clone(),
+            description: recurrence.description_on(date),
             purchased_on: Some(date),
         };
         self.cards.purchase(request, origin).await.map(|_| ())
@@ -183,7 +196,7 @@ impl RecurrenceService {
         let RecurrenceTarget::Account(account_id) = recurrence.target else {
             return Err(AppError::invalid("recurrence target", "card", "an account"));
         };
-        let (category_id, description) = (recurrence.category_id, recurrence.description.clone());
+        let (category_id, description) = (recurrence.category_id, recurrence.description_on(date));
         let entry = AccountEntry { account_id, category_id, amount, description, date: Some(date) };
         let request = match recurrence.kind {
             RecurrenceKind::Income => EntryRequest::Income(entry),
@@ -223,5 +236,26 @@ fn new_recurrence(
         day: request.day,
         mode: request.mode,
         starts_on,
+        plan: request.plan,
     }
+}
+
+/// Longest plan accepted: 40 years of monthly installments.
+pub const MAX_PLAN_INSTALLMENTS: u32 = 480;
+
+fn check_plan(plan: Option<InstallmentPlan>) -> AppResult<()> {
+    let Some(plan) = plan else {
+        return Ok(());
+    };
+    if (1..=MAX_PLAN_INSTALLMENTS).contains(&plan.count)
+        && (1..=plan.count).contains(&plan.first_number)
+    {
+        return Ok(());
+    }
+    let value = format!("{}/{}", plan.first_number, plan.count);
+    Err(AppError::invalid(
+        "installments",
+        value,
+        format!("1 to {MAX_PLAN_INSTALLMENTS} installments, starting at one of them"),
+    ))
 }

@@ -5,6 +5,7 @@ use app::model::{
 use app::ports::{RecurrenceStore, StoreResult};
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use domain::recurrence::InstallmentPlan;
 use domain::{Cents, DayOfMonth};
 use uuid::Uuid;
 
@@ -24,6 +25,8 @@ struct RecurrenceRow {
     active: bool,
     starts_on: NaiveDate,
     last_generated_on: Option<NaiveDate>,
+    installment_count: Option<i16>,
+    first_installment_no: Option<i16>,
 }
 
 struct CheckedColumns {
@@ -48,6 +51,7 @@ impl RecurrenceRow {
             active: self.active,
             starts_on: self.starts_on,
             last_generated_on: self.last_generated_on,
+            plan: plan(self.first_installment_no, self.installment_count)?,
         })
     }
 
@@ -61,6 +65,37 @@ impl RecurrenceRow {
             self.category_id.ok_or_else(|| corrupt("recurrences.category_id", "null"))?;
         Ok(CheckedColumns { kind, mode, day, category_id: CategoryId(category) })
     }
+}
+
+/// Both columns set, or neither (the table checks it too).
+fn plan(first: Option<i16>, count: Option<i16>) -> StoreResult<Option<InstallmentPlan>> {
+    let number = |value: i16| {
+        u32::try_from(value).map_err(|error| corrupt("recurrences.installments", error))
+    };
+    match (first, count) {
+        (Some(first), Some(count)) => {
+            Ok(Some(InstallmentPlan { first_number: number(first)?, count: number(count)? }))
+        }
+        (None, None) => Ok(None),
+        _ => Err(corrupt(
+            "recurrences.installment_count/first_installment_no",
+            "expected both or neither",
+        )),
+    }
+}
+
+/// The nullable columns of a new recurrence: account or card, and the plan.
+fn optional_columns(
+    recurrence: &NewRecurrence,
+) -> (Option<Uuid>, Option<Uuid>, Option<i16>, Option<i16>) {
+    let (account_id, card_id) = target_ids(recurrence.target);
+    let (count, first) = plan_columns(recurrence.plan);
+    (account_id, card_id, count, first)
+}
+
+fn plan_columns(plan: Option<InstallmentPlan>) -> (Option<i16>, Option<i16>) {
+    let small = |value: u32| i16::try_from(value).unwrap_or(i16::MAX);
+    plan.map_or((None, None), |plan| (Some(small(plan.count)), Some(small(plan.first_number))))
 }
 
 fn target(account: Option<Uuid>, card: Option<Uuid>) -> StoreResult<RecurrenceTarget> {
@@ -80,9 +115,13 @@ fn target_ids(target: RecurrenceTarget) -> (Option<Uuid>, Option<Uuid>) {
 
 #[async_trait]
 impl RecurrenceStore for PgStore {
+    // One insert with eleven bind parameters, which the formatter puts one
+    // per line; splitting it would only scatter a single statement.
+    #[allow(clippy::too_many_lines)]
     async fn create_recurrence(&self, recurrence: NewRecurrence) -> StoreResult<Recurrence> {
-        let (account_id, card_id) = target_ids(recurrence.target);
-        let row = sqlx::query_file_as!(
+        let (account_id, card_id, installment_count, first_installment_no) =
+            optional_columns(&recurrence);
+        sqlx::query_file_as!(
             RecurrenceRow,
             "queries/insert_recurrence.sql",
             recurrence.kind.as_str(),
@@ -94,18 +133,20 @@ impl RecurrenceStore for PgStore {
             i16::from(recurrence.day),
             recurrence.mode.as_str(),
             recurrence.starts_on,
+            installment_count,
+            first_installment_no,
         )
         .fetch_one(self.pool())
         .await
-        .map_err(store_error)?;
-        row.into_recurrence()
+        .map_err(store_error)?
+        .into_recurrence()
     }
 
     async fn list_recurrences(&self, include_inactive: bool) -> StoreResult<Vec<Recurrence>> {
         let rows = sqlx::query_as!(
             RecurrenceRow,
             "select id, kind, amount_cents, description, category_id, account_id, card_id, day_of_month, mode,
-                    active, starts_on, last_generated_on
+                    active, starts_on, last_generated_on, installment_count, first_installment_no
              from recurrences where $1 or active order by day_of_month, created_at",
             include_inactive,
         )
@@ -119,7 +160,7 @@ impl RecurrenceStore for PgStore {
         let row = sqlx::query_as!(
             RecurrenceRow,
             "select id, kind, amount_cents, description, category_id, account_id, card_id, day_of_month, mode,
-                    active, starts_on, last_generated_on
+                    active, starts_on, last_generated_on, installment_count, first_installment_no
              from recurrences where id = $1",
             id.0,
         )

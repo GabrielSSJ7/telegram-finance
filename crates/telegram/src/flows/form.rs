@@ -80,6 +80,10 @@ pub enum Field {
     CategoryKindChoice,
     /// Only asked for expense categories.
     EssentialChoice,
+    /// Total installments of a financing; skipped means it never ends.
+    RecurrenceInstallments,
+    /// Installments of that financing already paid; only asked with a total.
+    RecurrencePaid,
     /// Optional; skipped means no emoji.
     CategoryEmoji,
 }
@@ -113,6 +117,8 @@ const RECURRENCE_FIELDS: &[Field] = &[
     PaymentAccount,
     ReceivingAccount,
     RecurrenceDay,
+    Field::RecurrenceInstallments,
+    Field::RecurrencePaid,
     RecurrenceModeChoice,
 ];
 
@@ -218,6 +224,7 @@ impl Field {
         let recurrence_kind = answers.recurrence_kind();
         match (form, self) {
             (FormKind::EditEntry, field) => edit_applies(field, answers),
+            (_, Field::RecurrencePaid) => answers.count(Field::RecurrenceInstallments).is_some(),
             (_, Field::EssentialChoice) => {
                 answers.category_kind() == Some(app::model::CategoryKind::Expense)
             }

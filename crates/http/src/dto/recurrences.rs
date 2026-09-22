@@ -4,6 +4,7 @@ use app::model::{
 };
 use app::services::CreateRecurrence;
 use chrono::NaiveDate;
+use domain::recurrence::InstallmentPlan;
 use domain::{Cents, DayOfMonth};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
@@ -28,6 +29,10 @@ pub struct RecurrenceResponse {
     pub active: bool,
     pub starts_on: NaiveDate,
     pub last_generated_on: Option<NaiveDate>,
+    /// Total installments of a financing; absent when it never ends.
+    pub installment_count: Option<u32>,
+    /// Installment paid on the first due date.
+    pub first_installment_no: Option<u32>,
 }
 
 impl From<Recurrence> for RecurrenceResponse {
@@ -49,6 +54,8 @@ impl From<Recurrence> for RecurrenceResponse {
             active: recurrence.active,
             starts_on: recurrence.starts_on,
             last_generated_on: recurrence.last_generated_on,
+            installment_count: recurrence.plan.map(|plan| plan.count),
+            first_installment_no: recurrence.plan.map(|plan| plan.first_number),
         }
     }
 }
@@ -70,6 +77,11 @@ pub struct CreateRecurrenceBody {
     #[schema(value_type = Option<String>)]
     pub mode: Option<RecurrenceMode>,
     pub starts_on: Option<NaiveDate>,
+    /// Makes it a financing that ends after this many installments.
+    pub installment_count: Option<u32>,
+    /// Installments already paid before this one; defaults to 0.
+    #[serde(default)]
+    pub installments_paid: u32,
 }
 
 impl TryFrom<CreateRecurrenceBody> for CreateRecurrence {
@@ -87,6 +99,10 @@ impl TryFrom<CreateRecurrenceBody> for CreateRecurrence {
             day,
             mode: body.mode.unwrap_or(RecurrenceMode::Auto),
             starts_on: body.starts_on,
+            plan: body.installment_count.map(|count| InstallmentPlan {
+                first_number: body.installments_paid.saturating_add(1),
+                count,
+            }),
         })
     }
 }

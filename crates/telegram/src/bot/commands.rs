@@ -14,6 +14,7 @@ use crate::flows::FormKind;
 use crate::flows::dates::parse_typed_date;
 use crate::gateway::GatewayError;
 use crate::render::help::help_text;
+use crate::render::installments::installments_text;
 use crate::render::report_text::{daily_report_text, month_report_text};
 use crate::render::reports::{
     accounts_text, balance_text, budgets_text, cards_text, categories_text, goals_text,
@@ -77,6 +78,7 @@ async fn report_command(
         "mes" => month(context, chat_id).await,
         "orcamentos" => budgets(context, chat_id).await,
         "essenciais" => essential_categories(context, chat_id).await,
+        "parcelas" => installment_plans(context, chat_id).await,
         other => {
             context.reply(chat_id, format!("Não conheço /{other}. Veja /ajuda.")).await.map(|_| ())
         }
@@ -172,6 +174,18 @@ async fn summary_on(
 ) -> Result<(), GatewayError> {
     match context.services.reports.daily(date).await {
         Ok(report) => context.reply(chat_id, daily_report_text(&report, day)).await.map(|_| ()),
+        Err(error) => context.reply_error(chat_id, &error).await,
+    }
+}
+
+/// `/parcelas`: purchases and financings still being paid.
+async fn installment_plans(context: &BotContext, chat_id: i64) -> Result<(), GatewayError> {
+    let plans = context.services.installments.running().await;
+    let categories = context.services.categories.list(None).await;
+    match plans.and_then(|plans| categories.map(|categories| (plans, categories))) {
+        Ok((plans, categories)) => {
+            context.reply(chat_id, installments_text(&plans, &categories)).await.map(|_| ())
+        }
         Err(error) => context.reply_error(chat_id, &error).await,
     }
 }

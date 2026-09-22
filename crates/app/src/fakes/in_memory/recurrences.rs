@@ -20,6 +20,7 @@ impl RecurrenceStore for InMemoryStore {
             active: true,
             starts_on: recurrence.starts_on,
             last_generated_on: None,
+            plan: recurrence.plan,
         };
         self.lock().recurrences.push(created.clone());
         Ok(created)

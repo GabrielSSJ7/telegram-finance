@@ -8,6 +8,7 @@ pub mod category_statement;
 pub mod entries;
 pub mod errors;
 pub mod help;
+pub mod installments;
 pub mod keyboards;
 pub mod living_cost;
 pub mod notices;
