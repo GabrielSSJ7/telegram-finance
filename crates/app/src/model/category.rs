@@ -56,6 +56,8 @@ pub struct Category {
     pub kind: CategoryKind,
     pub emoji: Option<String>,
     pub archived: bool,
+    /// Part of the basic cost of living; expense categories only.
+    pub essential: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,6 +65,7 @@ pub struct NewCategory {
     pub name: String,
     pub kind: CategoryKind,
     pub emoji: Option<String>,
+    pub essential: bool,
 }
 
 #[cfg(test)]

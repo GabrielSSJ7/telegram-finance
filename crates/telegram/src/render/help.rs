@@ -13,6 +13,8 @@ pub const COMMANDS: &[(&str, &str)] = &[
     ("ontem", "Resumo de ontem"),
     ("metas", "Progresso das metas"),
     ("mes", "Como está o ciclo até agora"),
+    ("custodevida", "Quanto custa a vida básica; /custodevida 08/2026 para outro ciclo"),
+    ("essenciais", "Marcar as categorias do custo de vida básico"),
     ("orcamento", "Definir ou remover o limite de uma categoria"),
     ("orcamentos", "Orçamentos do ciclo"),
     ("desfazer", "Desfazer seu último lançamento"),

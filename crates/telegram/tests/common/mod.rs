@@ -213,6 +213,21 @@ impl BotHarness {
             .unwrap()
     }
 
+    /// Runs scheduled jobs against this harness, sending to its gateway.
+    pub fn job_runner(&self) -> app::jobs::JobRunner {
+        let services = self.set.services.clone();
+        let notifier = Arc::new(telegram::notifier::TelegramNotifier::new(
+            self.gateway.clone(),
+            services.clone(),
+        ));
+        app::jobs::JobRunner::new(
+            services,
+            notifier,
+            self.set.store.clone(),
+            self.set.clock.clone(),
+        )
+    }
+
     /// Nubank account plus mercado/salário categories.
     pub async fn with_basics(self) -> Self {
         self.open_account("Nubank", AccountKind::Checking, 100_000).await;

@@ -78,6 +78,8 @@ pub enum Field {
     TodayReportTime,
     CategoryName,
     CategoryKindChoice,
+    /// Only asked for expense categories.
+    EssentialChoice,
     /// Optional; skipped means no emoji.
     CategoryEmoji,
 }
@@ -95,7 +97,7 @@ const EDIT_FIELDS: &[Field] =
     &[EditTarget, EditFieldChoice, Amount, Description, ExpenseCategory, IncomeCategory, Date];
 
 const CATEGORY_FIELDS: &[Field] =
-    &[Field::CategoryName, Field::CategoryKindChoice, Field::CategoryEmoji];
+    &[Field::CategoryName, Field::CategoryKindChoice, Field::EssentialChoice, Field::CategoryEmoji];
 
 /// Each one can be kept as it is with the [Manter] button.
 const SETTINGS_FIELDS: &[Field] =
@@ -216,6 +218,9 @@ impl Field {
         let recurrence_kind = answers.recurrence_kind();
         match (form, self) {
             (FormKind::EditEntry, field) => edit_applies(field, answers),
+            (_, Field::EssentialChoice) => {
+                answers.category_kind() == Some(app::model::CategoryKind::Expense)
+            }
             (_, Field::Installments) => answers.card(Field::PaymentAccount).is_some(),
             (FormKind::NewRecurrence, Field::ExpenseCategory | Field::PaymentAccount) => {
                 recurrence_kind == Some(Expense)

@@ -8,6 +8,7 @@ use super::category_statement::category_overview;
 use super::entry_actions::recent_entries;
 use super::export::export_entries;
 use super::flow_runner::{cancel_current, start_flow};
+use super::living_cost::{essential_categories, living_cost};
 use super::undo::undo_last;
 use crate::flows::FormKind;
 use crate::flows::dates::parse_typed_date;
@@ -51,6 +52,7 @@ pub async fn household_command(
         "ultimos" => recent_entries(context, chat_id).await,
         "resumo" => day_summary(context, chat_id, args).await,
         "extrato" => category_overview(context, chat_id, args).await,
+        "custodevida" => living_cost(context, chat_id, args).await,
         "cancelar" => cancel_current(context, chat_id, member).await,
         "ajuda" | "start" | "help" => context.reply(chat_id, help_text()).await.map(|_| ()),
         report => report_command(context, chat_id, report).await,
@@ -74,6 +76,7 @@ async fn report_command(
         "ontem" => yesterday_summary(context, chat_id).await,
         "mes" => month(context, chat_id).await,
         "orcamentos" => budgets(context, chat_id).await,
+        "essenciais" => essential_categories(context, chat_id).await,
         other => {
             context.reply(chat_id, format!("Não conheço /{other}. Veja /ajuda.")).await.map(|_| ())
         }

@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use super::budgets::BudgetSources;
 use super::exports::{ExportService, ExportSources};
+use super::living_cost::{LivingCostService, LivingCostSources};
 use super::recurrences::RecurrenceDependencies;
 use super::reports::ReportSources;
 use super::{
@@ -100,6 +101,7 @@ pub struct ServiceSet {
     pub reports: Arc<ReportService>,
     pub budgets: Arc<BudgetService>,
     pub exports: Arc<ExportService>,
+    pub living_costs: Arc<LivingCostService>,
     /// The household clock, for callers that need "today".
     pub clock: Arc<dyn Clock>,
 }
@@ -113,24 +115,7 @@ impl ServiceSet {
     pub fn wire(stores: &StorePorts, environment: ServiceEnvironment) -> Self {
         let money = MoneyServices::wire(stores, &environment.clock);
         let people = PeopleServices::wire(stores, environment);
-        let planning = money.planning(stores, &people);
-        Self {
-            accounts: money.accounts,
-            categories: money.categories,
-            ledger: money.ledger,
-            adjustments: money.adjustments,
-            goals: money.goals,
-            cards: money.cards,
-            position: money.position,
-            members: people.members,
-            settings: people.settings,
-            api_keys: people.api_keys,
-            recurrences: planning.recurrences,
-            reports: planning.reports,
-            budgets: planning.budgets,
-            exports: planning.exports,
-            clock: money.clock,
-        }
+        money.into_service_set(stores, people)
     }
 }
 
@@ -196,7 +181,47 @@ impl MoneyServices {
         let budgets = Arc::new(self.budgets(stores, people));
         let reports = Arc::new(self.reports(stores, people, &recurrences, &budgets));
         let exports = Arc::new(self.exports(stores, people));
-        PlanningServices { recurrences, budgets, reports, exports }
+        let living_costs = Arc::new(self.living_costs(people, &recurrences));
+        PlanningServices { recurrences, budgets, reports, exports, living_costs }
+    }
+
+    /// The last wiring step: planning services, then the whole set.
+    fn into_service_set(self, stores: &StorePorts, people: PeopleServices) -> ServiceSet {
+        let planning = self.planning(stores, &people);
+        ServiceSet {
+            accounts: self.accounts,
+            categories: self.categories,
+            ledger: self.ledger,
+            adjustments: self.adjustments,
+            goals: self.goals,
+            cards: self.cards,
+            position: self.position,
+            members: people.members,
+            settings: people.settings,
+            api_keys: people.api_keys,
+            recurrences: planning.recurrences,
+            reports: planning.reports,
+            budgets: planning.budgets,
+            exports: planning.exports,
+            living_costs: planning.living_costs,
+            clock: self.clock,
+        }
+    }
+
+    fn living_costs(
+        &self,
+        people: &PeopleServices,
+        recurrences: &Arc<RecurrenceService>,
+    ) -> LivingCostService {
+        let sources = LivingCostSources {
+            ledger: self.ledger.clone(),
+            categories: self.categories.clone(),
+            recurrences: recurrences.clone(),
+            settings: people.settings.clone(),
+            position: self.position.clone(),
+            accounts: self.accounts.clone(),
+        };
+        LivingCostService::new(sources, self.clock.clone())
     }
 
     fn exports(&self, stores: &StorePorts, people: &PeopleServices) -> ExportService {
@@ -247,6 +272,7 @@ struct PlanningServices {
     budgets: Arc<BudgetService>,
     reports: Arc<ReportService>,
     exports: Arc<ExportService>,
+    living_costs: Arc<LivingCostService>,
 }
 
 /// Services the others are built on.

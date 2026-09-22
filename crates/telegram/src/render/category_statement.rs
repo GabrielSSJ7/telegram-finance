@@ -159,6 +159,7 @@ mod tests {
             kind: CategoryKind::Expense,
             emoji: Some("🛒".into()),
             archived: false,
+            essential: true,
         }
     }
 

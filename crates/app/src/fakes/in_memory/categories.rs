@@ -21,6 +21,7 @@ impl CategoryStore for InMemoryStore {
             kind: category.kind,
             emoji: category.emoji,
             archived: false,
+            essential: category.essential,
         };
         state.categories.push(created.clone());
         Ok(created)
@@ -48,5 +49,19 @@ impl CategoryStore for InMemoryStore {
         };
         row.archived = true;
         Ok(true)
+    }
+
+    async fn set_category_essential(
+        &self,
+        id: CategoryId,
+        essential: bool,
+    ) -> StoreResult<Option<Category>> {
+        let mut state = self.lock();
+        let Some(row) = state.categories.iter_mut().find(|row| row.id == id && !row.archived)
+        else {
+            return Ok(None);
+        };
+        row.essential = essential;
+        Ok(Some(row.clone()))
     }
 }

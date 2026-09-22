@@ -306,6 +306,7 @@ mod tests {
             kind,
             emoji: None,
             archived: false,
+            essential: false,
         };
         let text = categories_text(&[category("mercado", CategoryKind::Expense)]);
         assert_eq!(text, "<b>🏷️ Categorias</b>\nGastos: mercado\nEntradas: —");

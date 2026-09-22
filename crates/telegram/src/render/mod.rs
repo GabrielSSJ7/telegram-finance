@@ -9,6 +9,7 @@ pub mod entries;
 pub mod errors;
 pub mod help;
 pub mod keyboards;
+pub mod living_cost;
 pub mod notices;
 pub mod report_text;
 pub mod reports;

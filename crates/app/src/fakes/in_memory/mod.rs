@@ -91,7 +91,14 @@ impl InMemoryStore {
     /// Adds an active category directly and returns its id.
     pub fn seed_category(&self, name: &str, kind: CategoryKind) -> CategoryId {
         let id = CategoryId::generate();
-        let category = Category { id, name: name.to_owned(), kind, emoji: None, archived: false };
+        let category = Category {
+            id,
+            name: name.to_owned(),
+            kind,
+            emoji: None,
+            archived: false,
+            essential: false,
+        };
         self.lock().categories.push(category);
         id
     }

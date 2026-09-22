@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "insert into categories (name, kind, emoji) values ($1, $2, $3)\n             returning id, name, kind, emoji, archived_at",
+  "query": "select id, name, kind, emoji, archived_at, essential from categories\n             where $1 or archived_at is null order by kind, name",
   "describe": {
     "columns": [
       {
@@ -57,13 +57,22 @@
             "name": "archived_at"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "essential",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "categories",
+            "name": "essential"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
-        "Text",
-        "Text",
-        "Text"
+        "Bool"
       ]
     },
     "nullable": [
@@ -71,8 +80,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "2caa337383190ff1ffe7217f410e1d465b3ac5117e84b6654f6e908b376d6955"
+  "hash": "d1ea5ac4ac1b47ba2aa0d6681c4fb7bf84ed3128b5445115505323cb63a87282"
 }

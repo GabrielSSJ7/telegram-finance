@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, kind, emoji, archived_at from categories\n             where $1 or archived_at is null order by kind, name",
+  "query": "update categories set essential = $2 where id = $1 and archived_at is null\n             returning id, name, kind, emoji, archived_at, essential",
   "describe": {
     "columns": [
       {
@@ -57,10 +57,22 @@
             "name": "archived_at"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "essential",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "categories",
+            "name": "essential"
+          }
+        }
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Bool"
       ]
     },
@@ -69,8 +81,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "3f3ef235324d36e9f4e3033ef89cdd5e2ac7bb92c58aa0e78ef9a52a63f779dc"
+  "hash": "c2d24b2475010a0b33e8f6742f6e5122366bf1ba96856d848961f4f9a8850644"
 }

@@ -9,6 +9,7 @@ pub mod category;
 pub mod entry;
 pub mod goal;
 pub mod ids;
+pub mod living_cost;
 pub mod member;
 pub mod recurrence;
 pub mod report;
@@ -27,6 +28,7 @@ pub use ids::{
     AccountId, ApiKeyId, BudgetId, CardId, CategoryId, DraftId, EntryId, GoalId, InvoiceId,
     MemberId, PurchaseId, RecurrenceId,
 };
+pub use living_cost::{LivingCost, RESERVE_MONTHS};
 pub use member::{Member, MemberProfile};
 pub use recurrence::{NewRecurrence, Recurrence, RecurrenceKind, RecurrenceMode, RecurrenceTarget};
 pub use report::{CycleReport, DailyReport, PeriodFlow, PeriodTotals, ReportDay};

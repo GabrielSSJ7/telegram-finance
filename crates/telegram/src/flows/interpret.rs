@@ -236,6 +236,9 @@ fn option_choice(field: Field, value: ButtonValue) -> Result<Answer, String> {
         (Field::CategoryKindChoice, ButtonValue::CategoryKind(kind)) => {
             Ok(Answer::CategoryKind(kind))
         }
+        (Field::EssentialChoice, ButtonValue::Essential(essential)) => {
+            Ok(Answer::Essential(essential))
+        }
         (Field::RecurrenceKindChoice, ButtonValue::RecurrenceKind(kind)) => {
             Ok(Answer::RecurrenceKind(kind))
         }

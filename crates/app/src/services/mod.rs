@@ -15,6 +15,7 @@ pub mod exports;
 pub mod goals;
 pub mod ledger;
 pub mod ledger_validation;
+pub mod living_cost;
 pub mod members;
 pub mod position;
 pub mod recurrences;
@@ -29,10 +30,11 @@ pub use api_keys::ApiKeyService;
 pub use budgets::BudgetService;
 pub use card_spending::{CardCreditRequest, CardPurchaseRequest, InvoicePaymentRequest};
 pub use cards::{CardService, OpenCard};
-pub use categories::CategoryService;
+pub use categories::{CategoryService, CreateCategory};
 pub use exports::ExportService;
 pub use goals::{CreateGoal, GoalService, PotMove};
 pub use ledger::{EntryOrigin, EntryRequest, LedgerService};
+pub use living_cost::LivingCostService;
 pub use members::{AllowedUsers, MemberService};
 pub use position::PositionService;
 pub use recurrences::{CreateRecurrence, RecurrenceService};
@@ -50,6 +52,8 @@ mod export_tests;
 mod goals_tests;
 #[cfg(test)]
 mod ledger_tests;
+#[cfg(test)]
+mod living_cost_tests;
 #[cfg(test)]
 mod recurrence_tests;
 #[cfg(test)]

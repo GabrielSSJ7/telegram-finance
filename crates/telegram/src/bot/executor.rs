@@ -73,8 +73,8 @@ async fn household_rules(services: &ServiceSet, command: FormCommand) -> AppResu
         FormCommand::UpdateSettings(patch) => {
             services.settings.update(patch).await.map(Committed::Settings)
         }
-        FormCommand::CreateCategory { name, kind, emoji } => {
-            services.categories.create(&name, kind, emoji).await.map(Committed::Category)
+        FormCommand::CreateCategory(request) => {
+            services.categories.create(request).await.map(Committed::Category)
         }
         other => {
             Err(app::AppError::invalid("form command", format!("{other:?}"), "a setup command"))

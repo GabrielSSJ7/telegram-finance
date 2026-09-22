@@ -81,6 +81,8 @@ pub fn answer_value(answer: &Answer, context: CardContext<'_>) -> String {
         Answer::Time(time) => time.format("%H:%M").to_string(),
         Answer::CategoryKind(CategoryKind::Expense) => "Gasto".to_owned(),
         Answer::CategoryKind(CategoryKind::Income) => "Entrada".to_owned(),
+        Answer::Essential(true) => "Sim".to_owned(),
+        Answer::Essential(false) => "Não".to_owned(),
         reference => referenced_name(reference, context.catalog),
     }
 }
@@ -171,6 +173,7 @@ const FIELD_TEXT: &[(Field, &str, &str)] = &[
     (Field::TodayReportTime, "🌙", "Resumo de hoje"),
     (Field::CategoryName, "✏️", "Nome"),
     (Field::CategoryKindChoice, "🗂️", "Tipo"),
+    (Field::EssentialChoice, "🏠", "Essencial"),
     (Field::CategoryEmoji, "🙂", "Emoji"),
 ];
 
@@ -235,6 +238,11 @@ const QUESTIONS: &[(Option<FormKind>, Field, &str)] = &[
     (None, Field::EditTarget, "Qual lançamento?"),
     (None, Field::CategoryName, "Nome da categoria? (ex.: pets, farmácia, presentes)"),
     (None, Field::CategoryKindChoice, "É uma categoria de gasto ou de entrada?"),
+    (
+        None,
+        Field::EssentialChoice,
+        "Faz parte do custo de vida básico? (moradia, mercado, saúde...)",
+    ),
     (None, Field::CategoryEmoji, "Um emoji para ela? (ex.: 🐶) Ou toque em Pular."),
     (Some(FormKind::Adjust), Field::ReceivingAccount, "Qual conta ajustar?"),
     (None, Field::ActualBalance, "Qual o saldo real dela agora, no app do banco? (negativo: -50)"),

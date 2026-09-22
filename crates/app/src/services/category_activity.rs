@@ -71,6 +71,7 @@ mod tests {
             kind,
             emoji: None,
             archived: false,
+            essential: false,
         }
     }
 

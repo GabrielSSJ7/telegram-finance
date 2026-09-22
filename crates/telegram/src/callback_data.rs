@@ -34,6 +34,8 @@ pub enum ButtonValue {
     RecurrenceMode(RecurrenceMode),
     EditChoice(EditChoice),
     CategoryKind(CategoryKind),
+    /// "É essencial?" in `/novacategoria`.
+    Essential(bool),
     Confirm,
     Cancel,
 }
@@ -58,6 +60,8 @@ pub enum CallbackPayload {
     EditEntry(EntryId),
     /// [🗑️] in `/ultimos`.
     DeleteEntry(EntryId),
+    /// A category in `/essenciais`: switches its essential mark.
+    ToggleEssential(CategoryId),
     /// A category button in `/extrato`: its entries between two dates.
     CategoryStatement {
         category: CategoryId,
@@ -105,6 +109,10 @@ pub fn edit_entry_button(entry: EntryId) -> String {
     format!("ee|{entry}")
 }
 
+pub fn toggle_essential_button(category: CategoryId) -> String {
+    format!("et|{category}")
+}
+
 /// Dates as `yyyymmdd` keep the payload at 57 bytes.
 pub fn category_statement_button(category: CategoryId, from: NaiveDate, to: NaiveDate) -> String {
     format!("cs|{category}|{}|{}", from.format("%Y%m%d"), to.format("%Y%m%d"))
@@ -116,13 +124,9 @@ pub fn delete_entry_button(entry: EntryId) -> String {
 
 fn encode_value(value: ButtonValue) -> String {
     match value {
-        ButtonValue::Skip => "s".into(),
         ButtonValue::Category(id) => format!("c:{id}"),
         ButtonValue::Account(id) => format!("a:{id}"),
         ButtonValue::Goal(id) => format!("g:{id}"),
-        ButtonValue::Today => "dt".into(),
-        ButtonValue::Yesterday => "dy".into(),
-        ButtonValue::OtherDate => "do".into(),
         ButtonValue::Kind(kind) => format!("k:{}", kind.as_str()),
         ButtonValue::Card(id) => format!("cc:{id}"),
         ButtonValue::Invoice(id) => format!("i:{id}"),
@@ -132,8 +136,21 @@ fn encode_value(value: ButtonValue) -> String {
         ButtonValue::RecurrenceMode(mode) => format!("rm:{}", mode.as_str()),
         ButtonValue::EditChoice(choice) => format!("ec:{}", choice.code()),
         ButtonValue::CategoryKind(kind) => format!("ck:{}", kind.as_str()),
-        ButtonValue::Confirm => "ok".into(),
-        ButtonValue::Cancel => "x".into(),
+        ButtonValue::Essential(essential) => format!("es:{}", u8::from(essential)),
+        without_payload => fixed_code(without_payload).into(),
+    }
+}
+
+/// Codes of the buttons that carry no value; `encode_value` handles the
+/// rest before calling this, so only Cancel reaches the last arm.
+const fn fixed_code(value: ButtonValue) -> &'static str {
+    match value {
+        ButtonValue::Skip => "s",
+        ButtonValue::Today => "dt",
+        ButtonValue::Yesterday => "dy",
+        ButtonValue::OtherDate => "do",
+        ButtonValue::Confirm => "ok",
+        _ => "x",
     }
 }
 
@@ -147,6 +164,7 @@ pub fn parse(data: &str) -> Option<CallbackPayload> {
         "ee" => return tail.parse().ok().map(CallbackPayload::EditEntry),
         "ed" => return tail.parse().ok().map(CallbackPayload::DeleteEntry),
         "cs" => return category_statement_payload(tail),
+        "et" => return tail.parse().ok().map(CallbackPayload::ToggleEssential),
         "rr" | "rs" => return recurrence_payload(head, tail),
         _ => {}
     }
@@ -195,11 +213,19 @@ fn decode_tagged(code: &str) -> Option<ButtonValue> {
         "cc" => value.parse().ok().map(ButtonValue::Card),
         "i" => value.parse().ok().map(ButtonValue::Invoice),
         "n" => value.parse().ok().map(ButtonValue::Installments),
-        "ck" => value.parse().ok().map(ButtonValue::CategoryKind),
         "m" => value.parse().ok().map(|cents| ButtonValue::Money(Cents::new(cents))),
-        "rk" => value.parse().ok().map(ButtonValue::RecurrenceKind),
-        "rm" => value.parse().ok().map(ButtonValue::RecurrenceMode),
-        "ec" => EditChoice::from_code(value).map(ButtonValue::EditChoice),
+        choice => decode_choice(choice, value),
+    }
+}
+
+fn decode_choice(tag: &str, value: &str) -> Option<ButtonValue> {
+    match (tag, value) {
+        ("rk", _) => value.parse().ok().map(ButtonValue::RecurrenceKind),
+        ("rm", _) => value.parse().ok().map(ButtonValue::RecurrenceMode),
+        ("ec", _) => EditChoice::from_code(value).map(ButtonValue::EditChoice),
+        ("ck", _) => value.parse().ok().map(ButtonValue::CategoryKind),
+        ("es", "1") => Some(ButtonValue::Essential(true)),
+        ("es", "0") => Some(ButtonValue::Essential(false)),
         _ => None,
     }
 }
@@ -209,14 +235,22 @@ mod tests {
     use super::*;
 
     fn every_value() -> Vec<ButtonValue> {
-        vec![
+        let fixed = [
             ButtonValue::Skip,
-            ButtonValue::Category(CategoryId::generate()),
-            ButtonValue::Account(AccountId::generate()),
-            ButtonValue::Goal(GoalId::generate()),
             ButtonValue::Today,
             ButtonValue::Yesterday,
             ButtonValue::OtherDate,
+            ButtonValue::Confirm,
+            ButtonValue::Cancel,
+        ];
+        [fixed.to_vec(), values_with_payload()].concat()
+    }
+
+    fn values_with_payload() -> Vec<ButtonValue> {
+        vec![
+            ButtonValue::Category(CategoryId::generate()),
+            ButtonValue::Account(AccountId::generate()),
+            ButtonValue::Goal(GoalId::generate()),
             ButtonValue::Kind(AccountKind::Savings),
             ButtonValue::Card(CardId::generate()),
             ButtonValue::Invoice(InvoiceId::generate()),
@@ -226,8 +260,8 @@ mod tests {
             ButtonValue::RecurrenceMode(RecurrenceMode::Confirm),
             ButtonValue::EditChoice(EditChoice::Category),
             ButtonValue::CategoryKind(CategoryKind::Income),
-            ButtonValue::Confirm,
-            ButtonValue::Cancel,
+            ButtonValue::Essential(true),
+            ButtonValue::Essential(false),
         ]
     }
 
@@ -239,6 +273,14 @@ mod tests {
             assert!(data.len() <= MAX_CALLBACK_BYTES, "{data} is {} bytes", data.len());
             assert_eq!(parse(&data), Some(CallbackPayload::Flow { nonce: nonce.clone(), value }));
         }
+    }
+
+    #[test]
+    fn toggle_essential_round_trips() {
+        let category = CategoryId::generate();
+        let data = toggle_essential_button(category);
+        assert_eq!(parse(&data), Some(CallbackPayload::ToggleEssential(category)));
+        assert_eq!(parse("abc|es:2"), None);
     }
 
     #[test]

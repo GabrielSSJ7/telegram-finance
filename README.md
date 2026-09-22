@@ -72,7 +72,7 @@ a message:
 | invoice_events | 09:00 | Invoice closed today; unpaid invoice due in 3 days or today |
 | yesterday_report | yesterday's summary time, any hour (default 09:00) | All of yesterday's entries, the cycle so far, balances, cards, goals, what is coming |
 | today_report | today's summary time, 19:00 or later (default 21:00) | The same for the day that is ending, once most of it is recorded |
-| cycle_report | yesterday's summary time, first day of a cycle | Closing of the financial month: income, spending, savings rate, categories, per person |
+| cycle_report | yesterday's summary time, first day of a cycle | Closing of the financial month: income, spending, savings rate, categories, essential vs other vs saved, per person |
 | backup_watch | 10:00 | Private-chat warning when no backup succeeded in 26 hours |
 
 `finbot run-job today-report --date 2026-10-05` runs one job immediately.
@@ -112,6 +112,8 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/recorrente`, `/recorrentes` | Create a monthly entry (salary, rent, subscription); list and deactivate |
 | `/orcamento`, `/orcamentos` | Set (or remove) a category's limit per cycle; see how much of each is used. Alerts at 80% and 100% |
 | `/mes` | The current cycle so far |
+| `/custodevida [mm/aaaa]` | Basic cost of living: essential spending so far and still coming, the average of the last 3 cycles, share of income and the 6-month emergency reserve |
+| `/essenciais` | Mark which expense categories are essential (casa, mercado, saúde, transporte and educação start marked) |
 | `/desfazer` | Undo your own last entry |
 | `/ultimos` | Last 10 entries with ✏️ edit (value, description, category or date) and 🗑️ delete; only the author (or anyone, for automatic entries) |
 | `/ajuste` | Make an account match the bank: type the real balance, the difference is recorded as an adjustment (not income or spending) |
@@ -132,11 +134,11 @@ instead of saving twice. Amounts are integer cents; dates are ISO 8601.
 |---|---|
 | Accounts | `GET/POST /accounts`, `DELETE /accounts/{id}`, `GET /accounts/balances`, `POST /accounts/{id}/reconcile` |
 | Entries | `GET/POST /entries` (filters: dates, kind, category, account, card), `GET/PATCH/DELETE /entries/{id}` |
-| Categories | `GET/POST /categories`, `DELETE /categories/{id}` |
+| Categories | `GET/POST /categories`, `PATCH /categories/{id}` (`essential`), `DELETE /categories/{id}` |
 | Cards | `GET/POST /cards`, `DELETE /cards/{id}`, `GET /cards/summaries`, `GET /cards/{id}/invoices`, `POST /cards/{id}/purchases`, `DELETE /card-purchases/{id}`, `POST /cards/{id}/credits`, `POST /invoices/{id}/payments` |
 | Goals | `GET/POST /goals`, `PUT /goals/{id}/target`, `POST /goals/{id}/deposits`, `POST /goals/{id}/withdrawals` |
 | Planning | `GET/POST /recurrences`, `DELETE /recurrences/{id}`, `GET /budgets`, `PUT/DELETE /budgets/{category_id}` |
-| Reports | `GET /reports/daily?date=`, `GET /reports/cycle?date=` |
+| Reports | `GET /reports/daily?date=`, `GET /reports/cycle?date=`, `GET /reports/living-cost?date=` |
 | Exports | `GET /exports/entries.csv` (cycle containing `date`, default today; or `from` and `to`) |
 | Household | `GET/PATCH /settings`, `GET /members` |
 

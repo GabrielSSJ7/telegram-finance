@@ -34,6 +34,7 @@ pub enum Answer {
     EditChoice(EditChoice),
     Time(NaiveTime),
     CategoryKind(CategoryKind),
+    Essential(bool),
 }
 
 /// Which part of an entry `/ultimos` → ✏️ changes.
@@ -174,6 +175,13 @@ impl Answers {
     pub fn category_kind(&self) -> Option<CategoryKind> {
         match self.get(Field::CategoryKindChoice) {
             Some(Answer::CategoryKind(kind)) => Some(*kind),
+            _ => None,
+        }
+    }
+
+    pub fn essential(&self) -> Option<bool> {
+        match self.get(Field::EssentialChoice) {
+            Some(Answer::Essential(essential)) => Some(*essential),
             _ => None,
         }
     }

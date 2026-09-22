@@ -56,12 +56,53 @@ pub fn month_report_text(report: &CycleReport, today: NaiveDate) -> String {
     cycle_body(report, header)
 }
 
+/// `🏠 Essencial R$ 3.980 (33%) · Outros R$ 2.100 (18%) · Guardado R$ 5.920 (49%)`,
+/// shares of the cycle's income; `None` until a category is essential.
+fn needs_split(report: &CycleReport) -> Option<String> {
+    let essential = essential_spending(report)?;
+    let summary = &report.totals.summary;
+    let parts = [
+        ("🏠 Essencial", essential),
+        ("Outros", summary.spending - essential),
+        ("Guardado", summary.saved),
+    ];
+    let shown: Vec<String> = parts
+        .iter()
+        .map(|(label, amount)| share_of_income(label, *amount, summary.income))
+        .collect();
+    Some(shown.join(" · "))
+}
+
+/// Net spending in essential categories; `None` when none is marked.
+fn essential_spending(report: &CycleReport) -> Option<Cents> {
+    let essential: Vec<CategoryId> = report
+        .categories
+        .iter()
+        .filter(|category| category.essential)
+        .map(|category| category.id)
+        .collect();
+    if essential.is_empty() {
+        return None;
+    }
+    let in_essential = |id: &Option<CategoryId>| id.is_some_and(|id| essential.contains(&id));
+    let totals = report.totals.by_category.iter().filter(|(id, _)| in_essential(id));
+    Some(totals.map(|(_, total)| *total).sum())
+}
+
+fn share_of_income(label: &str, amount: Cents, income: Cents) -> String {
+    if !income.is_positive() {
+        return format!("{label} {}", format_brl(amount));
+    }
+    format!("{label} {} ({}%)", format_brl(amount), amount.value() * 100 / income.value())
+}
+
 fn cycle_body(report: &CycleReport, header: String) -> String {
     let names = Names { categories: &report.categories, members: &report.members };
     let summary = &report.totals.summary;
     let mut sections = vec![header];
     sections.push(cycle_totals(summary, &report.previous, report.saved_in_pots));
     sections.push(category_breakdown(&report.totals, &names));
+    sections.extend(needs_split(report));
     sections.push(member_line(&report.totals, &names));
     sections.push(balance_text(&report.balances));
     if !report.cards.is_empty() {

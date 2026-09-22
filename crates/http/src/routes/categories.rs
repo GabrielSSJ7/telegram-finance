@@ -4,7 +4,9 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use uuid::Uuid;
 
-use crate::dto::categories::{CategoryResponse, CreateCategoryBody, ListCategoriesQuery};
+use crate::dto::categories::{
+    CategoryResponse, CreateCategoryBody, ListCategoriesQuery, UpdateCategoryBody,
+};
 use crate::error::{ApiError, Problem};
 use crate::extract::{ApiJson, ApiPath, ApiQuery};
 use crate::state::ApiState;
@@ -26,7 +28,7 @@ pub async fn create_category(
     State(state): State<ApiState>,
     ApiJson(body): ApiJson<CreateCategoryBody>,
 ) -> Result<(StatusCode, Json<CategoryResponse>), ApiError> {
-    let category = state.services.categories.create(&body.name, body.kind, body.emoji).await?;
+    let category = state.services.categories.create(body.into()).await?;
     Ok((StatusCode::CREATED, Json(category.into())))
 }
 
@@ -38,4 +40,17 @@ pub async fn archive_category(
 ) -> Result<StatusCode, ApiError> {
     state.services.categories.archive(CategoryId(id)).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(patch, path = "/categories/{id}", tag = "categories", params(("id" = Uuid, Path)),
+    request_body = UpdateCategoryBody,
+    responses((status = 200, body = CategoryResponse), (status = 404, body = Problem), (status = 422, body = Problem)),
+    security(("api_key" = [])))]
+pub async fn update_category(
+    State(state): State<ApiState>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<UpdateCategoryBody>,
+) -> Result<Json<CategoryResponse>, ApiError> {
+    let category = state.services.categories.set_essential(CategoryId(id), body.essential).await?;
+    Ok(Json(category.into()))
 }

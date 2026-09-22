@@ -76,6 +76,7 @@ async fn nova_categoria_creates_a_category_usable_in_gasto() {
     harness.say(ANA, "/nova-categoria").await;
     harness.say(ANA, "pets").await;
     harness.tap(ANA, "Gasto").await;
+    harness.tap(ANA, "Não").await;
     harness.say(ANA, "cachorro").await;
     harness.expect_last("Mande só um emoji");
     harness.say(ANA, "🐶").await;
@@ -93,6 +94,7 @@ async fn nova_categoria_refuses_a_repeated_name() {
     harness.say(BIA, "/novacategoria").await;
     harness.say(BIA, "Mercado").await;
     harness.tap(BIA, "Gasto").await;
+    harness.tap(BIA, "Sim, essencial").await;
     harness.tap(BIA, "Pular").await;
     harness.tap(BIA, "Confirmar").await;
     let expense = app::model::CategoryKind::Expense;

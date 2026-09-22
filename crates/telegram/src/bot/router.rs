@@ -9,6 +9,7 @@ use super::category_statement::category_entries;
 use super::commands::{household_command, parse_command};
 use super::entry_actions::{delete_entry, edit_entry};
 use super::flow_runner::{Placement, continue_flow, load_session, member_key};
+use super::living_cost::toggle_essential;
 use super::membership::on_membership;
 use super::recurrence_buttons::{deactivate_recurrence, record_recurrence, skip_recurrence};
 use super::undo::{undo_button, undo_purchase_button};
@@ -179,6 +180,9 @@ async fn dispatch_message_button(
         }
         CallbackPayload::CategoryStatement { category, from, to } => {
             category_entries(context, press, category, (from, to)).await
+        }
+        CallbackPayload::ToggleEssential(category) => {
+            toggle_essential(context, press, category).await
         }
         _ => context.gateway.answer_button(&press.callback_id, Some(STALE_BUTTON)).await,
     }

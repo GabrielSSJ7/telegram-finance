@@ -1,4 +1,5 @@
 use app::model::{Category, CategoryKind};
+use app::services::CreateCategory;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
@@ -13,12 +14,14 @@ pub struct CategoryResponse {
     #[schema(example = "🛒")]
     pub emoji: Option<String>,
     pub archived: bool,
+    /// Part of the basic cost of living (expense categories only).
+    pub essential: bool,
 }
 
 impl From<Category> for CategoryResponse {
     fn from(category: Category) -> Self {
-        let Category { id, name, kind, emoji, archived } = category;
-        Self { id: id.0, name, kind, emoji, archived }
+        let Category { id, name, kind, emoji, archived, essential } = category;
+        Self { id: id.0, name, kind, emoji, archived, essential }
     }
 }
 
@@ -29,6 +32,20 @@ pub struct CreateCategoryBody {
     #[schema(value_type = String, example = "expense")]
     pub kind: CategoryKind,
     pub emoji: Option<String>,
+    /// Defaults to false; only expense categories can be essential.
+    #[serde(default)]
+    pub essential: bool,
+}
+
+impl From<CreateCategoryBody> for CreateCategory {
+    fn from(body: CreateCategoryBody) -> Self {
+        Self { name: body.name, kind: body.kind, emoji: body.emoji, essential: body.essential }
+    }
+}
+
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateCategoryBody {
+    pub essential: bool,
 }
 
 #[derive(Debug, Deserialize, IntoParams)]

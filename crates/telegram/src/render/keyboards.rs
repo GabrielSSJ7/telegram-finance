@@ -46,6 +46,7 @@ fn field_choices(
         Field::RecurrenceModeChoice => recurrence_mode_choices(),
         Field::EditFieldChoice => edit_choices(),
         Field::CategoryKindChoice => category_kind_choices(),
+        Field::EssentialChoice => essential_choices(),
         field if typed_only(field) => return Some(Vec::new()),
         other => catalog_choices(form, other, answers, catalog),
     };
@@ -160,6 +161,13 @@ fn category_kind_choices() -> Choices {
     vec![
         (ButtonValue::CategoryKind(CategoryKind::Expense), "💸 Gasto".to_owned()),
         (ButtonValue::CategoryKind(CategoryKind::Income), "💰 Entrada".to_owned()),
+    ]
+}
+
+fn essential_choices() -> Choices {
+    vec![
+        (ButtonValue::Essential(true), "✅ Sim, essencial".to_owned()),
+        (ButtonValue::Essential(false), "Não".to_owned()),
     ]
 }
 

@@ -53,6 +53,7 @@ macro_rules! store_contract_cases {
         $case!(account_flows_follow_entries);
         $case!(category_create_find_archive);
         $case!(category_names_unique_per_kind);
+        $case!(category_essential_flag);
         $case!(entry_record_and_find);
         $case!(entry_duplicate_draft_is_rejected);
         $case!(entry_list_filters_by_range_and_kind);
@@ -106,7 +107,7 @@ pub(crate) async fn open_account(
 }
 
 pub(crate) async fn new_category(stores: &StorePorts, name: &str, kind: CategoryKind) -> Category {
-    let category = NewCategory { name: name.into(), kind, emoji: None };
+    let category = NewCategory { name: name.into(), kind, emoji: None, essential: false };
     stores.categories.create_category(category).await.expect("create category")
 }
 

@@ -11,6 +11,7 @@ pub mod entry_actions;
 pub mod executor;
 pub mod export;
 pub mod flow_runner;
+pub mod living_cost;
 pub mod membership;
 pub mod periods;
 pub mod recurrence_buttons;

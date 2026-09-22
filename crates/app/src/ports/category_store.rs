@@ -10,4 +10,10 @@ pub trait CategoryStore: Send + Sync {
     async fn list_categories(&self, include_archived: bool) -> StoreResult<Vec<Category>>;
     async fn find_category(&self, id: CategoryId) -> StoreResult<Option<Category>>;
     async fn archive_category(&self, id: CategoryId, at: DateTime<Utc>) -> StoreResult<bool>;
+    /// The updated category; `None` when it does not exist or is archived.
+    async fn set_category_essential(
+        &self,
+        id: CategoryId,
+        essential: bool,
+    ) -> StoreResult<Option<Category>>;
 }

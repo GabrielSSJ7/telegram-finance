@@ -3,10 +3,8 @@
 
 mod common;
 
-use std::sync::Arc;
-
 use app::fakes::requests::monthly_expense;
-use app::jobs::{JobKind, JobRunner};
+use app::jobs::JobKind;
 use app::model::{CategoryKind, EntryFilter, RecurrenceMode, ReportDay};
 use app::ports::HouseholdNotifier;
 use app::services::CreateRecurrence;
@@ -17,17 +15,6 @@ use telegram::notifier::TelegramNotifier;
 
 fn date(month: u32, day: u32) -> NaiveDate {
     NaiveDate::from_ymd_opt(2026, month, day).unwrap()
-}
-
-fn runner(harness: &BotHarness) -> JobRunner {
-    let notifier =
-        Arc::new(TelegramNotifier::new(harness.gateway.clone(), harness.set.services.clone()));
-    JobRunner::new(
-        harness.set.services.clone(),
-        notifier,
-        harness.set.store.clone(),
-        harness.set.clock.clone(),
-    )
 }
 
 async fn light_bill(harness: &BotHarness, mode: RecurrenceMode) {
@@ -54,13 +41,13 @@ async fn daily_report_reaches_the_group() {
     harness.tap(ANA, "Nubank").await;
     harness.tap(ANA, "Hoje").await;
     harness.tap(ANA, "Confirmar").await;
-    runner(&harness).run(JobKind::TodayReport, date(3, 10)).await.unwrap();
+    harness.job_runner().run(JobKind::TodayReport, date(3, 10)).await.unwrap();
     let report = harness.last_html();
     assert!(report.starts_with("<b>📊 Resumo de terça, 10/03</b>"), "{report}");
     assert!(report.contains("• Ana: mercado R$ 25,00 — pão"), "{report}");
     assert!(report.contains("Gasto hoje: R$ 25,00"), "{report}");
     assert!(report.contains("Disponível: R$ 975,00"), "{report}");
-    runner(&harness).run(JobKind::YesterdayReport, date(3, 11)).await.unwrap();
+    harness.job_runner().run(JobKind::YesterdayReport, date(3, 11)).await.unwrap();
     let morning = harness.last_html();
     assert!(morning.starts_with("<b>📊 Resumo de ontem (terça, 10/03)</b>"), "{morning}");
     assert!(morning.contains("<b>Ontem</b> (1 lançamentos)"), "{morning}");
@@ -70,7 +57,7 @@ async fn daily_report_reaches_the_group() {
 #[tokio::test]
 async fn cycle_report_and_resumo_command() {
     let mut harness = BotHarness::bound().await.with_basics().await;
-    runner(&harness).run(JobKind::CycleReport, date(3, 1)).await.unwrap();
+    harness.job_runner().run(JobKind::CycleReport, date(3, 1)).await.unwrap();
     let report = harness.last_html();
     assert!(report.starts_with("<b>🗓️ Fechamento do ciclo 01/02 → 28/02</b>"), "{report}");
     assert!(report.contains("Nenhum gasto no ciclo."), "{report}");
@@ -84,7 +71,7 @@ async fn cycle_report_and_resumo_command() {
 async fn confirm_recurrence_can_be_registered_once() {
     let mut harness = BotHarness::bound().await.with_basics().await;
     light_bill(&harness, RecurrenceMode::Confirm).await;
-    runner(&harness).run(JobKind::Recurrences, date(3, 10)).await.unwrap();
+    harness.job_runner().run(JobKind::Recurrences, date(3, 10)).await.unwrap();
     harness.expect_last("Conta de luz</b> (dia 05/03)");
     let (message_id, data) = harness.gateway.find_button(GROUP, "Registrar").unwrap();
     harness.press(BIA, message_id, &data).await;
@@ -97,7 +84,7 @@ async fn confirm_recurrence_can_be_registered_once() {
 async fn confirm_recurrence_can_be_skipped() {
     let mut harness = BotHarness::bound().await.with_basics().await;
     light_bill(&harness, RecurrenceMode::Confirm).await;
-    runner(&harness).run(JobKind::Recurrences, date(3, 10)).await.unwrap();
+    harness.job_runner().run(JobKind::Recurrences, date(3, 10)).await.unwrap();
     harness.tap(ANA, "Pular").await;
     assert!(harness.last_html().starts_with("⏭️ Pulado por Ana"), "{}", harness.last_html());
     assert!(harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap().is_empty());
@@ -107,7 +94,7 @@ async fn confirm_recurrence_can_be_skipped() {
 async fn auto_recurrence_announces_itself() {
     let harness = BotHarness::bound().await.with_basics().await;
     light_bill(&harness, RecurrenceMode::Auto).await;
-    runner(&harness).run(JobKind::Recurrences, date(3, 10)).await.unwrap();
+    harness.job_runner().run(JobKind::Recurrences, date(3, 10)).await.unwrap();
     assert!(
         harness
             .last_html()

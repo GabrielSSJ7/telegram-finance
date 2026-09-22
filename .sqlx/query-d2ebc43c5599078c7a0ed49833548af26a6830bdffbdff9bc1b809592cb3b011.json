@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "select id, name, kind, emoji, archived_at from categories where id = $1",
+  "query": "select id, name, kind, emoji, archived_at, essential from categories where id = $1",
   "describe": {
     "columns": [
       {
@@ -57,6 +57,17 @@
             "name": "archived_at"
           }
         }
+      },
+      {
+        "ordinal": 5,
+        "name": "essential",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "categories",
+            "name": "essential"
+          }
+        }
       }
     ],
     "parameters": {
@@ -69,8 +80,9 @@
       false,
       false,
       true,
-      true
+      true,
+      false
     ]
   },
-  "hash": "d8c3f8c14cca771fab2b1fba80d58036ec96daf44e6887ea799b63026961551d"
+  "hash": "d2ebc43c5599078c7a0ed49833548af26a6830bdffbdff9bc1b809592cb3b011"
 }
