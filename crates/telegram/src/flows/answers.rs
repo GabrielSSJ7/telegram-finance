@@ -1,6 +1,6 @@
 use app::model::{
-    AccountId, CardId, CategoryId, CategoryKind, EntryId, GoalId, InvoiceId, RecurrenceKind,
-    RecurrenceMode,
+    AccountId, CardId, CategoryId, CategoryKind, EntryId, GoalId, InvoiceId, RecurrenceId,
+    RecurrenceKind, RecurrenceMode,
 };
 use chrono::{NaiveDate, NaiveTime};
 use domain::{AccountKind, Cents};
@@ -43,6 +43,102 @@ pub enum Answer {
     Time(NaiveTime),
     CategoryKind(CategoryKind),
     Essential(bool),
+    RecordKind(RecordKind),
+    RecordField(RecordField),
+    Recurrence(RecurrenceId),
+}
+
+/// Which kind of record `/editar` changes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordKind {
+    Account,
+    Card,
+    Category,
+    Goal,
+    Recurrence,
+}
+
+impl RecordKind {
+    pub const ALL: [RecordKind; 5] = [
+        RecordKind::Account,
+        RecordKind::Card,
+        RecordKind::Category,
+        RecordKind::Goal,
+        RecordKind::Recurrence,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            RecordKind::Account => "account",
+            RecordKind::Card => "card",
+            RecordKind::Category => "category",
+            RecordKind::Goal => "goal",
+            RecordKind::Recurrence => "recurrence",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<RecordKind> {
+        RecordKind::ALL.into_iter().find(|kind| kind.code() == code)
+    }
+
+    /// The fields that kind of record can change.
+    pub const fn fields(self) -> &'static [RecordField] {
+        match self {
+            RecordKind::Account => &[RecordField::Name],
+            RecordKind::Card => &[RecordField::Name, RecordField::Closing, RecordField::Due],
+            RecordKind::Category => &[RecordField::Name, RecordField::Emoji],
+            RecordKind::Goal => &[RecordField::Name, RecordField::Target, RecordField::Deadline],
+            RecordKind::Recurrence => &[RecordField::Amount, RecordField::Day, RecordField::Mode],
+        }
+    }
+}
+
+/// Which field of that record `/editar` changes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RecordField {
+    Name,
+    Emoji,
+    Closing,
+    Due,
+    Target,
+    Deadline,
+    Amount,
+    Day,
+    Mode,
+}
+
+impl RecordField {
+    pub const ALL: [RecordField; 9] = [
+        RecordField::Name,
+        RecordField::Emoji,
+        RecordField::Closing,
+        RecordField::Due,
+        RecordField::Target,
+        RecordField::Deadline,
+        RecordField::Amount,
+        RecordField::Day,
+        RecordField::Mode,
+    ];
+
+    pub const fn code(self) -> &'static str {
+        match self {
+            RecordField::Name => "name",
+            RecordField::Emoji => "emoji",
+            RecordField::Closing => "closing",
+            RecordField::Due => "due",
+            RecordField::Target => "target",
+            RecordField::Deadline => "deadline",
+            RecordField::Amount => "amount",
+            RecordField::Day => "day",
+            RecordField::Mode => "mode",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<RecordField> {
+        RecordField::ALL.into_iter().find(|field| field.code() == code)
+    }
 }
 
 /// Which part of an entry `/ultimos` → ✏️ changes.
@@ -122,7 +218,11 @@ impl Answers {
     }
 
     pub fn goal(&self) -> Option<GoalId> {
-        match self.get(Field::Goal) {
+        self.goal_at(Field::Goal)
+    }
+
+    pub fn goal_at(&self, field: Field) -> Option<GoalId> {
+        match self.get(field) {
             Some(Answer::Goal(id)) => Some(*id),
             _ => None,
         }
@@ -204,6 +304,27 @@ impl Answers {
     pub fn category_kind(&self) -> Option<CategoryKind> {
         match self.get(Field::CategoryKindChoice) {
             Some(Answer::CategoryKind(kind)) => Some(*kind),
+            _ => None,
+        }
+    }
+
+    pub fn record_kind(&self) -> Option<RecordKind> {
+        match self.get(Field::RecordKindChoice) {
+            Some(Answer::RecordKind(kind)) => Some(*kind),
+            _ => None,
+        }
+    }
+
+    pub fn record_field(&self) -> Option<RecordField> {
+        match self.get(Field::RecordFieldChoice) {
+            Some(Answer::RecordField(field)) => Some(*field),
+            _ => None,
+        }
+    }
+
+    pub fn recurrence(&self) -> Option<RecurrenceId> {
+        match self.get(Field::RecordTarget) {
+            Some(Answer::Recurrence(id)) => Some(*id),
             _ => None,
         }
     }

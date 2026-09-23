@@ -1,0 +1,91 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update categories set name = coalesce($2, name),\n                    emoji = case when $3 then $4 else emoji end\n             where id = $1 and archived_at is null\n             returning id, name, kind, emoji, archived_at, essential",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "categories",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "categories",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "categories",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "emoji",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "categories",
+            "name": "emoji"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "archived_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "categories",
+            "name": "archived_at"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "essential",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "categories",
+            "name": "essential"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Bool",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      true,
+      false
+    ]
+  },
+  "hash": "bc150d56bf033824278fcb661783d38ce519f30da074f5682512163c86a5d5cc"
+}

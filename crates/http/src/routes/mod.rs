@@ -27,7 +27,7 @@ pub fn v1_routes() -> OpenApiRouter<ApiState> {
 fn ledger_routes() -> OpenApiRouter<ApiState> {
     OpenApiRouter::new()
         .routes(routes!(accounts::list_accounts, accounts::open_account))
-        .routes(routes!(accounts::archive_account))
+        .routes(routes!(accounts::archive_account, accounts::rename_account))
         .routes(routes!(accounts::balance_sheet))
         .routes(routes!(accounts::reconcile_account))
         .routes(routes!(categories::list_categories, categories::create_category))
@@ -45,7 +45,7 @@ fn ledger_routes() -> OpenApiRouter<ApiState> {
 fn card_routes() -> OpenApiRouter<ApiState> {
     OpenApiRouter::new()
         .routes(routes!(cards::list_cards, cards::open_card))
-        .routes(routes!(cards::archive_card))
+        .routes(routes!(cards::archive_card, cards::update_card))
         .routes(routes!(cards::card_summaries))
         .routes(routes!(cards::card_invoices))
         .routes(routes!(cards::create_purchase))
@@ -57,7 +57,7 @@ fn card_routes() -> OpenApiRouter<ApiState> {
 fn schedule_routes() -> OpenApiRouter<ApiState> {
     OpenApiRouter::new()
         .routes(routes!(recurrences::list_recurrences, recurrences::create_recurrence))
-        .routes(routes!(recurrences::deactivate_recurrence))
+        .routes(routes!(recurrences::deactivate_recurrence, recurrences::update_recurrence))
         .routes(routes!(reports::daily_report))
         .routes(routes!(reports::cycle_report))
         .routes(routes!(reports::living_cost))

@@ -6,7 +6,7 @@ use domain::invoice_settlement::InvoiceTotals;
 
 use super::StoreResult;
 use crate::model::{
-    CardId, CardPurchase, CreditCard, DraftId, Invoice, InvoiceId, LedgerEntry, NewCard,
+    CardEdit, CardId, CardPurchase, CreditCard, DraftId, Invoice, InvoiceId, LedgerEntry, NewCard,
     NewCardPurchase, NewEntry, PurchaseId,
 };
 
@@ -16,6 +16,8 @@ pub trait CardStore: Send + Sync {
     async fn list_cards(&self, include_archived: bool) -> StoreResult<Vec<CreditCard>>;
     async fn find_card(&self, id: CardId) -> StoreResult<Option<CreditCard>>;
     async fn archive_card(&self, id: CardId, at: DateTime<Utc>) -> StoreResult<bool>;
+    /// The changed card; `None` when it does not exist or is archived.
+    async fn update_card(&self, id: CardId, edit: CardEdit) -> StoreResult<Option<CreditCard>>;
 
     /// The invoice of `card` for `period.reference_month`, created with
     /// `period`'s dates if missing (stored dates win when it exists).

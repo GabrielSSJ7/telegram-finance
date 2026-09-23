@@ -153,6 +153,14 @@ pub struct NewRecurrence {
     pub plan: Option<InstallmentPlan>,
 }
 
+/// What `/editar` may change on a recurring entry; `None` keeps the value.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RecurrenceEdit {
+    pub amount: Option<Cents>,
+    pub day: Option<DayOfMonth>,
+    pub mode: Option<RecurrenceMode>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

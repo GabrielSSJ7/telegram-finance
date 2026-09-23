@@ -21,9 +21,9 @@ pub use account::{Account, AccountBalance, BalanceSheet, NewAccount};
 pub use api_key::{ApiKey, IssuedApiKey};
 pub use budget::{Budget, BudgetAlert, BudgetStatus};
 pub use card::{
-    CardPurchase, CardSummary, CreditCard, Invoice, InvoiceView, NewCard, NewCardPurchase,
+    CardEdit, CardPurchase, CardSummary, CreditCard, Invoice, InvoiceView, NewCard, NewCardPurchase,
 };
-pub use category::{Category, CategoryKind, NewCategory};
+pub use category::{Category, CategoryEdit, CategoryKind, EmojiChange, NewCategory};
 pub use entry::{EntryFilter, EntryPatch, LedgerEntry, NewEntry};
 pub use goal::{Goal, GoalProgress, GoalTarget};
 pub use ids::{
@@ -34,6 +34,8 @@ pub use installment_plan::{InstallmentProgress, PlanSource};
 pub use living_cost::{LivingCost, RESERVE_MONTHS};
 pub use member::{Member, MemberProfile};
 pub use projection::{CycleProjection, Flow};
-pub use recurrence::{NewRecurrence, Recurrence, RecurrenceKind, RecurrenceMode, RecurrenceTarget};
+pub use recurrence::{
+    NewRecurrence, Recurrence, RecurrenceEdit, RecurrenceKind, RecurrenceMode, RecurrenceTarget,
+};
 pub use report::{CycleReport, DailyReport, PeriodFlow, PeriodTotals, ReportDay};
 pub use settings::{HouseholdSettings, SettingsPatch};

@@ -117,6 +117,7 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/custodevida [mm/aaaa]` | Basic cost of living: essential spending so far and still coming, the average of the last 3 cycles, share of income and the 6-month emergency reserve |
 | `/essenciais` | Mark which expense categories are essential (casa, mercado, saúde, transporte and educação start marked) |
 | `/desfazer` | Undo your own last entry |
+| `/editar` | Change a registered record: account, card, category, goal or recurring entry (name, emoji, invoice days, goal target and deadline, recurring amount, day and mode) |
 | `/ultimos` | Last 10 entries with ✏️ edit (value, description, category or date) and 🗑️ delete; only the author (or anyone, for automatic entries) |
 | `/ajuste` | Make an account match the bank: type the real balance, the difference is recorded as an adjustment (not income or spending) |
 | `/extrato [mm/aaaa]` | Spending and income per category for the cycle; each category button lists its entries |
@@ -134,13 +135,13 @@ instead of saving twice. Amounts are integer cents; dates are ISO 8601.
 
 | Resource | Endpoints |
 |---|---|
-| Accounts | `GET/POST /accounts`, `DELETE /accounts/{id}`, `GET /accounts/balances`, `POST /accounts/{id}/reconcile` |
+| Accounts | `GET/POST /accounts`, `PATCH /accounts/{id}` (`name`), `DELETE /accounts/{id}`, `GET /accounts/balances`, `POST /accounts/{id}/reconcile` |
 | Entries | `GET/POST /entries` (filters: dates, kind, category, account, card), `GET/PATCH/DELETE /entries/{id}` |
-| Categories | `GET/POST /categories`, `PATCH /categories/{id}` (`essential`), `DELETE /categories/{id}` |
-| Cards | `GET/POST /cards`, `DELETE /cards/{id}`, `GET /cards/summaries`, `GET /cards/{id}/invoices`, `POST /cards/{id}/purchases`, `DELETE /card-purchases/{id}`, `POST /cards/{id}/credits`, `POST /invoices/{id}/payments` |
+| Categories | `GET/POST /categories`, `PATCH /categories/{id}` (`name`, `emoji`, `essential`), `DELETE /categories/{id}` |
+| Cards | `GET/POST /cards`, `PATCH /cards/{id}` (`name`, `closing_day`, `due_day`), `DELETE /cards/{id}`, `GET /cards/summaries`, `GET /cards/{id}/invoices`, `POST /cards/{id}/purchases`, `DELETE /card-purchases/{id}`, `POST /cards/{id}/credits`, `POST /invoices/{id}/payments` |
 | Goals | `GET/POST /goals`, `PUT /goals/{id}/target`, `POST /goals/{id}/deposits`, `POST /goals/{id}/withdrawals` |
 | Installments | `GET /installments` |
-| Planning | `GET/POST /recurrences` (`installment_count`, `installments_paid`), `DELETE /recurrences/{id}`, `GET /budgets`, `PUT/DELETE /budgets/{category_id}` |
+| Planning | `GET/POST /recurrences` (`installment_count`, `installments_paid`), `PATCH /recurrences/{id}` (`amount_cents`, `day_of_month`, `mode`), `DELETE /recurrences/{id}`, `GET /budgets`, `PUT/DELETE /budgets/{category_id}` |
 | Reports | `GET /reports/daily?date=`, `GET /reports/cycle?date=`, `GET /reports/living-cost?date=`, `GET /reports/projection?date=` |
 | Exports | `GET /exports/entries.csv` (cycle containing `date`, default today; or `from` and `to`) |
 | Household | `GET/PATCH /settings`, `GET /members` |

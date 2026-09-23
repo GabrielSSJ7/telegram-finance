@@ -50,6 +50,7 @@ pub const SECTIONS: &[CommandSection] = &[
         commands: &[
             ("desfazer", "Desfazer seu último lançamento"),
             ("ultimos", "Últimos lançamentos, com editar e apagar"),
+            ("editar", "Mudar um cadastro: conta, cartão, categoria, meta ou recorrente"),
             ("cancelar", "Cancelar o que está preenchendo"),
         ],
     },

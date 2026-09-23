@@ -1,6 +1,7 @@
 use app::AppError;
 use app::model::{
-    AccountId, CardId, CategoryId, Recurrence, RecurrenceKind, RecurrenceMode, RecurrenceTarget,
+    AccountId, CardId, CategoryId, Recurrence, RecurrenceEdit, RecurrenceKind, RecurrenceMode,
+    RecurrenceTarget,
 };
 use app::services::CreateRecurrence;
 use chrono::NaiveDate;
@@ -112,5 +113,30 @@ fn target(account: Option<Uuid>, card: Option<Uuid>) -> Result<RecurrenceTarget,
         (Some(account), None) => Ok(RecurrenceTarget::Account(AccountId(account))),
         (None, Some(card)) => Ok(RecurrenceTarget::Card(CardId(card))),
         _ => Err(AppError::invalid("account_id/card_id", "both or neither", "exactly one of them")),
+    }
+}
+
+/// Fields left out keep their value.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateRecurrenceBody {
+    #[schema(example = 250_000)]
+    pub amount_cents: Option<i64>,
+    #[schema(example = 10)]
+    pub day_of_month: Option<u8>,
+    /// `auto` or `confirm`.
+    #[schema(value_type = Option<String>)]
+    pub mode: Option<RecurrenceMode>,
+}
+
+impl TryFrom<UpdateRecurrenceBody> for RecurrenceEdit {
+    type Error = AppError;
+    fn try_from(body: UpdateRecurrenceBody) -> Result<Self, Self::Error> {
+        let day = body
+            .day_of_month
+            .map(|day| {
+                DayOfMonth::new(day).map_err(|_| AppError::invalid("day_of_month", day, "1 to 31"))
+            })
+            .transpose()?;
+        Ok(RecurrenceEdit { amount: body.amount_cents.map(Cents::new), day, mode: body.mode })
     }
 }

@@ -8,6 +8,7 @@ use app::model::{
 use app::services::{EntryOrigin, ServiceSet};
 use domain::Cents;
 
+use crate::flows::command::RecordEdit;
 use crate::flows::{FormCommand, FormKind};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -66,6 +67,40 @@ async fn configure(services: &ServiceSet, command: FormCommand) -> AppResult<Com
     }
 }
 
+/// `/editar`: one field of one registered record.
+async fn apply_record_edit(services: &ServiceSet, edit: RecordEdit) -> AppResult<Committed> {
+    match edit {
+        RecordEdit::Account { id, name } => {
+            services.accounts.rename(id, &name).await.map(Committed::Account)
+        }
+        RecordEdit::Card { id, edit } => services.cards.update(id, edit).await.map(Committed::Card),
+        RecordEdit::Category { id, edit } => {
+            services.categories.update(id, edit).await.map(Committed::Category)
+        }
+        RecordEdit::Recurrence { id, edit } => {
+            services.recurrences.update(id, edit).await.map(Committed::Recurrence)
+        }
+        goal => apply_goal_edit(services, goal).await,
+    }
+}
+
+/// Goals are renamed through their pot; the target and the deadline are
+/// changed one at a time.
+async fn apply_goal_edit(services: &ServiceSet, edit: RecordEdit) -> AppResult<Committed> {
+    match edit {
+        RecordEdit::GoalName { id, name } => {
+            services.goals.rename(id, &name).await.map(Committed::Goal)
+        }
+        RecordEdit::GoalTarget { id, target } => {
+            services.goals.set_target(id, target).await.map(Committed::Goal)
+        }
+        RecordEdit::GoalDeadline { id, date } => {
+            services.goals.set_deadline(id, date).await.map(Committed::Goal)
+        }
+        other => Err(app::AppError::invalid("record edit", format!("{other:?}"), "a goal change")),
+    }
+}
+
 /// Budgets, categories and household settings.
 async fn household_rules(services: &ServiceSet, command: FormCommand) -> AppResult<Committed> {
     match command {
@@ -76,6 +111,7 @@ async fn household_rules(services: &ServiceSet, command: FormCommand) -> AppResu
         FormCommand::CreateCategory(request) => {
             services.categories.create(request).await.map(Committed::Category)
         }
+        FormCommand::EditRecord(edit) => apply_record_edit(services, edit).await,
         other => {
             Err(app::AppError::invalid("form command", format!("{other:?}"), "a setup command"))
         }
@@ -138,6 +174,7 @@ pub const fn headline(form: FormKind) -> &'static str {
         FormKind::NewRecurrence => "Recorrência criada",
         FormKind::SetBudget => "Orçamento salvo",
         FormKind::EditEntry => "Lançamento alterado",
+        FormKind::EditRecord => "Cadastro alterado",
         FormKind::Adjust => "Saldo ajustado",
         FormKind::Settings => "Configuração salva",
         FormKind::NewCategory => "Categoria criada",

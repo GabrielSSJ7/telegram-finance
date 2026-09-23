@@ -1,4 +1,4 @@
-use app::model::CategoryId;
+use app::model::{CategoryEdit, CategoryId};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
@@ -51,6 +51,12 @@ pub async fn update_category(
     ApiPath(id): ApiPath<Uuid>,
     ApiJson(body): ApiJson<UpdateCategoryBody>,
 ) -> Result<Json<CategoryResponse>, ApiError> {
-    let category = state.services.categories.set_essential(CategoryId(id), body.essential).await?;
+    let categories = &state.services.categories;
+    let id = CategoryId(id);
+    let edit = CategoryEdit { name: body.name.clone(), emoji: body.emoji_change() };
+    let mut category = categories.update(id, edit).await?;
+    if let Some(essential) = body.essential {
+        category = categories.set_essential(id, essential).await?;
+    }
     Ok(Json(category.into()))
 }

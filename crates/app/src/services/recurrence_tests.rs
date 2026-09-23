@@ -135,3 +135,25 @@ async fn impossible_plans_are_refused() {
         assert!(error.to_string().contains("installments"), "{error}");
     }
 }
+
+#[tokio::test]
+async fn update_changes_amount_day_and_mode() {
+    let setup = setup().await;
+    let recurrences = &setup.set.services.recurrences;
+    let salary = recurrences.create(salary(&setup)).await.unwrap();
+    let edit = crate::model::RecurrenceEdit {
+        amount: Some(Cents::new(900_000)),
+        day: DayOfMonth::new(10).ok(),
+        mode: Some(RecurrenceMode::Confirm),
+    };
+    let updated = recurrences.update(salary.id, edit).await.unwrap();
+    assert_eq!(
+        (updated.amount, updated.day.get(), updated.mode),
+        (Cents::new(900_000), 10, RecurrenceMode::Confirm)
+    );
+    let zero = crate::model::RecurrenceEdit { amount: Some(Cents::ZERO), ..Default::default() };
+    assert!(recurrences.update(salary.id, zero).await.is_err(), "zero is refused");
+    recurrences.deactivate(salary.id).await.unwrap();
+    let gone = recurrences.update(salary.id, crate::model::RecurrenceEdit::default()).await;
+    assert!(gone.is_err(), "an inactive recurrence cannot be changed");
+}

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::text_rules::clean_name;
-use crate::model::{Category, CategoryId, CategoryKind, NewCategory};
+use crate::model::{Category, CategoryEdit, CategoryId, CategoryKind, EmojiChange, NewCategory};
 use crate::ports::{CategoryStore, Clock};
 use crate::{AppError, AppResult};
 
@@ -58,6 +58,20 @@ impl CategoryService {
         found.retain(|category| kind.is_none_or(|wanted| category.kind == wanted));
         found.sort_by(|left, right| left.name.cmp(&right.name));
         Ok(found)
+    }
+
+    /// Changes a category's name or emoji; what is not given stays.
+    pub async fn update(&self, id: CategoryId, edit: CategoryEdit) -> AppResult<Category> {
+        let name =
+            edit.name.map(|name| clean_name("category name", &name, MAX_CATEGORY_NAME_CHARS));
+        let emoji = match edit.emoji {
+            EmojiChange::Set(text) if text.trim().is_empty() => EmojiChange::Clear,
+            EmojiChange::Set(text) => EmojiChange::Set(text.trim().to_owned()),
+            kept_or_cleared => kept_or_cleared,
+        };
+        let edit = CategoryEdit { name: name.transpose()?, emoji };
+        let updated = self.categories.update_category(id, edit).await?;
+        updated.ok_or_else(|| AppError::not_found("active category", id))
     }
 
     pub async fn archive(&self, id: CategoryId) -> AppResult<()> {
@@ -155,5 +169,22 @@ mod tests {
             CreateCategory { essential: true, ..request("extra", CategoryKind::Income, None) };
         let error = service.create(essential_income).await.unwrap_err().to_string();
         assert!(error.contains("income") && error.contains("an expense category"), "{error}");
+    }
+
+    #[tokio::test]
+    async fn update_changes_name_and_emoji() {
+        let service = service();
+        let market =
+            service.create(request("mercado", CategoryKind::Expense, Some("🛒"))).await.unwrap();
+        let named = CategoryEdit { name: Some(" feira ".into()), ..CategoryEdit::default() };
+        assert_eq!(service.update(market.id, named).await.unwrap().name, "feira");
+        let cleared = CategoryEdit { emoji: EmojiChange::Clear, ..CategoryEdit::default() };
+        assert_eq!(service.update(market.id, cleared).await.unwrap().emoji, None);
+        let set =
+            CategoryEdit { emoji: EmojiChange::Set(" 🧺 ".into()), ..CategoryEdit::default() };
+        let updated = service.update(market.id, set).await.unwrap();
+        assert_eq!((updated.emoji.as_deref(), updated.name.as_str()), (Some("🧺"), "feira"));
+        service.archive(market.id).await.unwrap();
+        assert!(service.update(market.id, CategoryEdit::default()).await.is_err());
     }
 }

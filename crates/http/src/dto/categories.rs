@@ -1,4 +1,4 @@
-use app::model::{Category, CategoryKind};
+use app::model::{Category, CategoryKind, EmojiChange};
 use app::services::CreateCategory;
 use serde::{Deserialize, Serialize};
 use utoipa::{IntoParams, ToSchema};
@@ -43,9 +43,28 @@ impl From<CreateCategoryBody> for CreateCategory {
     }
 }
 
+/// Fields left out keep their value; `emoji: null` clears the emoji.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateCategoryBody {
-    pub essential: bool,
+    pub essential: Option<bool>,
+    #[schema(example = "feira")]
+    pub name: Option<String>,
+    // The three states a PATCH needs: missing keeps the emoji, `null`
+    // clears it, a string sets it. `emoji_change` names them.
+    #[allow(clippy::option_option)]
+    #[serde(default, deserialize_with = "crate::dto::given_field")]
+    pub emoji: Option<Option<String>>,
+}
+
+impl UpdateCategoryBody {
+    /// The change the body asks for: missing keeps, `null` clears.
+    pub fn emoji_change(&self) -> EmojiChange {
+        match &self.emoji {
+            None => EmojiChange::Keep,
+            Some(None) => EmojiChange::Clear,
+            Some(Some(emoji)) => EmojiChange::Set(emoji.clone()),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, IntoParams)]

@@ -1,6 +1,6 @@
 use app::model::{
-    AccountId, CardId, CategoryId, NewRecurrence, Recurrence, RecurrenceId, RecurrenceKind,
-    RecurrenceMode, RecurrenceTarget,
+    AccountId, CardId, CategoryId, NewRecurrence, Recurrence, RecurrenceEdit, RecurrenceId,
+    RecurrenceKind, RecurrenceMode, RecurrenceTarget,
 };
 use app::ports::{RecurrenceStore, StoreResult};
 use async_trait::async_trait;
@@ -163,6 +163,25 @@ impl RecurrenceStore for PgStore {
                     active, starts_on, last_generated_on, installment_count, first_installment_no
              from recurrences where id = $1",
             id.0,
+        )
+        .fetch_optional(self.pool())
+        .await
+        .map_err(store_error)?;
+        row.map(RecurrenceRow::into_recurrence).transpose()
+    }
+
+    async fn update_recurrence(
+        &self,
+        id: RecurrenceId,
+        edit: RecurrenceEdit,
+    ) -> StoreResult<Option<Recurrence>> {
+        let row = sqlx::query_file_as!(
+            RecurrenceRow,
+            "queries/update_recurrence.sql",
+            id.0,
+            edit.amount.map(Cents::value),
+            edit.day.map(i16::from),
+            edit.mode.map(|mode| mode.as_str().to_owned()),
         )
         .fetch_optional(self.pool())
         .await

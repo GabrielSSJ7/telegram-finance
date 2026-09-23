@@ -58,6 +58,17 @@ impl AccountService {
         Ok(self.accounts.list_accounts(include_archived).await?)
     }
 
+    /// Renames an account (a goal's pot included); names stay unique.
+    ///
+    /// ```ignore
+    /// accounts.rename(account_id, "Nubank da Bia").await?;
+    /// ```
+    pub async fn rename(&self, id: AccountId, name: &str) -> AppResult<Account> {
+        let name = clean_name("account name", name, MAX_ACCOUNT_NAME_CHARS)?;
+        let renamed = self.accounts.rename_account(id, &name).await?;
+        renamed.ok_or_else(|| AppError::not_found("active account", id))
+    }
+
     pub async fn archive(&self, id: AccountId) -> AppResult<()> {
         let archived = self.accounts.archive_account(id, self.clock.now()).await?;
         if !archived {
@@ -161,5 +172,20 @@ mod tests {
         let balances: Vec<i64> =
             service.balances().await.unwrap().iter().map(|item| item.balance.value()).collect();
         assert_eq!(balances, vec![150_000, 5_000]);
+    }
+
+    #[tokio::test]
+    async fn rename_keeps_names_unique_and_needs_an_active_account() {
+        let service = service();
+        let account = service.open(checking("Nubank", 0)).await.unwrap();
+        service.open(checking("Itaú", 0)).await.unwrap();
+        let renamed = service.rename(account.id, "  Nubank da Bia  ").await.unwrap();
+        assert_eq!(renamed.name, "Nubank da Bia");
+        let clash = service.rename(account.id, "itaú").await;
+        assert!(matches!(clash, Err(AppError::Conflict(_))), "{clash:?}");
+        assert!(service.rename(account.id, "  ").await.is_err(), "an empty name is refused");
+        service.archive(account.id).await.unwrap();
+        let gone = service.rename(account.id, "Qualquer").await;
+        assert!(matches!(gone, Err(AppError::NotFound { .. })), "{gone:?}");
     }
 }

@@ -85,3 +85,14 @@ pub async fn account_flows_follow_entries(stores: StorePorts) {
     assert_eq!(balance_from_flows(&flows, checking.id), Cents::new(5_000 - 700 - 2_000));
     assert_eq!(balance_from_flows(&flows, pot.id), Cents::new(2_000));
 }
+
+pub async fn account_rename_keeps_names_unique(stores: StorePorts) {
+    let account = open_account(&stores, "Renomear", AccountKind::Checking, 0).await;
+    let other = open_account(&stores, "Ocupado", AccountKind::Checking, 0).await;
+    let renamed = stores.accounts.rename_account(account.id, "Renomeada").await.unwrap();
+    assert_eq!(renamed.map(|row| row.name), Some("Renomeada".to_owned()));
+    let clash = stores.accounts.rename_account(account.id, &other.name).await.unwrap_err();
+    assert!(matches!(clash, StoreError::UniqueViolation { .. }), "{clash:?}");
+    assert!(stores.accounts.archive_account(account.id, Utc::now()).await.unwrap());
+    assert_eq!(stores.accounts.rename_account(account.id, "Depois").await.unwrap(), None);
+}

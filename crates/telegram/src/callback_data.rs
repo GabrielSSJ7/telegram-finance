@@ -10,7 +10,7 @@ use app::model::{
 };
 use chrono::NaiveDate;
 
-use crate::flows::EditChoice;
+use crate::flows::{EditChoice, RecordField, RecordKind};
 use domain::{AccountKind, Cents};
 
 pub const MAX_CALLBACK_BYTES: usize = 64;
@@ -36,6 +36,10 @@ pub enum ButtonValue {
     CategoryKind(CategoryKind),
     /// "É essencial?" in `/novacategoria`.
     Essential(bool),
+    /// `/editar`: the kind of record, one recurring entry, and the field.
+    RecordKind(RecordKind),
+    Recurrence(RecurrenceId),
+    RecordField(RecordField),
     Confirm,
     Cancel,
 }
@@ -137,6 +141,9 @@ fn encode_value(value: ButtonValue) -> String {
         ButtonValue::EditChoice(choice) => format!("ec:{}", choice.code()),
         ButtonValue::CategoryKind(kind) => format!("ck:{}", kind.as_str()),
         ButtonValue::Essential(essential) => format!("es:{}", u8::from(essential)),
+        ButtonValue::RecordKind(kind) => format!("rw:{}", kind.code()),
+        ButtonValue::RecordField(field) => format!("rf:{}", field.code()),
+        ButtonValue::Recurrence(id) => format!("rc:{id}"),
         without_payload => fixed_code(without_payload).into(),
     }
 }
@@ -224,6 +231,9 @@ fn decode_choice(tag: &str, value: &str) -> Option<ButtonValue> {
         ("rm", _) => value.parse().ok().map(ButtonValue::RecurrenceMode),
         ("ec", _) => EditChoice::from_code(value).map(ButtonValue::EditChoice),
         ("ck", _) => value.parse().ok().map(ButtonValue::CategoryKind),
+        ("rw", _) => RecordKind::from_code(value).map(ButtonValue::RecordKind),
+        ("rf", _) => RecordField::from_code(value).map(ButtonValue::RecordField),
+        ("rc", _) => value.parse().ok().map(ButtonValue::Recurrence),
         ("es", "1") => Some(ButtonValue::Essential(true)),
         ("es", "0") => Some(ButtonValue::Essential(false)),
         _ => None,
@@ -262,6 +272,9 @@ mod tests {
             ButtonValue::CategoryKind(CategoryKind::Income),
             ButtonValue::Essential(true),
             ButtonValue::Essential(false),
+            ButtonValue::RecordKind(RecordKind::Goal),
+            ButtonValue::RecordField(RecordField::Deadline),
+            ButtonValue::Recurrence(RecurrenceId::generate()),
         ]
     }
 

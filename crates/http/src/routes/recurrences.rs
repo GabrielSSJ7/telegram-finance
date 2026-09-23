@@ -4,7 +4,7 @@ use axum::extract::State;
 use axum::http::StatusCode;
 use uuid::Uuid;
 
-use crate::dto::recurrences::{CreateRecurrenceBody, RecurrenceResponse};
+use crate::dto::recurrences::{CreateRecurrenceBody, RecurrenceResponse, UpdateRecurrenceBody};
 use crate::error::{ApiError, Problem};
 use crate::extract::{ApiJson, ApiPath};
 use crate::state::ApiState;
@@ -37,4 +37,18 @@ pub async fn deactivate_recurrence(
 ) -> Result<StatusCode, ApiError> {
     state.services.recurrences.deactivate(RecurrenceId(id)).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+#[utoipa::path(patch, path = "/recurrences/{id}", tag = "recurrences", params(("id" = Uuid, Path)),
+    request_body = UpdateRecurrenceBody,
+    responses((status = 200, body = RecurrenceResponse), (status = 404, body = Problem),
+        (status = 422, body = Problem)),
+    security(("api_key" = [])))]
+pub async fn update_recurrence(
+    State(state): State<ApiState>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<UpdateRecurrenceBody>,
+) -> Result<Json<RecurrenceResponse>, ApiError> {
+    let updated = state.services.recurrences.update(RecurrenceId(id), body.try_into()?).await?;
+    Ok(Json(updated.into()))
 }

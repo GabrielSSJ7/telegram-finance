@@ -13,8 +13,8 @@ use super::ledger::{AccountEntry, EntryOrigin, EntryRequest};
 use super::text_rules::clean_name;
 use super::{AccountService, CardService, CategoryService, LedgerService};
 use crate::model::{
-    CategoryKind, DraftId, MemberId, NewRecurrence, Recurrence, RecurrenceId, RecurrenceKind,
-    RecurrenceMode, RecurrenceTarget,
+    CategoryKind, DraftId, MemberId, NewRecurrence, Recurrence, RecurrenceEdit, RecurrenceId,
+    RecurrenceKind, RecurrenceMode, RecurrenceTarget,
 };
 use crate::ports::{Clock, RecurrenceStore};
 use crate::{AppError, AppResult};
@@ -89,6 +89,16 @@ impl RecurrenceService {
     pub async fn find(&self, id: RecurrenceId) -> AppResult<Recurrence> {
         let found = self.store.find_recurrence(id).await?;
         found.ok_or_else(|| AppError::not_found("recurrence", id))
+    }
+
+    /// Changes the amount, the day or the mode of a recurring entry.
+    pub async fn update(&self, id: RecurrenceId, edit: RecurrenceEdit) -> AppResult<Recurrence> {
+        if edit.amount.is_some_and(|amount| !amount.is_positive()) {
+            let amount = edit.amount.unwrap_or(Cents::ZERO).value();
+            return Err(AppError::invalid("amount", amount, "a positive number of cents"));
+        }
+        let updated = self.store.update_recurrence(id, edit).await?;
+        updated.ok_or_else(|| AppError::not_found("active recurrence", id))
     }
 
     pub async fn deactivate(&self, id: RecurrenceId) -> AppResult<()> {

@@ -17,6 +17,7 @@ use super::executor::{Committed, execute, headline_for};
 use crate::callback_data::{nonce_of, undo_button, undo_purchase_button};
 use crate::flows::{Advance, FormInput, FormKind, FormState, build_command};
 use crate::gateway::{Button, GatewayError, Keyboard};
+use crate::render::catalog::CatalogNeeds;
 use crate::render::{CardContext, CardView, Catalog, card_view, committed_card};
 
 /// Idle flows expire; a half-typed entry from yesterday should not
@@ -164,7 +165,7 @@ async fn render_card(
     state: &FormState,
     problem: Option<&str>,
 ) -> AppResult<CardView> {
-    let catalog = Catalog::load(&context.services, state.form == FormKind::PayInvoice).await?;
+    let catalog = Catalog::load(&context.services, CatalogNeeds::of(state.form)).await?;
     let nonce = nonce_of(session.draft);
     let card = CardContext {
         owner: &session.member.display_name,
@@ -285,9 +286,8 @@ async fn show_committed(
     committed: &Committed,
     placement: Placement,
 ) -> Result<(), GatewayError> {
-    let catalog = Catalog::load(&context.services, state.form == FormKind::PayInvoice)
-        .await
-        .unwrap_or_default();
+    let catalog =
+        Catalog::load(&context.services, CatalogNeeds::of(state.form)).await.unwrap_or_default();
     let card = CardContext {
         owner: &session.member.display_name,
         catalog: &catalog,

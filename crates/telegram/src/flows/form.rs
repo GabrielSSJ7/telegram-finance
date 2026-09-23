@@ -18,6 +18,9 @@ pub enum FormKind {
     SetBudget,
     /// Started from `/ultimos`, never by typing a command.
     EditEntry,
+    /// `/editar`: changes a registered account, card, category, goal or
+    /// recurring entry.
+    EditRecord,
     /// Makes an account's balance match the bank.
     Adjust,
     Settings,
@@ -76,6 +79,12 @@ pub enum Field {
     YesterdayReportTime,
     /// 19:00 or later.
     TodayReportTime,
+    /// `/editar`: which kind of record, which one, and which field.
+    RecordKindChoice,
+    RecordTarget,
+    RecordFieldChoice,
+    /// The new name of the record being changed.
+    NewName,
     CategoryName,
     CategoryKindChoice,
     /// Only asked for expense categories.
@@ -95,6 +104,23 @@ use Field::{
     Installments, InvoiceChoice, PaymentAccount, ReceivingAccount, RecurrenceDay,
     RecurrenceKindChoice, RecurrenceModeChoice, RecurrenceName, RefundTarget, ToAccount,
 };
+
+/// Only the value field picked in `RecordFieldChoice` applies, and only
+/// the ones that kind of record has.
+const EDIT_RECORD_FIELDS: &[Field] = &[
+    Field::RecordKindChoice,
+    Field::RecordTarget,
+    Field::RecordFieldChoice,
+    Field::NewName,
+    Field::CategoryEmoji,
+    Field::ClosingDay,
+    Field::DueDay,
+    Field::GoalTarget,
+    Field::GoalDeadline,
+    Field::Amount,
+    Field::RecurrenceDay,
+    Field::RecurrenceModeChoice,
+];
 
 /// Only the field picked in `EditFieldChoice` applies.
 const EDIT_FIELDS: &[Field] =
@@ -123,7 +149,7 @@ const RECURRENCE_FIELDS: &[Field] = &[
 ];
 
 impl FormKind {
-    pub const ALL: [FormKind; 16] = [
+    pub const ALL: [FormKind; 17] = [
         FormKind::Expense,
         FormKind::Income,
         FormKind::Transfer,
@@ -140,6 +166,7 @@ impl FormKind {
         FormKind::Adjust,
         FormKind::Settings,
         FormKind::NewCategory,
+        FormKind::EditRecord,
     ];
 
     pub const fn fields(self) -> &'static [Field] {
@@ -158,10 +185,19 @@ impl FormKind {
             FormKind::Refund => &[Amount, Description, ExpenseCategory, RefundTarget, Date],
             FormKind::NewRecurrence => RECURRENCE_FIELDS,
             FormKind::SetBudget => &[ExpenseCategory, BudgetLimit],
+            other => other.setup_fields(),
+        }
+    }
+
+    /// Forms that change what is already registered.
+    const fn setup_fields(self) -> &'static [Field] {
+        match self {
             FormKind::EditEntry => EDIT_FIELDS,
+            FormKind::EditRecord => EDIT_RECORD_FIELDS,
             FormKind::Adjust => &[ReceivingAccount, Field::ActualBalance],
             FormKind::Settings => SETTINGS_FIELDS,
             FormKind::NewCategory => CATEGORY_FIELDS,
+            _ => &[],
         }
     }
 
@@ -180,7 +216,8 @@ impl FormKind {
             FormKind::Refund => "estorno",
             FormKind::NewRecurrence => "recorrente",
             FormKind::SetBudget => "orcamento",
-            FormKind::EditEntry => "editar",
+            FormKind::EditEntry => "editarlancamento",
+            FormKind::EditRecord => "editar",
             FormKind::Adjust => "ajuste",
             FormKind::Settings => "config",
             FormKind::NewCategory => "novacategoria",
@@ -202,6 +239,7 @@ impl FormKind {
             FormKind::NewRecurrence => "Nova recorrência",
             FormKind::SetBudget => "Orçamento mensal",
             FormKind::EditEntry => "Editar lançamento",
+            FormKind::EditRecord => "Editar cadastro",
             FormKind::Adjust => "Ajustar saldo",
             FormKind::Settings => "Configurações",
             FormKind::NewCategory => "Nova categoria",
@@ -224,6 +262,7 @@ impl Field {
         let recurrence_kind = answers.recurrence_kind();
         match (form, self) {
             (FormKind::EditEntry, field) => edit_applies(field, answers),
+            (FormKind::EditRecord, field) => record_applies(field, answers),
             (_, Field::RecurrencePaid) => answers.count(Field::RecurrenceInstallments).is_some(),
             (_, Field::EssentialChoice) => {
                 answers.category_kind() == Some(app::model::CategoryKind::Expense)
@@ -238,6 +277,27 @@ impl Field {
             _ => true,
         }
     }
+}
+
+/// In `/editar`, the first three questions always come; after them only
+/// the value field matching the picked record field is asked.
+fn record_applies(field: Field, answers: &super::Answers) -> bool {
+    use super::RecordField;
+    let picked = answers.record_field();
+    let value_field = match picked {
+        Some(RecordField::Name) => Field::NewName,
+        Some(RecordField::Emoji) => Field::CategoryEmoji,
+        Some(RecordField::Closing) => Field::ClosingDay,
+        Some(RecordField::Due) => Field::DueDay,
+        Some(RecordField::Target) => Field::GoalTarget,
+        Some(RecordField::Deadline) => Field::GoalDeadline,
+        Some(RecordField::Amount) => Field::Amount,
+        Some(RecordField::Day) => Field::RecurrenceDay,
+        Some(RecordField::Mode) => Field::RecurrenceModeChoice,
+        None => Field::RecordFieldChoice,
+    };
+    matches!(field, Field::RecordKindChoice | Field::RecordTarget | Field::RecordFieldChoice)
+        || field == value_field
 }
 
 /// In an edit, only the picked field is asked; income picks income
@@ -267,7 +327,8 @@ mod tests {
             assert!(!form.fields().is_empty() && !form.title().is_empty());
         }
         assert_eq!(FormKind::from_command("saldo"), None);
-        assert_eq!(FormKind::from_command("editar"), None);
+        assert_eq!(FormKind::from_command("editar"), Some(FormKind::EditRecord));
+        assert_eq!(FormKind::from_command("editarlancamento"), None, "only /ultimos starts it");
     }
 
     #[test]

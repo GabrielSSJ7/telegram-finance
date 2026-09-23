@@ -73,3 +73,21 @@ async fn projection_reports_the_end_of_the_cycle() {
     assert_eq!(report["result_cents"].as_i64(), Some(-30_000));
     assert_eq!(report["cash_at_end_cents"].as_i64(), Some(70_000));
 }
+
+#[tokio::test]
+async fn categories_change_name_and_emoji_through_patch() {
+    let api = ApiHarness::new().await;
+    let body = json!({"name": "mercado", "kind": "expense", "emoji": "🛒"});
+    let category = api.post("/api/v1/categories", body).await.1;
+    let uri = format!("/api/v1/categories/{}", category["id"].as_str().unwrap());
+    let (status, renamed) = api.call(Method::PATCH, &uri, Some(json!({"name": "feira"}))).await;
+    assert_eq!((status, renamed["name"].as_str()), (StatusCode::OK, Some("feira")));
+    assert_eq!(renamed["emoji"].as_str(), Some("🛒"), "a field left out is kept");
+    let (_, cleared) = api.call(Method::PATCH, &uri, Some(json!({"emoji": null}))).await;
+    assert_eq!(cleared["emoji"], serde_json::Value::Null);
+    let (_, marked) = api.call(Method::PATCH, &uri, Some(json!({"essential": true}))).await;
+    assert_eq!(
+        (marked["essential"].as_bool(), marked["name"].as_str()),
+        (Some(true), Some("feira"))
+    );
+}

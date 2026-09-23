@@ -49,11 +49,13 @@ use crate::services::StorePorts;
 macro_rules! store_contract_cases {
     ($case:ident) => {
         $case!(account_create_find_list_archive);
+        $case!(account_rename_keeps_names_unique);
         $case!(account_active_names_are_unique);
         $case!(account_flows_follow_entries);
         $case!(category_create_find_archive);
         $case!(category_names_unique_per_kind);
         $case!(category_essential_flag);
+        $case!(category_update_name_and_emoji);
         $case!(entry_record_and_find);
         $case!(entry_duplicate_draft_is_rejected);
         $case!(entry_list_filters_by_range_and_kind);
@@ -71,12 +73,14 @@ macro_rules! store_contract_cases {
         $case!(bot_offset_round_trip);
         $case!(card_create_find_list_unique);
         $case!(card_archive_hides_card);
+        $case!(card_update_name_and_days);
         $case!(card_invoice_ensure_keeps_first_dates);
         $case!(card_purchase_spreads_installments);
         $case!(card_purchase_delete_removes_installments);
         $case!(card_invoice_entries_count_as_credits_and_payments);
         $case!(recurrence_create_find_list_deactivate);
         $case!(recurrence_keeps_its_installment_plan);
+        $case!(recurrence_update_amount_day_and_mode);
         $case!(recurrence_mark_generated_only_moves_forward);
         $case!(job_runs_once_per_day);
         $case!(job_failures_retry_until_max_attempts);

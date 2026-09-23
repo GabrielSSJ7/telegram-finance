@@ -1,18 +1,20 @@
 //! Turns a confirmed form into the use-case request it stands for.
 
 use app::model::{
-    CategoryId, EntryId, EntryPatch, RecurrenceKind, RecurrenceTarget, SettingsPatch,
+    AccountId, CardEdit, CardId, CategoryEdit, CategoryId, EmojiChange, EntryId, EntryPatch,
+    GoalId, RecurrenceEdit, RecurrenceId, RecurrenceKind, RecurrenceTarget, SettingsPatch,
 };
 use app::services::ledger::{AccountEntry, EntryRequest, TransferEntry};
 use app::services::{
     CardCreditRequest, CardPurchaseRequest, CreateCategory, CreateGoal, CreateRecurrence,
     InvoicePaymentRequest, OpenAccount, OpenCard, PotMove, ReconcileBalance,
 };
+use chrono::NaiveDate;
 use domain::Cents;
 use domain::DayOfMonth;
 use domain::recurrence::InstallmentPlan;
 
-use super::{Answers, EditChoice, Field, FormKind, FormState};
+use super::{Answers, EditChoice, Field, FormKind, FormState, RecordField, RecordKind};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FormCommand {
@@ -38,6 +40,19 @@ pub enum FormCommand {
     Reconcile(ReconcileBalance),
     UpdateSettings(SettingsPatch),
     CreateCategory(CreateCategory),
+    EditRecord(RecordEdit),
+}
+
+/// One change to a registered record, from `/editar`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RecordEdit {
+    Account { id: AccountId, name: String },
+    Card { id: CardId, edit: CardEdit },
+    Category { id: CategoryId, edit: CategoryEdit },
+    GoalName { id: GoalId, name: String },
+    GoalTarget { id: GoalId, target: Cents },
+    GoalDeadline { id: GoalId, date: Option<NaiveDate> },
+    Recurrence { id: RecurrenceId, edit: RecurrenceEdit },
 }
 
 /// `None` when a required answer is missing (the engine never confirms
@@ -56,6 +71,7 @@ pub fn build_command(state: &FormState) -> Option<FormCommand> {
         FormKind::PotWithdraw => pot_move(answers, Field::ToAccount).map(FormCommand::PotWithdraw),
         FormKind::PayInvoice => pay_invoice(answers).map(FormCommand::PayInvoice),
         FormKind::EditEntry => edit_entry(answers),
+        FormKind::EditRecord => record_edit(answers).map(FormCommand::EditRecord),
         FormKind::Adjust => reconcile(answers).map(FormCommand::Reconcile),
         setup => setup_command(setup, answers),
     }
@@ -107,6 +123,91 @@ fn new_category(answers: &Answers) -> Option<FormCommand> {
         // Income categories skip the question and are never essential.
         essential: answers.essential().unwrap_or(false),
     }))
+}
+
+/// The record and the one field `/editar` changes.
+fn record_edit(answers: &Answers) -> Option<RecordEdit> {
+    match answers.record_kind()? {
+        RecordKind::Account => Some(RecordEdit::Account {
+            id: answers.account(Field::RecordTarget)?,
+            name: answers.text(Field::NewName)?,
+        }),
+        RecordKind::Card => Some(RecordEdit::Card {
+            id: answers.card(Field::RecordTarget)?,
+            edit: card_edit(answers)?,
+        }),
+        RecordKind::Category => Some(RecordEdit::Category {
+            id: answers.category(Field::RecordTarget)?,
+            edit: category_edit(answers)?,
+        }),
+        RecordKind::Goal => goal_edit(answers),
+        RecordKind::Recurrence => Some(RecordEdit::Recurrence {
+            id: answers.recurrence()?,
+            edit: recurrence_edit(answers)?,
+        }),
+    }
+}
+
+fn card_edit(answers: &Answers) -> Option<CardEdit> {
+    let day = |field| DayOfMonth::new(answers.day(field)?).ok();
+    match answers.record_field()? {
+        RecordField::Name => {
+            Some(CardEdit { name: Some(answers.text(Field::NewName)?), ..CardEdit::default() })
+        }
+        RecordField::Closing => {
+            Some(CardEdit { closing_day: Some(day(Field::ClosingDay)?), ..CardEdit::default() })
+        }
+        RecordField::Due => {
+            Some(CardEdit { due_day: Some(day(Field::DueDay)?), ..CardEdit::default() })
+        }
+        _ => None,
+    }
+}
+
+fn category_edit(answers: &Answers) -> Option<CategoryEdit> {
+    match answers.record_field()? {
+        RecordField::Name => Some(CategoryEdit {
+            name: Some(answers.text(Field::NewName)?),
+            ..CategoryEdit::default()
+        }),
+        RecordField::Emoji => {
+            let emoji = answers.text(Field::CategoryEmoji)?;
+            let change =
+                if emoji.is_empty() { EmojiChange::Clear } else { EmojiChange::Set(emoji) };
+            Some(CategoryEdit { emoji: change, ..CategoryEdit::default() })
+        }
+        _ => None,
+    }
+}
+
+fn goal_edit(answers: &Answers) -> Option<RecordEdit> {
+    let id = answers.goal_at(Field::RecordTarget)?;
+    match answers.record_field()? {
+        RecordField::Name => Some(RecordEdit::GoalName { id, name: answers.text(Field::NewName)? }),
+        RecordField::Target => {
+            Some(RecordEdit::GoalTarget { id, target: answers.money(Field::GoalTarget)? })
+        }
+        RecordField::Deadline => Some(RecordEdit::GoalDeadline { id, date: answers.deadline()? }),
+        _ => None,
+    }
+}
+
+fn recurrence_edit(answers: &Answers) -> Option<RecurrenceEdit> {
+    match answers.record_field()? {
+        RecordField::Amount => Some(RecurrenceEdit {
+            amount: Some(answers.money(Field::Amount)?),
+            ..RecurrenceEdit::default()
+        }),
+        RecordField::Day => Some(RecurrenceEdit {
+            day: DayOfMonth::new(answers.day(Field::RecurrenceDay)?).ok(),
+            ..RecurrenceEdit::default()
+        }),
+        RecordField::Mode => Some(RecurrenceEdit {
+            mode: Some(answers.recurrence_mode()?),
+            ..RecurrenceEdit::default()
+        }),
+        _ => None,
+    }
 }
 
 fn reconcile(answers: &Answers) -> Option<ReconcileBalance> {

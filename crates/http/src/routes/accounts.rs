@@ -8,6 +8,7 @@ use uuid::Uuid;
 
 use crate::dto::accounts::{
     AccountResponse, BalanceSheetResponse, ListAccountsQuery, OpenAccountBody, ReconcileBody,
+    RenameBody,
 };
 use crate::dto::entries::EntryResponse;
 use crate::error::{ApiError, Problem};
@@ -73,4 +74,18 @@ pub async fn reconcile_account(
     let origin = EntryOrigin { created_by: None, draft };
     let entry = state.services.adjustments.reconcile(request, origin).await?;
     Ok((StatusCode::CREATED, Json(entry.into())))
+}
+
+#[utoipa::path(patch, path = "/accounts/{id}", tag = "accounts", params(("id" = Uuid, Path)),
+    request_body = RenameBody,
+    responses((status = 200, body = AccountResponse), (status = 404, body = Problem),
+        (status = 409, body = Problem), (status = 422, body = Problem)),
+    security(("api_key" = [])))]
+pub async fn rename_account(
+    State(state): State<ApiState>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<RenameBody>,
+) -> Result<Json<AccountResponse>, ApiError> {
+    let account = state.services.accounts.rename(AccountId(id), &body.name).await?;
+    Ok(Json(account.into()))
 }

@@ -92,6 +92,12 @@ impl From<BalanceSheet> for BalanceSheetResponse {
     }
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct RenameBody {
+    #[schema(example = "Nubank da Bia")]
+    pub name: String,
+}
+
 /// What the bank shows for the account now; the difference becomes an
 /// adjustment entry.
 #[derive(Debug, Deserialize, ToSchema)]

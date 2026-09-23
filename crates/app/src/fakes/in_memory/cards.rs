@@ -8,13 +8,41 @@ use domain::invoice_settlement::InvoiceTotals;
 use super::entries::ledger_entry;
 use super::{InMemoryStore, MemoryState, same_name, unique_violation};
 use crate::model::{
-    CardId, CardPurchase, CreditCard, DraftId, EntryId, Invoice, InvoiceId, LedgerEntry, NewCard,
-    NewCardPurchase, NewEntry, PurchaseId,
+    CardEdit, CardId, CardPurchase, CreditCard, DraftId, EntryId, Invoice, InvoiceId, LedgerEntry,
+    NewCard, NewCardPurchase, NewEntry, PurchaseId,
 };
 use crate::ports::{CardStore, StoreError, StoreResult};
 
+/// Another active card already uses `name`.
+fn card_name_taken(state: &MemoryState, id: CardId, name: Option<&str>) -> bool {
+    let Some(name) = name else {
+        return false;
+    };
+    state.cards.iter().any(|row| row.id != id && !row.archived && same_name(&row.name, name))
+}
+
 #[async_trait]
 impl CardStore for InMemoryStore {
+    async fn update_card(&self, id: CardId, edit: CardEdit) -> StoreResult<Option<CreditCard>> {
+        let mut state = self.lock();
+        if card_name_taken(&state, id, edit.name.as_deref()) {
+            return Err(unique_violation("credit_cards_active_name"));
+        }
+        let Some(row) = state.cards.iter_mut().find(|row| row.id == id && !row.archived) else {
+            return Ok(None);
+        };
+        if let Some(name) = edit.name {
+            row.name = name;
+        }
+        if let Some(day) = edit.closing_day {
+            row.schedule.closing_day = day;
+        }
+        if let Some(day) = edit.due_day {
+            row.schedule.due_day = day;
+        }
+        Ok(Some(row.clone()))
+    }
+
     async fn create_card(&self, card: NewCard) -> StoreResult<CreditCard> {
         let mut state = self.lock();
         if state.cards.iter().any(|row| !row.archived && same_name(&row.name, &card.name)) {

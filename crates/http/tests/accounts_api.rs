@@ -81,3 +81,30 @@ async fn reconcile_records_the_gap_once() {
         StatusCode::NOT_FOUND
     );
 }
+
+#[tokio::test]
+async fn accounts_can_be_renamed() {
+    let api = ApiHarness::new().await;
+    let checking = api.open_checking("Nubank", 0).await;
+    let uri = format!("/api/v1/accounts/{checking}");
+    let renamed = api.call(Method::PATCH, &uri, Some(json!({"name": "Nubank da Bia"}))).await;
+    assert_eq!((renamed.0, renamed.1["name"].as_str()), (StatusCode::OK, Some("Nubank da Bia")));
+}
+
+#[tokio::test]
+async fn cards_change_name_and_days() {
+    let api = ApiHarness::new().await;
+    let open = json!({"name": "Roxinho", "closing_day": 3, "due_day": 10});
+    let card = api.post("/api/v1/cards", open).await.1;
+    let uri = format!("/api/v1/cards/{}", card["id"].as_str().unwrap());
+    let patch = json!({"name": "Itaú Black", "closing_day": 5});
+    let (status, updated) = api.call(Method::PATCH, &uri, Some(patch)).await;
+    assert_eq!(status, StatusCode::OK, "{updated}");
+    assert_eq!(
+        (updated["name"].as_str(), updated["closing_day"].as_u64()),
+        (Some("Itaú Black"), Some(5))
+    );
+    assert_eq!(updated["due_day"].as_u64(), Some(10), "a field left out is kept");
+    let bad = api.call(Method::PATCH, &uri, Some(json!({"closing_day": 40}))).await;
+    assert_eq!(bad.0, StatusCode::UNPROCESSABLE_ENTITY);
+}

@@ -8,7 +8,7 @@ use domain::{Cents, DayOfMonth};
 
 use super::text_rules::clean_name;
 use super::{AccountService, CategoryService};
-use crate::model::{AccountId, CardId, CreditCard, NewCard};
+use crate::model::{AccountId, CardEdit, CardId, CreditCard, NewCard};
 use crate::ports::{CardStore, Clock};
 use crate::{AppError, AppResult};
 
@@ -65,6 +65,14 @@ impl CardService {
 
     pub async fn list(&self) -> AppResult<Vec<CreditCard>> {
         Ok(self.cards.list_cards(false).await?)
+    }
+
+    /// Changes a card's name or the days its invoice closes and falls due.
+    pub async fn update(&self, id: CardId, edit: CardEdit) -> AppResult<CreditCard> {
+        let name = edit.name.map(|name| clean_name("card name", &name, MAX_CARD_NAME_CHARS));
+        let edit = CardEdit { name: name.transpose()?, ..edit };
+        let updated = self.cards.update_card(id, edit).await?;
+        updated.ok_or_else(|| AppError::not_found("active card", id))
     }
 
     pub async fn archive(&self, id: CardId) -> AppResult<()> {

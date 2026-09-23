@@ -7,7 +7,8 @@ use domain::{AccountKind, Cents, DayOfMonth, EntryKind};
 
 use super::{member, new_category, open_account};
 use crate::model::{
-    CardId, CardPurchase, CategoryKind, CreditCard, DraftId, NewCard, NewCardPurchase, NewEntry,
+    CardEdit, CardId, CardPurchase, CategoryKind, CreditCard, DraftId, NewCard, NewCardPurchase,
+    NewEntry,
 };
 use crate::ports::StoreError;
 use crate::services::StorePorts;
@@ -157,4 +158,18 @@ pub async fn card_invoice_entries_count_as_credits_and_payments(stores: StorePor
     assert_eq!(again, StoreError::DuplicateDraft);
     let totals = stores.cards.invoice_totals(card.id).await.unwrap()[0].1;
     assert_eq!((totals.credits, totals.payments), (Cents::new(300), Cents::new(700)));
+}
+
+pub async fn card_update_name_and_days(stores: StorePorts) {
+    let card = new_card(&stores, "contrato-editar").await;
+    let edit = CardEdit {
+        name: Some("contrato-editado".into()),
+        closing_day: DayOfMonth::new(7).ok(),
+        due_day: DayOfMonth::new(17).ok(),
+    };
+    let updated = stores.cards.update_card(card.id, edit).await.unwrap().unwrap();
+    assert_eq!(updated.name, "contrato-editado");
+    assert_eq!((updated.schedule.closing_day.get(), updated.schedule.due_day.get()), (7, 17));
+    assert!(stores.cards.archive_card(card.id, Utc::now()).await.unwrap());
+    assert_eq!(stores.cards.update_card(card.id, CardEdit::default()).await.unwrap(), None);
 }

@@ -1,6 +1,7 @@
 use app::AppError;
 use app::model::{
-    AccountId, CardId, CardPurchase, CardSummary, CategoryId, CreditCard, InvoiceId, InvoiceView,
+    AccountId, CardEdit, CardId, CardPurchase, CardSummary, CategoryId, CreditCard, InvoiceId,
+    InvoiceView,
 };
 use app::services::{CardCreditRequest, CardPurchaseRequest, InvoicePaymentRequest, OpenCard};
 use chrono::NaiveDate;
@@ -135,6 +136,35 @@ impl From<CardSummary> for CardSummaryResponse {
             unpaid_invoice: summary.unpaid.map(Into::into),
             future_committed_cents: summary.future_committed.value(),
         }
+    }
+}
+
+/// Fields left out keep their value.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UpdateCardBody {
+    #[schema(example = "Itaú Black")]
+    pub name: Option<String>,
+    #[schema(example = 5)]
+    pub closing_day: Option<u8>,
+    #[schema(example = 15)]
+    pub due_day: Option<u8>,
+}
+
+impl TryFrom<UpdateCardBody> for CardEdit {
+    type Error = AppError;
+    fn try_from(body: UpdateCardBody) -> Result<Self, Self::Error> {
+        let day = |value: Option<u8>, field: &'static str| {
+            value
+                .map(|day| {
+                    DayOfMonth::new(day).map_err(|_| AppError::invalid(field, day, "1 to 31"))
+                })
+                .transpose()
+        };
+        Ok(CardEdit {
+            name: body.name,
+            closing_day: day(body.closing_day, "closing_day")?,
+            due_day: day(body.due_day, "due_day")?,
+        })
     }
 }
 

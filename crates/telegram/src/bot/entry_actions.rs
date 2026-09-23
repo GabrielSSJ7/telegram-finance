@@ -11,6 +11,7 @@ use super::flow_runner::start_prepared_flow;
 use crate::flows::{Answer, Answers, Field, FormKind, FormState};
 use crate::gateway::{ButtonPress, GatewayError, Keyboard};
 use crate::render::Catalog;
+use crate::render::catalog::CatalogNeeds;
 use crate::render::entries::{entry_label, recent_entries_view};
 
 pub const RECENT_ENTRIES: u32 = 10;
@@ -27,7 +28,7 @@ pub async fn recent_entries(context: &BotContext, chat_id: i64) -> Result<(), Ga
 async fn recent_view(context: &BotContext) -> AppResult<(String, Option<Keyboard>)> {
     let filter = EntryFilter { limit: RECENT_ENTRIES, ..EntryFilter::default() };
     let entries = context.services.ledger.list(&filter).await?;
-    let catalog = Catalog::load(&context.services, false).await?;
+    let catalog = Catalog::load(&context.services, CatalogNeeds::default()).await?;
     let members = context.services.members.list().await?;
     Ok(recent_entries_view(&entries, &catalog, &members, context.clock.today()))
 }

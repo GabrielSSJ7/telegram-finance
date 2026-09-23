@@ -85,6 +85,29 @@ impl GoalService {
         Ok(goals.into_iter().map(|goal| progress_of(saved_in(goal.pot.id), goal)).collect())
     }
 
+    /// Renames a goal, which is the name of its pot.
+    pub async fn rename(&self, id: GoalId, name: &str) -> AppResult<Goal> {
+        let goal = self.require_goal(id).await?;
+        self.accounts.rename(goal.pot.id, name).await?;
+        self.goals.find_goal(id).await?.ok_or_else(|| AppError::not_found("goal", id))
+    }
+
+    /// Changes how much to save, keeping the deadline.
+    pub async fn set_target(&self, id: GoalId, target: Cents) -> AppResult<Goal> {
+        let current = self.require_goal(id).await?.target;
+        self.update_target(id, GoalTarget { target, ..current }).await
+    }
+
+    /// Changes the deadline, keeping the amount; `None` clears it.
+    pub async fn set_deadline(
+        &self,
+        id: GoalId,
+        target_date: Option<NaiveDate>,
+    ) -> AppResult<Goal> {
+        let current = self.require_goal(id).await?.target;
+        self.update_target(id, GoalTarget { target_date, ..current }).await
+    }
+
     pub async fn update_target(&self, id: GoalId, target: GoalTarget) -> AppResult<Goal> {
         ensure_positive_target(target.target)?;
         let updated = self.goals.update_goal_target(id, target).await?;

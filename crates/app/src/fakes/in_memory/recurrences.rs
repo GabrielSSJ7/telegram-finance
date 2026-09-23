@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 
 use super::InMemoryStore;
-use crate::model::{NewRecurrence, Recurrence, RecurrenceId};
+use crate::model::{NewRecurrence, Recurrence, RecurrenceEdit, RecurrenceId};
 use crate::ports::{RecurrenceStore, StoreResult};
 
 #[async_trait]
@@ -33,6 +33,27 @@ impl RecurrenceStore for InMemoryStore {
 
     async fn find_recurrence(&self, id: RecurrenceId) -> StoreResult<Option<Recurrence>> {
         Ok(self.lock().recurrences.iter().find(|row| row.id == id).cloned())
+    }
+
+    async fn update_recurrence(
+        &self,
+        id: RecurrenceId,
+        edit: RecurrenceEdit,
+    ) -> StoreResult<Option<Recurrence>> {
+        let mut state = self.lock();
+        let Some(row) = state.recurrences.iter_mut().find(|row| row.id == id && row.active) else {
+            return Ok(None);
+        };
+        if let Some(amount) = edit.amount {
+            row.amount = amount;
+        }
+        if let Some(day) = edit.day {
+            row.day = day;
+        }
+        if let Some(mode) = edit.mode {
+            row.mode = mode;
+        }
+        Ok(Some(row.clone()))
     }
 
     async fn deactivate_recurrence(&self, id: RecurrenceId) -> StoreResult<bool> {

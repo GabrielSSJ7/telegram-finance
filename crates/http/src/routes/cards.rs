@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::dto::cards::{
     CardResponse, CardSummaryResponse, CreditBody, InvoiceResponse, OpenCardBody, PaymentBody,
-    PurchaseBody, PurchaseResponse,
+    PurchaseBody, PurchaseResponse, UpdateCardBody,
 };
 use crate::dto::entries::EntryResponse;
 use crate::error::{ApiError, Problem};
@@ -113,4 +113,18 @@ pub async fn pay_invoice(
     let origin = EntryOrigin { created_by: None, draft };
     let entry = state.services.cards.pay_invoice(body.into_request(id), origin).await?;
     Ok((StatusCode::CREATED, Json(entry.into())))
+}
+
+#[utoipa::path(patch, path = "/cards/{id}", tag = "cards", params(("id" = Uuid, Path)),
+    request_body = UpdateCardBody,
+    responses((status = 200, body = CardResponse), (status = 404, body = Problem),
+        (status = 409, body = Problem), (status = 422, body = Problem)),
+    security(("api_key" = [])))]
+pub async fn update_card(
+    State(state): State<ApiState>,
+    ApiPath(id): ApiPath<Uuid>,
+    ApiJson(body): ApiJson<UpdateCardBody>,
+) -> Result<Json<CardResponse>, ApiError> {
+    let card = state.services.cards.update(CardId(id), body.try_into()?).await?;
+    Ok(Json(card.into()))
 }

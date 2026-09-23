@@ -49,6 +49,7 @@ fn typed_or_chosen(field: Field, input: &FormInput) -> Result<Answer, String> {
             name(input, MAX_NAME_CHARS)
         }
         Field::CategoryName => name(input, MAX_CATEGORY_NAME_CHARS),
+        Field::NewName => name(input, MAX_NAME_CHARS),
         Field::CategoryEmoji => keep_or(input, emoji),
         Field::ClosingDay | Field::DueDay | Field::RecurrenceDay => day_of_month(input),
         Field::Installments => installments(input),
@@ -264,22 +265,28 @@ fn button_choice(field: Field, input: &FormInput) -> Result<Answer, String> {
         return Err(PICK_A_BUTTON.into());
     };
     let answer = match (field, *value) {
-        (Field::ExpenseCategory | Field::IncomeCategory, ButtonValue::Category(id)) => {
-            Answer::Category(id)
-        }
-        (Field::Goal, ButtonValue::Goal(id)) => Answer::Goal(id),
+        (
+            Field::ExpenseCategory | Field::IncomeCategory | Field::RecordTarget,
+            ButtonValue::Category(id),
+        ) => Answer::Category(id),
+        (Field::Goal | Field::RecordTarget, ButtonValue::Goal(id)) => Answer::Goal(id),
         (Field::AccountKind, ButtonValue::Kind(kind)) if kind != AccountKind::Pot => {
             Answer::AccountKind(kind)
         }
-        (
-            Field::PaymentAccount | Field::RefundTarget | Field::CardChoice,
-            ButtonValue::Card(id),
-        ) => Answer::Card(id),
+        (field, ButtonValue::Card(id)) if takes_card(field) => Answer::Card(id),
         (Field::InvoiceChoice, ButtonValue::Invoice(id)) => Answer::Invoice(id),
         (field, ButtonValue::Account(id)) if takes_account(field) => Answer::Account(id),
         (field, value) => return option_choice(field, value),
     };
     Ok(answer)
+}
+
+/// Fields whose buttons are credit cards.
+const fn takes_card(field: Field) -> bool {
+    matches!(
+        field,
+        Field::PaymentAccount | Field::RefundTarget | Field::CardChoice | Field::RecordTarget
+    )
 }
 
 /// Fields answered by picking one of a fixed set of options.
@@ -298,6 +305,18 @@ fn option_choice(field: Field, value: ButtonValue) -> Result<Answer, String> {
         (Field::RecurrenceModeChoice, ButtonValue::RecurrenceMode(mode)) => {
             Ok(Answer::RecurrenceMode(mode))
         }
+        (field, value) => record_choice(field, value),
+    }
+}
+
+/// The three questions of `/editar`.
+fn record_choice(field: Field, value: ButtonValue) -> Result<Answer, String> {
+    match (field, value) {
+        (Field::RecordKindChoice, ButtonValue::RecordKind(kind)) => Ok(Answer::RecordKind(kind)),
+        (Field::RecordFieldChoice, ButtonValue::RecordField(picked)) => {
+            Ok(Answer::RecordField(picked))
+        }
+        (Field::RecordTarget, ButtonValue::Recurrence(id)) => Ok(Answer::Recurrence(id)),
         _ => Err(PICK_A_BUTTON.into()),
     }
 }
@@ -310,6 +329,7 @@ const fn takes_account(field: Field) -> bool {
             | Field::FromAccount
             | Field::ToAccount
             | Field::RefundTarget
+            | Field::RecordTarget
     )
 }
 

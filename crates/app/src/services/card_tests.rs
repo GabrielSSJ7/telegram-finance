@@ -205,3 +205,23 @@ async fn open_validates_limit_and_payment_account() {
     assert!(fixture.cards().require_active(CardId::generate()).await.is_err());
     assert!(fixture.cards().archive(CardId::generate()).await.is_err());
 }
+
+#[tokio::test]
+async fn update_changes_the_name_and_the_invoice_days() {
+    let fixture = fixture().await;
+    let cards = &fixture.set.services.cards;
+    let edit = crate::model::CardEdit {
+        name: Some(" Itaú Black ".into()),
+        closing_day: DayOfMonth::new(5).ok(),
+        due_day: DayOfMonth::new(15).ok(),
+    };
+    let updated = cards.update(fixture.card, edit).await.unwrap();
+    assert_eq!(updated.name, "Itaú Black");
+    assert_eq!((updated.schedule.closing_day.get(), updated.schedule.due_day.get()), (5, 15));
+    cards.open(open_card("Outro")).await.unwrap();
+    let clash = crate::model::CardEdit { name: Some("outro".into()), ..Default::default() };
+    assert!(matches!(cards.update(fixture.card, clash).await, Err(AppError::Conflict(_))));
+    cards.archive(fixture.card).await.unwrap();
+    let gone = cards.update(fixture.card, crate::model::CardEdit::default()).await;
+    assert!(matches!(gone, Err(AppError::NotFound { .. })), "{gone:?}");
+}

@@ -1,4 +1,4 @@
-use app::model::{Category, CategoryId, CategoryKind, NewCategory};
+use app::model::{Category, CategoryEdit, CategoryId, CategoryKind, EmojiChange, NewCategory};
 use app::ports::{CategoryStore, StoreResult};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -85,6 +85,33 @@ impl CategoryStore for PgStore {
         .await
         .map_err(store_error)?;
         Ok(result.rows_affected() == 1)
+    }
+
+    async fn update_category(
+        &self,
+        id: CategoryId,
+        edit: CategoryEdit,
+    ) -> StoreResult<Option<Category>> {
+        let (set_emoji, emoji) = match edit.emoji {
+            EmojiChange::Keep => (false, None),
+            EmojiChange::Clear => (true, None),
+            EmojiChange::Set(emoji) => (true, Some(emoji)),
+        };
+        let row = sqlx::query_as!(
+            CategoryRow,
+            "update categories set name = coalesce($2, name),
+                    emoji = case when $3 then $4 else emoji end
+             where id = $1 and archived_at is null
+             returning id, name, kind, emoji, archived_at, essential",
+            id.0,
+            edit.name,
+            set_emoji,
+            emoji,
+        )
+        .fetch_optional(self.pool())
+        .await
+        .map_err(store_error)?;
+        row.map(CategoryRow::into_category).transpose()
     }
 
     async fn set_category_essential(

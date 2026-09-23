@@ -3,7 +3,7 @@
 use app::AppResult;
 use app::model::{
     Account, AccountId, CardId, CardSummary, Category, CategoryId, CategoryKind, CreditCard, Goal,
-    GoalId, InvoiceId, InvoiceView,
+    GoalId, InvoiceId, InvoiceView, Recurrence, RecurrenceId,
 };
 use app::services::ServiceSet;
 use domain::AccountKind;
@@ -18,11 +18,27 @@ pub struct Catalog {
     pub cards: Vec<CreditCard>,
     /// Loaded only for forms that pick an invoice.
     pub card_summaries: Vec<CardSummary>,
+    /// Loaded only for `/editar`, which picks a record to change.
+    pub recurrences: Vec<Recurrence>,
+}
+
+/// The lists a card needs beyond names; each one costs a query.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct CatalogNeeds {
+    pub invoices: bool,
+    pub recurrences: bool,
+}
+
+impl CatalogNeeds {
+    pub fn of(form: crate::flows::FormKind) -> Self {
+        use crate::flows::FormKind::{EditRecord, PayInvoice};
+        Self { invoices: form == PayInvoice, recurrences: form == EditRecord }
+    }
 }
 
 impl Catalog {
-    /// Loads names for a card; `with_invoices` adds each card's invoices.
-    pub async fn load(services: &ServiceSet, with_invoices: bool) -> AppResult<Self> {
+    /// Loads names for a card, plus the lists `needs` asks for.
+    pub async fn load(services: &ServiceSet, needs: CatalogNeeds) -> AppResult<Self> {
         let categories = services.categories.list(None).await?;
         let accounts = services.accounts.list(false).await?;
         let goals = services
@@ -34,8 +50,10 @@ impl Catalog {
             .collect();
         let cards = services.cards.list().await?;
         let card_summaries =
-            if with_invoices { services.cards.summaries().await? } else { Vec::new() };
-        Ok(Self { categories, accounts, goals, cards, card_summaries })
+            if needs.invoices { services.cards.summaries().await? } else { Vec::new() };
+        let recurrences =
+            if needs.recurrences { services.recurrences.list(false).await? } else { Vec::new() };
+        Ok(Self { categories, accounts, goals, cards, card_summaries, recurrences })
     }
 
     pub fn categories_of(&self, kind: CategoryKind) -> Vec<&Category> {
@@ -55,6 +73,11 @@ impl Catalog {
     pub fn account_label(&self, id: AccountId) -> String {
         let found = self.accounts.iter().find(|account| account.id == id);
         found.map_or_else(|| "conta removida".into(), account_label)
+    }
+
+    pub fn recurrence_label(&self, id: RecurrenceId) -> String {
+        let found = self.recurrences.iter().find(|row| row.id == id);
+        found.map_or_else(|| "recorrente removida".into(), |row| escape(&row.description))
     }
 
     pub fn card_label(&self, id: CardId) -> String {

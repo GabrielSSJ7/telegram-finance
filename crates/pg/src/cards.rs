@@ -1,5 +1,5 @@
 use app::model::{
-    CardId, CardPurchase, CreditCard, DraftId, Invoice, InvoiceId, LedgerEntry, NewCard,
+    CardEdit, CardId, CardPurchase, CreditCard, DraftId, Invoice, InvoiceId, LedgerEntry, NewCard,
     NewCardPurchase, NewEntry, PurchaseId,
 };
 use app::ports::{CardStore, StoreResult};
@@ -56,6 +56,25 @@ impl CardStore for PgStore {
             "select id, name, closing_day, due_day, closing_day_goes_next, limit_cents, default_payment_account_id, archived_at
              from credit_cards where id = $1",
             id.0,
+        )
+        .fetch_optional(self.pool())
+        .await
+        .map_err(store_error)?;
+        row.map(CardRow::into_card).transpose()
+    }
+
+    async fn update_card(&self, id: CardId, edit: CardEdit) -> StoreResult<Option<CreditCard>> {
+        let row = sqlx::query_as!(
+            CardRow,
+            "update credit_cards set name = coalesce($2, name),
+                    closing_day = coalesce($3, closing_day), due_day = coalesce($4, due_day)
+             where id = $1 and archived_at is null
+             returning id, name, closing_day, due_day, closing_day_goes_next, limit_cents,
+                       default_payment_account_id, archived_at",
+            id.0,
+            edit.name,
+            edit.closing_day.map(i16::from),
+            edit.due_day.map(i16::from),
         )
         .fetch_optional(self.pool())
         .await

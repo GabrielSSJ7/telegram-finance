@@ -3,8 +3,8 @@ use domain::{AccountKind, Cents, DayOfMonth, EntryKind};
 
 use super::{day, member, new_category, open_account};
 use crate::model::{
-    AccountId, CategoryKind, NewEntry, NewRecurrence, PeriodFlow, RecurrenceKind, RecurrenceMode,
-    RecurrenceTarget,
+    AccountId, CategoryKind, NewEntry, NewRecurrence, PeriodFlow, RecurrenceEdit, RecurrenceKind,
+    RecurrenceMode, RecurrenceTarget,
 };
 use crate::services::StorePorts;
 
@@ -149,4 +149,19 @@ pub async fn report_pot_net_inflow_counts_both_directions(stores: StorePorts) {
     stores.entries.record_entry(outside, None).await.unwrap();
     let net = stores.reports.pot_net_inflow(day(5, 1), day(5, 10)).await.unwrap();
     assert_eq!(net, Cents::new(700));
+}
+
+pub async fn recurrence_update_amount_day_and_mode(stores: StorePorts) {
+    let created = stores.recurrences.create_recurrence(rent(&stores).await).await.unwrap();
+    let edit = RecurrenceEdit {
+        amount: Some(Cents::new(300_000)),
+        day: DayOfMonth::new(9).ok(),
+        mode: Some(RecurrenceMode::Confirm),
+    };
+    let updated = stores.recurrences.update_recurrence(created.id, edit).await.unwrap().unwrap();
+    assert_eq!(updated.amount, Cents::new(300_000));
+    assert_eq!((updated.day.get(), updated.mode), (9, RecurrenceMode::Confirm));
+    assert!(stores.recurrences.deactivate_recurrence(created.id).await.unwrap());
+    let gone = stores.recurrences.update_recurrence(created.id, RecurrenceEdit::default()).await;
+    assert_eq!(gone.unwrap(), None);
 }

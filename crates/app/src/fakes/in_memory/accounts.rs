@@ -3,12 +3,28 @@ use chrono::{DateTime, NaiveDate, Utc};
 use domain::balance::AccountFlow;
 use domain::entry_kind::AccountRole;
 
-use super::{InMemoryStore, account_from, name_taken, unique_violation};
+use super::{InMemoryStore, account_from, name_taken, same_name, unique_violation};
 use crate::model::{Account, AccountId, LedgerEntry, NewAccount};
 use crate::ports::{AccountStore, StoreResult};
 
 #[async_trait]
 impl AccountStore for InMemoryStore {
+    async fn rename_account(&self, id: AccountId, name: &str) -> StoreResult<Option<Account>> {
+        let mut state = self.lock();
+        let taken = state
+            .accounts
+            .iter()
+            .any(|row| row.id != id && !row.archived && same_name(&row.name, name));
+        if taken {
+            return Err(unique_violation("accounts_active_name"));
+        }
+        let Some(row) = state.accounts.iter_mut().find(|row| row.id == id && !row.archived) else {
+            return Ok(None);
+        };
+        name.clone_into(&mut row.name);
+        Ok(Some(row.clone()))
+    }
+
     async fn create_account(&self, account: NewAccount) -> StoreResult<Account> {
         let mut state = self.lock();
         if name_taken(&state, &account.name) {

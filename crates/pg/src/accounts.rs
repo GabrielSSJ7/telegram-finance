@@ -95,6 +95,20 @@ impl AccountStore for PgStore {
         row.map(AccountRow::into_account).transpose()
     }
 
+    async fn rename_account(&self, id: AccountId, name: &str) -> StoreResult<Option<Account>> {
+        let row = sqlx::query_as!(
+            AccountRow,
+            "update accounts set name = $2 where id = $1 and archived_at is null
+             returning id, name, kind, initial_balance_cents, opened_on, archived_at",
+            id.0,
+            name,
+        )
+        .fetch_optional(self.pool())
+        .await
+        .map_err(store_error)?;
+        row.map(AccountRow::into_account).transpose()
+    }
+
     async fn archive_account(&self, id: AccountId, at: DateTime<Utc>) -> StoreResult<bool> {
         let result = sqlx::query!(
             "update accounts set archived_at = $2 where id = $1 and archived_at is null",

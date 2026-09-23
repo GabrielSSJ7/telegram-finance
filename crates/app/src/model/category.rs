@@ -68,6 +68,22 @@ pub struct NewCategory {
     pub essential: bool,
 }
 
+/// What happens to a category's emoji when it is edited.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EmojiChange {
+    #[default]
+    Keep,
+    Clear,
+    Set(String),
+}
+
+/// What `/editar` may change on a category; `None` keeps the name.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CategoryEdit {
+    pub name: Option<String>,
+    pub emoji: EmojiChange,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

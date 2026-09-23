@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
-use domain::Cents;
 use domain::invoice_cycle::{CardSchedule, InvoicePeriod};
 use domain::invoice_settlement::InvoiceStatement;
+use domain::{Cents, DayOfMonth};
 use serde::{Deserialize, Serialize};
 
 use super::{AccountId, CardId, CategoryId, InvoiceId, MemberId, PurchaseId};
@@ -32,6 +32,14 @@ pub struct Invoice {
     pub id: InvoiceId,
     pub card_id: CardId,
     pub period: InvoicePeriod,
+}
+
+/// What `/editar` may change on a card; `None` keeps the value.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CardEdit {
+    pub name: Option<String>,
+    pub closing_day: Option<DayOfMonth>,
+    pub due_day: Option<DayOfMonth>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
 use super::StoreResult;
-use crate::model::{Category, CategoryId, NewCategory};
+use crate::model::{Category, CategoryEdit, CategoryId, NewCategory};
 
 #[async_trait]
 pub trait CategoryStore: Send + Sync {
@@ -10,6 +10,12 @@ pub trait CategoryStore: Send + Sync {
     async fn list_categories(&self, include_archived: bool) -> StoreResult<Vec<Category>>;
     async fn find_category(&self, id: CategoryId) -> StoreResult<Option<Category>>;
     async fn archive_category(&self, id: CategoryId, at: DateTime<Utc>) -> StoreResult<bool>;
+    /// The changed category; `None` when it does not exist or is archived.
+    async fn update_category(
+        &self,
+        id: CategoryId,
+        edit: CategoryEdit,
+    ) -> StoreResult<Option<Category>>;
     /// The updated category; `None` when it does not exist or is archived.
     async fn set_category_essential(
         &self,

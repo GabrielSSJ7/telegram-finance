@@ -6,12 +6,13 @@ use domain::AccountKind;
 use domain::money_format::format_brl;
 
 use super::Catalog;
-use super::card::edit_choice_name;
+use super::card::{edit_choice_name, record_field_name, record_kind_name};
 use super::catalog::{account_label, card_label, category_label, kind_name};
 use super::reports::invoice_label;
 use crate::callback_data::{ButtonValue, flow_button};
-use crate::flows::{Answers, Awaiting, EditChoice, Field, FormKind, FormState};
+use crate::flows::{Answers, Awaiting, EditChoice, Field, FormKind, FormState, RecordKind};
 use crate::gateway::{Button, Keyboard};
+use crate::html::escape;
 
 type Choices = Vec<(ButtonValue, String)>;
 
@@ -42,15 +43,30 @@ fn field_choices(
         }
         Field::Date => date_choices(),
         Field::AccountKind => kind_choices(),
+        field if typed_only(field) => return Some(Vec::new()),
+        other => fixed_or_catalog_choices(form, other, answers, catalog),
+    };
+    (!choices.is_empty()).then_some(choices)
+}
+
+/// Buttons from a fixed set of options, or from the couple's own records.
+fn fixed_or_catalog_choices(
+    form: FormKind,
+    field: Field,
+    answers: &Answers,
+    catalog: &Catalog,
+) -> Choices {
+    match field {
         Field::RecurrenceKindChoice => recurrence_kind_choices(),
         Field::RecurrenceModeChoice => recurrence_mode_choices(),
         Field::EditFieldChoice => edit_choices(),
         Field::CategoryKindChoice => category_kind_choices(),
         Field::EssentialChoice => essential_choices(),
-        field if typed_only(field) => return Some(Vec::new()),
+        Field::RecordKindChoice => record_kind_choices(),
+        Field::RecordFieldChoice => record_field_choices(answers),
+        Field::RecordTarget => record_choices(answers, catalog),
         other => catalog_choices(form, other, answers, catalog),
-    };
-    (!choices.is_empty()).then_some(choices)
+    }
 }
 
 /// Typed fields that can also be answered with one button meaning
@@ -86,6 +102,7 @@ const fn typed_only(field: Field) -> bool {
             | Field::RecurrenceDay
             | Field::EditTarget
             | Field::CategoryName
+            | Field::NewName
     )
 }
 
@@ -164,6 +181,43 @@ fn category_kind_choices() -> Choices {
         (ButtonValue::CategoryKind(CategoryKind::Expense), "💸 Gasto".to_owned()),
         (ButtonValue::CategoryKind(CategoryKind::Income), "💰 Entrada".to_owned()),
     ]
+}
+
+fn record_kind_choices() -> Choices {
+    RecordKind::ALL
+        .into_iter()
+        .map(|kind| (ButtonValue::RecordKind(kind), record_kind_name(kind).to_owned()))
+        .collect()
+}
+
+fn record_field_choices(answers: &Answers) -> Choices {
+    let Some(kind) = answers.record_kind() else {
+        return Vec::new();
+    };
+    kind.fields()
+        .iter()
+        .map(|field| (ButtonValue::RecordField(*field), record_field_name(*field).to_owned()))
+        .collect()
+}
+
+/// The records of the picked kind, by name.
+fn record_choices(answers: &Answers, catalog: &Catalog) -> Choices {
+    match answers.record_kind() {
+        Some(RecordKind::Account) => account_choices(catalog, None),
+        Some(RecordKind::Card) => card_choices(catalog),
+        Some(RecordKind::Category) => catalog
+            .categories
+            .iter()
+            .map(|row| (ButtonValue::Category(row.id), category_label(row)))
+            .collect(),
+        Some(RecordKind::Goal) => goal_choices(catalog),
+        Some(RecordKind::Recurrence) => catalog
+            .recurrences
+            .iter()
+            .map(|row| (ButtonValue::Recurrence(row.id), escape(&row.description)))
+            .collect(),
+        None => Vec::new(),
+    }
 }
 
 fn essential_choices() -> Choices {

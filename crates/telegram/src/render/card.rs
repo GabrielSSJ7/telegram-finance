@@ -7,7 +7,9 @@ use super::catalog::kind_name;
 use super::keyboards::question_keyboard;
 use super::reports::invoice_label;
 use crate::flows::dates::short_date;
-use crate::flows::{Answer, Awaiting, EditChoice, Field, FormKind, FormState};
+use crate::flows::{
+    Answer, Awaiting, EditChoice, Field, FormKind, FormState, RecordField, RecordKind,
+};
 use crate::gateway::Keyboard;
 use crate::html::escape;
 
@@ -92,6 +94,9 @@ fn option_name(answer: &Answer, context: CardContext<'_>) -> String {
         Answer::EditChoice(choice) => edit_choice_name(*choice).to_owned(),
         Answer::CategoryKind(CategoryKind::Expense) => "Gasto".to_owned(),
         Answer::CategoryKind(CategoryKind::Income) => "Entrada".to_owned(),
+        Answer::RecordKind(kind) => record_kind_name(*kind).to_owned(),
+        Answer::RecordField(field) => record_field_name(*field).to_owned(),
+        Answer::Recurrence(id) => context.catalog.recurrence_label(*id),
         Answer::Essential(true) => "Sim".to_owned(),
         Answer::Essential(false) => "Não".to_owned(),
         reference => referenced_name(reference, context.catalog),
@@ -109,6 +114,30 @@ fn referenced_name(answer: &Answer, catalog: &Catalog) -> String {
             catalog.invoice(*id).map_or_else(|| "fatura".to_owned(), |view| invoice_label(&view))
         }
         _ => String::new(),
+    }
+}
+
+pub const fn record_kind_name(kind: RecordKind) -> &'static str {
+    match kind {
+        RecordKind::Account => "🏦 Conta",
+        RecordKind::Card => "💳 Cartão",
+        RecordKind::Category => "🏷️ Categoria",
+        RecordKind::Goal => "🎯 Meta",
+        RecordKind::Recurrence => "🔁 Recorrente",
+    }
+}
+
+pub const fn record_field_name(field: RecordField) -> &'static str {
+    match field {
+        RecordField::Name => "Nome",
+        RecordField::Emoji => "Emoji",
+        RecordField::Closing => "Fechamento",
+        RecordField::Due => "Vencimento",
+        RecordField::Target => "Objetivo",
+        RecordField::Deadline => "Prazo",
+        RecordField::Amount => "Valor",
+        RecordField::Day => "Dia",
+        RecordField::Mode => "Registro",
     }
 }
 
@@ -185,6 +214,10 @@ const FIELD_TEXT: &[(Field, &str, &str)] = &[
     (Field::CategoryName, "✏️", "Nome"),
     (Field::CategoryKindChoice, "🗂️", "Tipo"),
     (Field::EssentialChoice, "🏠", "Essencial"),
+    (Field::RecordKindChoice, "🗂️", "Cadastro"),
+    (Field::RecordTarget, "📌", "Qual"),
+    (Field::RecordFieldChoice, "✏️", "Alterar"),
+    (Field::NewName, "✏️", "Novo nome"),
     (Field::RecurrenceInstallments, "🔢", "Parcelas"),
     (Field::RecurrencePaid, "✅", "Já pagas"),
     (Field::CategoryEmoji, "🙂", "Emoji"),
@@ -270,6 +303,20 @@ const QUESTIONS: &[(Option<FormKind>, Field, &str)] = &[
     (None, Field::EditFieldChoice, "O que você quer alterar?"),
     (None, Field::EditTarget, "Qual lançamento?"),
     (None, Field::CategoryName, "Nome da categoria? (ex.: pets, farmácia, presentes)"),
+    (None, Field::RecordKindChoice, "O que você quer editar?"),
+    (None, Field::RecordTarget, "Qual deles?"),
+    (None, Field::RecordFieldChoice, "O que mudar nesse cadastro?"),
+    (None, Field::NewName, "Qual o novo nome?"),
+    (Some(FormKind::EditRecord), Field::Amount, "Qual o novo valor por mês?"),
+    (Some(FormKind::EditRecord), Field::GoalTarget, "Qual o novo objetivo?"),
+    (Some(FormKind::EditRecord), Field::ClosingDay, "Em que dia a fatura passa a fechar? (1 a 31)"),
+    (Some(FormKind::EditRecord), Field::DueDay, "Em que dia ela passa a vencer? (1 a 31)"),
+    (Some(FormKind::EditRecord), Field::RecurrenceDay, "Em que dia do mês passa a cair? (1 a 31)"),
+    (
+        Some(FormKind::EditRecord),
+        Field::CategoryEmoji,
+        "Qual o novo emoji? Ou toque em Pular para tirar.",
+    ),
     (None, Field::CategoryKindChoice, "É uma categoria de gasto ou de entrada?"),
     (
         None,

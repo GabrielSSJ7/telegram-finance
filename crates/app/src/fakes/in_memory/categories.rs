@@ -2,8 +2,30 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
 use super::{InMemoryStore, same_name, unique_violation};
-use crate::model::{Category, CategoryId, NewCategory};
+use crate::model::{Category, CategoryEdit, CategoryId, EmojiChange, NewCategory};
 use crate::ports::{CategoryStore, StoreResult};
+
+fn apply_category_edit(row: &mut Category, edit: CategoryEdit) {
+    if let Some(name) = edit.name {
+        row.name = name;
+    }
+    match edit.emoji {
+        EmojiChange::Keep => {}
+        EmojiChange::Clear => row.emoji = None,
+        EmojiChange::Set(emoji) => row.emoji = Some(emoji),
+    }
+}
+
+fn category_from(new: NewCategory) -> Category {
+    Category {
+        id: CategoryId::generate(),
+        name: new.name,
+        kind: new.kind,
+        emoji: new.emoji,
+        archived: false,
+        essential: new.essential,
+    }
+}
 
 #[async_trait]
 impl CategoryStore for InMemoryStore {
@@ -15,14 +37,7 @@ impl CategoryStore for InMemoryStore {
         if taken {
             return Err(unique_violation("categories_active_name"));
         }
-        let created = Category {
-            id: CategoryId::generate(),
-            name: category.name,
-            kind: category.kind,
-            emoji: category.emoji,
-            archived: false,
-            essential: category.essential,
-        };
+        let created = category_from(category);
         state.categories.push(created.clone());
         Ok(created)
     }
@@ -49,6 +64,32 @@ impl CategoryStore for InMemoryStore {
         };
         row.archived = true;
         Ok(true)
+    }
+
+    async fn update_category(
+        &self,
+        id: CategoryId,
+        edit: CategoryEdit,
+    ) -> StoreResult<Option<Category>> {
+        let mut state = self.lock();
+        let kind = state.categories.iter().find(|row| row.id == id).map(|row| row.kind);
+        let clash = |row: &&Category| {
+            edit.name.as_ref().is_some_and(|name| {
+                row.id != id
+                    && !row.archived
+                    && Some(row.kind) == kind
+                    && same_name(&row.name, name)
+            })
+        };
+        if state.categories.iter().any(|row| clash(&row)) {
+            return Err(unique_violation("categories_active_name"));
+        }
+        let Some(row) = state.categories.iter_mut().find(|row| row.id == id && !row.archived)
+        else {
+            return Ok(None);
+        };
+        apply_category_edit(row, edit);
+        Ok(Some(row.clone()))
     }
 
     async fn set_category_essential(
