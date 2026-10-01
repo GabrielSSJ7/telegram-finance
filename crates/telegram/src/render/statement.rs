@@ -98,8 +98,18 @@ pub fn statement_overview(
     }
     let blocks: Vec<String> =
         sections.iter().filter(|section| !section.rows.is_empty()).map(section_text).collect();
-    let html = format!("{title}\n\n{}\n\nToque para ver os lançamentos.", blocks.join("\n\n"));
+    let html = format!("{title}\n\n{}\n\n{}", blocks.join("\n\n"), footer(group));
     (html, Some(overview_keyboard(group, period, &rows)))
+}
+
+/// What the totals mean, since a card charge is paid in a later invoice.
+const fn footer(group: StatementGroup) -> &'static str {
+    match group {
+        StatementGroup::Card => {
+            "Toque para ver os lançamentos.\nValores por data da compra; o que vence em cada fatura está em /fatura."
+        }
+        _ => "Toque para ver os lançamentos.",
+    }
 }
 
 /// `por categoria` out of the button label `🏷️ Por categoria`.

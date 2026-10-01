@@ -63,6 +63,7 @@ async fn extrato_switches_to_accounts_and_cards() {
     harness.tap(BIA, "Por cartão").await;
     harness.expect_last("<b>📂 Extrato por cartão</b> · 01/03 → 31/03/2026");
     harness.expect_last("Roxinho: R$ 300,00 (1)");
+    harness.expect_last("Valores por data da compra; o que vence em cada fatura está em /fatura.");
     harness.tap(ANA, "Por categoria").await;
     harness.expect_last("<b>📂 Extrato por categoria</b>");
 }
