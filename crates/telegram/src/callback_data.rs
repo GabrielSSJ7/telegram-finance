@@ -9,8 +9,10 @@ use app::model::{
     RecurrenceId, RecurrenceKind, RecurrenceMode,
 };
 use chrono::NaiveDate;
+use uuid::Uuid;
 
 use crate::flows::{EditChoice, RecordField, RecordKind};
+use crate::render::statement::StatementGroup;
 use domain::{AccountKind, Cents};
 
 pub const MAX_CALLBACK_BYTES: usize = 64;
@@ -40,6 +42,8 @@ pub enum ButtonValue {
     RecordKind(RecordKind),
     Recurrence(RecurrenceId),
     RecordField(RecordField),
+    /// A card purchase still being paid, in `/antecipar`.
+    Purchase(PurchaseId),
     Confirm,
     Cancel,
 }
@@ -66,9 +70,15 @@ pub enum CallbackPayload {
     DeleteEntry(EntryId),
     /// A category in `/essenciais`: switches its essential mark.
     ToggleEssential(CategoryId),
-    /// A category button in `/extrato`: its entries between two dates.
-    CategoryStatement {
-        category: CategoryId,
+    /// `/extrato` grouped another way, over the same period.
+    StatementView {
+        group: StatementGroup,
+        from: NaiveDate,
+        to: NaiveDate,
+    },
+    /// One total of `/extrato`: the entries behind it.
+    StatementEntries {
+        item: StatementItem,
         from: NaiveDate,
         to: NaiveDate,
     },
@@ -117,9 +127,48 @@ pub fn toggle_essential_button(category: CategoryId) -> String {
     format!("et|{category}")
 }
 
-/// Dates as `yyyymmdd` keep the payload at 57 bytes.
-pub fn category_statement_button(category: CategoryId, from: NaiveDate, to: NaiveDate) -> String {
-    format!("cs|{category}|{}|{}", from.format("%Y%m%d"), to.format("%Y%m%d"))
+/// One row of `/extrato`: a category, an account or a card.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StatementItem {
+    Category(CategoryId),
+    Account(AccountId),
+    Card(CardId),
+}
+
+impl StatementItem {
+    const fn code(self) -> &'static str {
+        match self {
+            StatementItem::Category(_) => "c",
+            StatementItem::Account(_) => "a",
+            StatementItem::Card(_) => "k",
+        }
+    }
+
+    fn id(self) -> Uuid {
+        match self {
+            StatementItem::Category(id) => id.0,
+            StatementItem::Account(id) => id.0,
+            StatementItem::Card(id) => id.0,
+        }
+    }
+
+    fn of(code: &str, id: Uuid) -> Option<StatementItem> {
+        match code {
+            "c" => Some(StatementItem::Category(CategoryId(id))),
+            "a" => Some(StatementItem::Account(AccountId(id))),
+            "k" => Some(StatementItem::Card(CardId(id))),
+            _ => None,
+        }
+    }
+}
+
+pub fn statement_view_button(group: StatementGroup, from: NaiveDate, to: NaiveDate) -> String {
+    format!("sv|{}|{}|{}", group.code(), from.format("%Y%m%d"), to.format("%Y%m%d"))
+}
+
+/// Dates as `yyyymmdd` keep the payload at 59 bytes.
+pub fn statement_item_button(item: StatementItem, from: NaiveDate, to: NaiveDate) -> String {
+    format!("si|{}|{}|{}|{}", item.code(), item.id(), from.format("%Y%m%d"), to.format("%Y%m%d"))
 }
 
 pub fn delete_entry_button(entry: EntryId) -> String {
@@ -144,6 +193,7 @@ fn encode_value(value: ButtonValue) -> String {
         ButtonValue::RecordKind(kind) => format!("rw:{}", kind.code()),
         ButtonValue::RecordField(field) => format!("rf:{}", field.code()),
         ButtonValue::Recurrence(id) => format!("rc:{id}"),
+        ButtonValue::Purchase(id) => format!("pu:{id}"),
         without_payload => fixed_code(without_payload).into(),
     }
 }
@@ -170,7 +220,8 @@ pub fn parse(data: &str) -> Option<CallbackPayload> {
         "rd" => return tail.parse().ok().map(CallbackPayload::DeactivateRecurrence),
         "ee" => return tail.parse().ok().map(CallbackPayload::EditEntry),
         "ed" => return tail.parse().ok().map(CallbackPayload::DeleteEntry),
-        "cs" => return category_statement_payload(tail),
+        "sv" => return statement_view_payload(tail),
+        "si" => return statement_entries_payload(tail),
         "et" => return tail.parse().ok().map(CallbackPayload::ToggleEssential),
         "rr" | "rs" => return recurrence_payload(head, tail),
         _ => {}
@@ -179,12 +230,26 @@ pub fn parse(data: &str) -> Option<CallbackPayload> {
     Some(CallbackPayload::Flow { nonce: head.to_owned(), value })
 }
 
-fn category_statement_payload(tail: &str) -> Option<CallbackPayload> {
+fn statement_view_payload(tail: &str) -> Option<CallbackPayload> {
     let mut parts = tail.split('|');
-    let category = parts.next()?.parse().ok()?;
+    let group = StatementGroup::from_code(parts.next()?)?;
+    let (from, to) = statement_period(&mut parts)?;
+    Some(CallbackPayload::StatementView { group, from, to })
+}
+
+fn statement_entries_payload(tail: &str) -> Option<CallbackPayload> {
+    let mut parts = tail.split('|');
+    let code = parts.next()?;
+    let item = StatementItem::of(code, parts.next()?.parse().ok()?)?;
+    let (from, to) = statement_period(&mut parts)?;
+    Some(CallbackPayload::StatementEntries { item, from, to })
+}
+
+fn statement_period<'a>(
+    parts: &mut impl Iterator<Item = &'a str>,
+) -> Option<(NaiveDate, NaiveDate)> {
     let date = |text: &str| NaiveDate::parse_from_str(text, "%Y%m%d").ok();
-    let (from, to) = (date(parts.next()?)?, date(parts.next()?)?);
-    Some(CallbackPayload::CategoryStatement { category, from, to })
+    Some((date(parts.next()?)?, date(parts.next()?)?))
 }
 
 fn recurrence_payload(head: &str, tail: &str) -> Option<CallbackPayload> {
@@ -234,6 +299,7 @@ fn decode_choice(tag: &str, value: &str) -> Option<ButtonValue> {
         ("rw", _) => RecordKind::from_code(value).map(ButtonValue::RecordKind),
         ("rf", _) => RecordField::from_code(value).map(ButtonValue::RecordField),
         ("rc", _) => value.parse().ok().map(ButtonValue::Recurrence),
+        ("pu", _) => value.parse().ok().map(ButtonValue::Purchase),
         ("es", "1") => Some(ButtonValue::Essential(true)),
         ("es", "0") => Some(ButtonValue::Essential(false)),
         _ => None,
@@ -275,6 +341,7 @@ mod tests {
             ButtonValue::RecordKind(RecordKind::Goal),
             ButtonValue::RecordField(RecordField::Deadline),
             ButtonValue::Recurrence(RecurrenceId::generate()),
+            ButtonValue::Purchase(PurchaseId::generate()),
         ]
     }
 
@@ -297,17 +364,25 @@ mod tests {
     }
 
     #[test]
-    fn category_statement_round_trips_within_limit() {
-        let category = CategoryId::generate();
+    fn statement_buttons_round_trip_within_limit() {
         let (from, to) = (
             NaiveDate::from_ymd_opt(2026, 9, 5).unwrap(),
             NaiveDate::from_ymd_opt(2026, 10, 4).unwrap(),
         );
-        let data = category_statement_button(category, from, to);
-        assert!(data.len() <= MAX_CALLBACK_BYTES, "{data} is {} bytes", data.len());
-        assert_eq!(parse(&data), Some(CallbackPayload::CategoryStatement { category, from, to }));
-        assert_eq!(parse(&format!("cs|{category}|20261304|20261004")), None);
-        assert_eq!(parse(&format!("cs|{category}|20260905")), None);
+        for item in [
+            StatementItem::Category(CategoryId::generate()),
+            StatementItem::Account(AccountId::generate()),
+            StatementItem::Card(CardId::generate()),
+        ] {
+            let data = statement_item_button(item, from, to);
+            assert!(data.len() <= MAX_CALLBACK_BYTES, "{data} is {} bytes", data.len());
+            assert_eq!(parse(&data), Some(CallbackPayload::StatementEntries { item, from, to }));
+        }
+        let view = statement_view_button(StatementGroup::Account, from, to);
+        let expected = CallbackPayload::StatementView { group: StatementGroup::Account, from, to };
+        assert_eq!(parse(&view), Some(expected));
+        assert_eq!(parse("si|z|not-a-uuid|20260905|20261004"), None);
+        assert_eq!(parse("sv|z|20260905|20261004"), None);
     }
 
     #[test]

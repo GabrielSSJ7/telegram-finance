@@ -6,8 +6,8 @@ use app::model::{
 };
 use app::services::ledger::{AccountEntry, EntryRequest, TransferEntry};
 use app::services::{
-    CardCreditRequest, CardPurchaseRequest, CreateCategory, CreateGoal, CreateRecurrence,
-    InvoicePaymentRequest, OpenAccount, OpenCard, PotMove, ReconcileBalance,
+    AnticipateRequest, CardCreditRequest, CardPurchaseRequest, CreateCategory, CreateGoal,
+    CreateRecurrence, InvoicePaymentRequest, OpenAccount, OpenCard, PotMove, ReconcileBalance,
 };
 use chrono::NaiveDate;
 use domain::Cents;
@@ -41,6 +41,7 @@ pub enum FormCommand {
     UpdateSettings(SettingsPatch),
     CreateCategory(CreateCategory),
     EditRecord(RecordEdit),
+    Anticipate(AnticipateRequest),
 }
 
 /// One change to a registered record, from `/editar`.
@@ -72,6 +73,7 @@ pub fn build_command(state: &FormState) -> Option<FormCommand> {
         FormKind::PayInvoice => pay_invoice(answers).map(FormCommand::PayInvoice),
         FormKind::EditEntry => edit_entry(answers),
         FormKind::EditRecord => record_edit(answers).map(FormCommand::EditRecord),
+        FormKind::Anticipate => anticipate(answers).map(FormCommand::Anticipate),
         FormKind::Adjust => reconcile(answers).map(FormCommand::Reconcile),
         setup => setup_command(setup, answers),
     }
@@ -123,6 +125,16 @@ fn new_category(answers: &Answers) -> Option<FormCommand> {
         // Income categories skip the question and are never essential.
         essential: answers.essential().unwrap_or(false),
     }))
+}
+
+/// `/antecipar`: the purchase, how many installments and what was paid.
+fn anticipate(answers: &Answers) -> Option<AnticipateRequest> {
+    Some(AnticipateRequest {
+        purchase_id: answers.purchase()?,
+        count: answers.count(Field::AnticipatedCount),
+        paid: answers.money(Field::Amount)?,
+        on: None,
+    })
 }
 
 /// The record and the one field `/editar` changes.

@@ -3,7 +3,7 @@
 use app::AppResult;
 use app::model::{
     Account, AccountId, CardId, CardSummary, Category, CategoryId, CategoryKind, CreditCard, Goal,
-    GoalId, InvoiceId, InvoiceView, Recurrence, RecurrenceId,
+    GoalId, InstallmentProgress, InvoiceId, InvoiceView, PurchaseId, Recurrence, RecurrenceId,
 };
 use app::services::ServiceSet;
 use domain::AccountKind;
@@ -20,6 +20,8 @@ pub struct Catalog {
     pub card_summaries: Vec<CardSummary>,
     /// Loaded only for `/editar`, which picks a record to change.
     pub recurrences: Vec<Recurrence>,
+    /// Loaded only for `/antecipar`, which picks a card purchase.
+    pub plans: Vec<InstallmentProgress>,
 }
 
 /// The lists a card needs beyond names; each one costs a query.
@@ -27,12 +29,17 @@ pub struct Catalog {
 pub struct CatalogNeeds {
     pub invoices: bool,
     pub recurrences: bool,
+    pub plans: bool,
 }
 
 impl CatalogNeeds {
     pub fn of(form: crate::flows::FormKind) -> Self {
-        use crate::flows::FormKind::{EditRecord, PayInvoice};
-        Self { invoices: form == PayInvoice, recurrences: form == EditRecord }
+        use crate::flows::FormKind::{Anticipate, EditRecord, PayInvoice};
+        Self {
+            invoices: form == PayInvoice,
+            recurrences: form == EditRecord,
+            plans: form == Anticipate,
+        }
     }
 }
 
@@ -53,7 +60,8 @@ impl Catalog {
             if needs.invoices { services.cards.summaries().await? } else { Vec::new() };
         let recurrences =
             if needs.recurrences { services.recurrences.list(false).await? } else { Vec::new() };
-        Ok(Self { categories, accounts, goals, cards, card_summaries, recurrences })
+        let plans = if needs.plans { services.installments.running().await? } else { Vec::new() };
+        Ok(Self { categories, accounts, goals, cards, card_summaries, recurrences, plans })
     }
 
     pub fn categories_of(&self, kind: CategoryKind) -> Vec<&Category> {
@@ -73,6 +81,18 @@ impl Catalog {
     pub fn account_label(&self, id: AccountId) -> String {
         let found = self.accounts.iter().find(|account| account.id == id);
         found.map_or_else(|| "conta removida".into(), account_label)
+    }
+
+    /// `Enoxaparina · parcela 1 de 4` for a card purchase still running.
+    pub fn plan_label(&self, id: PurchaseId) -> String {
+        let found = self.plans.iter().find(|plan| plan.purchase == Some(id));
+        found.map_or_else(
+            || "parcelamento removido".into(),
+            |plan| {
+                let what = if plan.description.is_empty() { "compra" } else { &plan.description };
+                format!("{} ({}/{})", escape(what), plan.paid_count, plan.count)
+            },
+        )
     }
 
     pub fn recurrence_label(&self, id: RecurrenceId) -> String {

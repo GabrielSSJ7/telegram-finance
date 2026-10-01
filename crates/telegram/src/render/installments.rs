@@ -65,6 +65,7 @@ mod tests {
 
     fn plan(description: &str, source: PlanSource, paid: i64, total: i64) -> InstallmentProgress {
         InstallmentProgress {
+            purchase: None,
             description: description.into(),
             source,
             category_id: CategoryId::generate(),

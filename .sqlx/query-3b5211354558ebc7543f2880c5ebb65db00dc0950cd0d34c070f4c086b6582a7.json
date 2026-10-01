@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "update ledger_entries set deleted_at = $3\n             where card_purchase_id = $1 and installment_no = any($2) and deleted_at is null",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int2Array",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "3b5211354558ebc7543f2880c5ebb65db00dc0950cd0d34c070f4c086b6582a7"
+}

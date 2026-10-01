@@ -4,11 +4,11 @@ use app::model::{Member, ReportDay};
 use chrono::{Datelike, NaiveDate};
 
 use super::BotContext;
-use super::category_statement::category_overview;
 use super::entry_actions::recent_entries;
 use super::export::export_entries;
 use super::flow_runner::{cancel_current, start_flow};
 use super::outlook::{essential_categories, living_cost, projection};
+use super::statement::statement_command;
 use super::undo::undo_last;
 use crate::flows::FormKind;
 use crate::flows::dates::parse_typed_date;
@@ -52,7 +52,7 @@ pub async fn household_command(
         "exportar" => export_entries(context, chat_id, args).await,
         "ultimos" => recent_entries(context, chat_id).await,
         "resumo" => day_summary(context, chat_id, args).await,
-        "extrato" => category_overview(context, chat_id, args).await,
+        "extrato" => statement_command(context, chat_id, args).await,
         "custodevida" => living_cost(context, chat_id, args).await,
         "projecao" => projection(context, chat_id, args).await,
         "cancelar" => cancel_current(context, chat_id, member).await,

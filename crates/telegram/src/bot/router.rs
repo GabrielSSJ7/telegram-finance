@@ -5,13 +5,13 @@ use app::model::Member;
 
 use super::BotContext;
 use super::access::{Audience, identify};
-use super::category_statement::category_entries;
 use super::commands::{household_command, parse_command};
 use super::entry_actions::{delete_entry, edit_entry};
 use super::flow_runner::{Placement, continue_flow, load_session, member_key};
 use super::membership::on_membership;
 use super::outlook::toggle_essential;
 use super::recurrence_buttons::{deactivate_recurrence, record_recurrence, skip_recurrence};
+use super::statement::{period_of, statement_entries, switch_grouping};
 use super::undo::{undo_button, undo_purchase_button};
 use crate::callback_data::{CallbackPayload, nonce_of, parse};
 use crate::flows::FormInput;
@@ -161,8 +161,29 @@ async fn dispatch_button(
 }
 
 /// Buttons on messages the bot sent by itself: bill prompts, the
-/// recurrence list and `/extrato`.
+/// recurrence list, `/essenciais` and `/extrato`.
 async fn dispatch_message_button(
+    context: &BotContext,
+    press: &ButtonPress,
+    member: &Member,
+    payload: CallbackPayload,
+) -> Result<(), GatewayError> {
+    match payload {
+        CallbackPayload::StatementView { group, from, to } => {
+            switch_grouping(context, press, group, period_of(from, to)).await
+        }
+        CallbackPayload::StatementEntries { item, from, to } => {
+            statement_entries(context, press, item, period_of(from, to)).await
+        }
+        CallbackPayload::ToggleEssential(category) => {
+            toggle_essential(context, press, category).await
+        }
+        recurrence => dispatch_recurrence_button(context, press, member, recurrence).await,
+    }
+}
+
+/// The [Registrar], [Pular] and [Desativar] buttons of recurring entries.
+async fn dispatch_recurrence_button(
     context: &BotContext,
     press: &ButtonPress,
     member: &Member,
@@ -177,12 +198,6 @@ async fn dispatch_message_button(
         }
         CallbackPayload::DeactivateRecurrence(id) => {
             deactivate_recurrence(context, press, id).await
-        }
-        CallbackPayload::CategoryStatement { category, from, to } => {
-            category_entries(context, press, category, (from, to)).await
-        }
-        CallbackPayload::ToggleEssential(category) => {
-            toggle_essential(context, press, category).await
         }
         _ => context.gateway.answer_button(&press.callback_id, Some(STALE_BUTTON)).await,
     }

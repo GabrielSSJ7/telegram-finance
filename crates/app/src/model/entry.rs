@@ -2,7 +2,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use domain::{Cents, EntryKind};
 use serde::{Deserialize, Serialize};
 
-use super::{AccountId, CategoryId, EntryId, InvoiceId, MemberId, PurchaseId};
+use super::{AccountId, CardId, CategoryId, EntryId, InvoiceId, MemberId, PurchaseId};
 
 /// One row of the ledger.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,6 +63,8 @@ pub struct EntryFilter {
     pub kind: Option<EntryKind>,
     pub account_id: Option<AccountId>,
     pub category_id: Option<CategoryId>,
+    /// Entries charged to one card: its installments and credits.
+    pub card_id: Option<CardId>,
     pub created_by: Option<MemberId>,
     pub limit: u32,
 }
@@ -75,6 +77,7 @@ impl Default for EntryFilter {
             kind: None,
             account_id: None,
             category_id: None,
+            card_id: None,
             created_by: None,
             limit: 100,
         }

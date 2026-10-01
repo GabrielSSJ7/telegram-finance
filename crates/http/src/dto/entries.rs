@@ -1,4 +1,4 @@
-use app::model::{AccountId, CategoryId, EntryFilter, EntryPatch, LedgerEntry};
+use app::model::{AccountId, CardId, CategoryId, EntryFilter, EntryPatch, LedgerEntry};
 use app::services::ledger::{AccountEntry, AdjustmentEntry, EntryRequest, TransferEntry};
 use chrono::{DateTime, NaiveDate, Utc};
 use domain::{Cents, EntryKind};
@@ -170,6 +170,8 @@ pub struct ListEntriesQuery {
     /// Matches source or destination account.
     pub account_id: Option<Uuid>,
     pub category_id: Option<Uuid>,
+    /// Installments and credits charged to this card.
+    pub card_id: Option<Uuid>,
     /// 1 to 500, default 100.
     pub limit: Option<u32>,
 }
@@ -182,6 +184,7 @@ impl From<ListEntriesQuery> for EntryFilter {
             kind: query.kind,
             account_id: query.account_id.map(AccountId),
             category_id: query.category_id.map(CategoryId),
+            card_id: query.card_id.map(CardId),
             created_by: None,
             limit: query.limit.unwrap_or(100).clamp(1, MAX_LIST_LIMIT),
         }

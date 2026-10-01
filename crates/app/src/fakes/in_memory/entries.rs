@@ -1,8 +1,10 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
-use super::InMemoryStore;
-use crate::model::{DraftId, EntryFilter, EntryId, EntryPatch, LedgerEntry, MemberId, NewEntry};
+use super::{InMemoryStore, MemoryState};
+use crate::model::{
+    DraftId, EntryFilter, EntryId, EntryPatch, InvoiceId, LedgerEntry, MemberId, NewEntry,
+};
 use crate::ports::{EntryStore, StoreError, StoreResult};
 
 #[async_trait]
@@ -29,8 +31,14 @@ impl EntryStore for InMemoryStore {
 
     async fn list_entries(&self, filter: &EntryFilter) -> StoreResult<Vec<LedgerEntry>> {
         let state = self.lock();
-        let mut found: Vec<LedgerEntry> =
-            state.entries.iter().filter(|entry| matches_filter(entry, filter)).cloned().collect();
+        let on_card = card_invoices(&state, filter);
+        let wanted = |entry: &&LedgerEntry| {
+            matches_filter(entry, filter)
+                && on_card
+                    .as_ref()
+                    .is_none_or(|ids| entry.invoice_id.is_some_and(|id| ids.contains(&id)))
+        };
+        let mut found: Vec<LedgerEntry> = state.entries.iter().filter(wanted).cloned().collect();
         found.sort_by(|left, right| {
             (right.accounting_date, right.id).cmp(&(left.accounting_date, left.id))
         });
@@ -86,6 +94,12 @@ pub(super) fn ledger_entry(entry: NewEntry) -> LedgerEntry {
         created_at: Utc::now(),
         deleted: false,
     }
+}
+
+/// The invoices of the card the filter asks for, if any.
+fn card_invoices(state: &MemoryState, filter: &EntryFilter) -> Option<Vec<InvoiceId>> {
+    let card = filter.card_id?;
+    Some(state.invoices.iter().filter(|row| row.card_id == card).map(|row| row.id).collect())
 }
 
 fn matches_filter(entry: &LedgerEntry, filter: &EntryFilter) -> bool {

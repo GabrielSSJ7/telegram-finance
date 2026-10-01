@@ -9,5 +9,7 @@ where deleted_at is null
   and ($4::uuid is null or account_id = $4 or counter_account_id = $4)
   and ($5::uuid is null or category_id = $5)
   and ($6::uuid is null or created_by = $6)
+  and ($7::uuid is null
+       or invoice_id in (select id from card_invoices where card_id = $7))
 order by accounting_date desc, id desc
-limit $7
+limit $8

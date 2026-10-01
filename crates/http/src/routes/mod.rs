@@ -50,6 +50,7 @@ fn card_routes() -> OpenApiRouter<ApiState> {
         .routes(routes!(cards::card_invoices))
         .routes(routes!(cards::create_purchase))
         .routes(routes!(cards::delete_purchase))
+        .routes(routes!(cards::anticipate_installments))
         .routes(routes!(cards::create_credit))
         .routes(routes!(cards::pay_invoice))
 }

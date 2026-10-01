@@ -97,6 +97,7 @@ fn option_name(answer: &Answer, context: CardContext<'_>) -> String {
         Answer::RecordKind(kind) => record_kind_name(*kind).to_owned(),
         Answer::RecordField(field) => record_field_name(*field).to_owned(),
         Answer::Recurrence(id) => context.catalog.recurrence_label(*id),
+        Answer::Purchase(id) => context.catalog.plan_label(*id),
         Answer::Essential(true) => "Sim".to_owned(),
         Answer::Essential(false) => "Não".to_owned(),
         reference => referenced_name(reference, context.catalog),
@@ -218,6 +219,8 @@ const FIELD_TEXT: &[(Field, &str, &str)] = &[
     (Field::RecordTarget, "📌", "Qual"),
     (Field::RecordFieldChoice, "✏️", "Alterar"),
     (Field::NewName, "✏️", "Novo nome"),
+    (Field::PlanChoice, "💳", "Parcelamento"),
+    (Field::AnticipatedCount, "🔢", "Parcelas antecipadas"),
     (Field::RecurrenceInstallments, "🔢", "Parcelas"),
     (Field::RecurrencePaid, "✅", "Já pagas"),
     (Field::CategoryEmoji, "🙂", "Emoji"),
@@ -307,6 +310,17 @@ const QUESTIONS: &[(Option<FormKind>, Field, &str)] = &[
     (None, Field::RecordTarget, "Qual deles?"),
     (None, Field::RecordFieldChoice, "O que mudar nesse cadastro?"),
     (None, Field::NewName, "Qual o novo nome?"),
+    (None, Field::PlanChoice, "Qual parcelamento você antecipou?"),
+    (
+        None,
+        Field::AnticipatedCount,
+        "Quantas parcelas foram antecipadas? Digite o número ou toque em Todas as que faltam.",
+    ),
+    (
+        Some(FormKind::Anticipate),
+        Field::Amount,
+        "Quanto o banco cobrou pela antecipação? (com desconto, se houve)",
+    ),
     (Some(FormKind::EditRecord), Field::Amount, "Qual o novo valor por mês?"),
     (Some(FormKind::EditRecord), Field::GoalTarget, "Qual o novo objetivo?"),
     (Some(FormKind::EditRecord), Field::ClosingDay, "Em que dia a fatura passa a fechar? (1 a 31)"),
@@ -361,6 +375,10 @@ fn blocked_text(awaiting: Awaiting) -> &'static str {
             "Nenhuma categoria ativa desse tipo."
         }
         Awaiting::Field(Field::CardChoice) => "Nenhum cartão ainda. Cadastre um com /novocartao.",
+        Awaiting::Field(Field::PlanChoice) => {
+            "Nenhum parcelamento de cartão em andamento. Veja /parcelas."
+        }
+        Awaiting::Field(Field::RecordTarget) => "Nada cadastrado desse tipo ainda.",
         Awaiting::Field(Field::InvoiceChoice) => "Esse cartão não tem fatura com valor a pagar. 🎉",
         _ => "Você ainda não tem contas. Crie uma com /novaconta.",
     }

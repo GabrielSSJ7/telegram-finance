@@ -4,7 +4,7 @@ use chrono::NaiveDate;
 use domain::Cents;
 use serde::Serialize;
 
-use super::CategoryId;
+use super::{CategoryId, PurchaseId};
 
 /// What pays the installments.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -17,6 +17,8 @@ pub enum PlanSource {
 /// One plan still running, with how much of it is behind.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct InstallmentProgress {
+    /// The card purchase behind it; `None` for a financing.
+    pub purchase: Option<PurchaseId>,
     pub description: String,
     pub source: PlanSource,
     pub category_id: CategoryId,
@@ -53,6 +55,7 @@ mod tests {
     #[test]
     fn remaining_and_share() {
         let plan = InstallmentProgress {
+            purchase: None,
             description: "Enoxaparina".into(),
             source: PlanSource::Card("Itau Black".into()),
             category_id: CategoryId::generate(),

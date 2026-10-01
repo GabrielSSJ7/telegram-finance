@@ -173,3 +173,36 @@ pub async fn card_update_name_and_days(stores: StorePorts) {
     assert!(stores.cards.archive_card(card.id, Utc::now()).await.unwrap());
     assert_eq!(stores.cards.update_card(card.id, CardEdit::default()).await.unwrap(), None);
 }
+
+pub async fn card_anticipate_swaps_installments_for_one_charge(stores: StorePorts) {
+    let card = new_card(&stores, "Anticipa").await;
+    let purchase = buy(&stores, card.id, 30_000, 3, None).await.unwrap();
+    let paid = Cents::new(19_000);
+    let charge = new_purchase_like(&purchase, paid);
+    let plan = InstallmentPlan { total: paid, count: 1, first_number: 1, purchase_date: on(1, 20) };
+    let slot = schedule_installments(plan, schedule()).unwrap().remove(0);
+    let recorded = stores
+        .cards
+        .anticipate_installments(purchase.id, &[2, 3], charge, &slot, Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(recorded.total, paid);
+    let totals = stores.cards.invoice_totals(card.id).await.unwrap();
+    let charges: Vec<i64> = totals.iter().map(|(_, totals)| totals.charges.value()).collect();
+    // The emptied invoices stay, now with nothing on them.
+    assert_eq!(charges, vec![29_000, 0, 0], "the first installment plus the anticipation");
+}
+
+/// A charge on the same card and category as `purchase`.
+fn new_purchase_like(purchase: &CardPurchase, total: Cents) -> NewCardPurchase {
+    NewCardPurchase {
+        card_id: purchase.card_id,
+        description: format!("Antecipação de 2x: {}", purchase.description),
+        category_id: purchase.category_id,
+        total,
+        installment_count: 1,
+        first_installment_no: 1,
+        purchased_on: on(1, 20),
+        created_by: purchase.created_by,
+    }
+}

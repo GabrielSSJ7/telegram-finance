@@ -21,6 +21,8 @@ pub enum FormKind {
     /// `/editar`: changes a registered account, card, category, goal or
     /// recurring entry.
     EditRecord,
+    /// `/antecipar`: pays installments of a card purchase ahead of time.
+    Anticipate,
     /// Makes an account's balance match the bank.
     Adjust,
     Settings,
@@ -85,6 +87,9 @@ pub enum Field {
     RecordFieldChoice,
     /// The new name of the record being changed.
     NewName,
+    /// `/antecipar`: which card purchase, and how many installments.
+    PlanChoice,
+    AnticipatedCount,
     CategoryName,
     CategoryKindChoice,
     /// Only asked for expense categories.
@@ -149,7 +154,7 @@ const RECURRENCE_FIELDS: &[Field] = &[
 ];
 
 impl FormKind {
-    pub const ALL: [FormKind; 17] = [
+    pub const ALL: [FormKind; 18] = [
         FormKind::Expense,
         FormKind::Income,
         FormKind::Transfer,
@@ -167,6 +172,7 @@ impl FormKind {
         FormKind::Settings,
         FormKind::NewCategory,
         FormKind::EditRecord,
+        FormKind::Anticipate,
     ];
 
     pub const fn fields(self) -> &'static [Field] {
@@ -194,6 +200,7 @@ impl FormKind {
         match self {
             FormKind::EditEntry => EDIT_FIELDS,
             FormKind::EditRecord => EDIT_RECORD_FIELDS,
+            FormKind::Anticipate => &[Field::PlanChoice, Field::AnticipatedCount, Amount],
             FormKind::Adjust => &[ReceivingAccount, Field::ActualBalance],
             FormKind::Settings => SETTINGS_FIELDS,
             FormKind::NewCategory => CATEGORY_FIELDS,
@@ -218,6 +225,7 @@ impl FormKind {
             FormKind::SetBudget => "orcamento",
             FormKind::EditEntry => "editarlancamento",
             FormKind::EditRecord => "editar",
+            FormKind::Anticipate => "antecipar",
             FormKind::Adjust => "ajuste",
             FormKind::Settings => "config",
             FormKind::NewCategory => "novacategoria",
@@ -240,6 +248,7 @@ impl FormKind {
             FormKind::SetBudget => "Orçamento mensal",
             FormKind::EditEntry => "Editar lançamento",
             FormKind::EditRecord => "Editar cadastro",
+            FormKind::Anticipate => "Antecipar parcelas",
             FormKind::Adjust => "Ajustar saldo",
             FormKind::Settings => "Configurações",
             FormKind::NewCategory => "Nova categoria",

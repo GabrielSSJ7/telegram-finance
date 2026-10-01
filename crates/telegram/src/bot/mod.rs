@@ -4,7 +4,6 @@
 
 pub mod access;
 pub mod budget_alerts;
-pub mod category_statement;
 pub mod commands;
 pub mod context;
 pub mod entry_actions;
@@ -16,6 +15,7 @@ pub mod outlook;
 pub mod periods;
 pub mod recurrence_buttons;
 pub mod router;
+pub mod statement;
 pub mod undo;
 
 pub use context::BotContext;

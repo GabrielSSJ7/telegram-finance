@@ -55,6 +55,7 @@ fn typed_or_chosen(field: Field, input: &FormInput) -> Result<Answer, String> {
         Field::Installments => installments(input),
         Field::RecurrenceInstallments => plan_length(input),
         Field::RecurrencePaid => installments_paid(input),
+        Field::AnticipatedCount => keep_or(input, plan_length),
         _ => button_choice(field, input),
     }
 }
@@ -317,6 +318,7 @@ fn record_choice(field: Field, value: ButtonValue) -> Result<Answer, String> {
             Ok(Answer::RecordField(picked))
         }
         (Field::RecordTarget, ButtonValue::Recurrence(id)) => Ok(Answer::Recurrence(id)),
+        (Field::PlanChoice, ButtonValue::Purchase(id)) => Ok(Answer::Purchase(id)),
         _ => Err(PICK_A_BUTTON.into()),
     }
 }

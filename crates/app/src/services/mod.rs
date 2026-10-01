@@ -29,7 +29,9 @@ pub use accounts::{AccountService, OpenAccount};
 pub use adjustments::{AdjustmentService, ReconcileBalance};
 pub use api_keys::ApiKeyService;
 pub use budgets::BudgetService;
-pub use card_spending::{CardCreditRequest, CardPurchaseRequest, InvoicePaymentRequest};
+pub use card_spending::{
+    AnticipateRequest, CardCreditRequest, CardPurchaseRequest, InvoicePaymentRequest,
+};
 pub use cards::{CardService, OpenCard};
 pub use categories::{CategoryService, CreateCategory};
 pub use exports::ExportService;

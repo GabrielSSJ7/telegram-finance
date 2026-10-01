@@ -121,6 +121,7 @@ impl EntryStore for PgStore {
             filter.account_id.map(|id| id.0),
             filter.category_id.map(|id| id.0),
             filter.created_by.map(|id| id.0),
+            filter.card_id.map(|id| id.0),
             i64::from(filter.limit),
         )
         .fetch_all(self.pool())

@@ -35,6 +35,16 @@ pub trait CardStore: Send + Sync {
         draft: Option<DraftId>,
     ) -> StoreResult<CardPurchase>;
     async fn find_purchase(&self, id: PurchaseId) -> StoreResult<Option<CardPurchase>>;
+    /// Drops the installments of `purchase` numbered in `numbers` and
+    /// records `charge` in their place, in one transaction.
+    async fn anticipate_installments(
+        &self,
+        purchase: PurchaseId,
+        numbers: &[u32],
+        charge: NewCardPurchase,
+        slot: &InstallmentSlot,
+        at: DateTime<Utc>,
+    ) -> StoreResult<CardPurchase>;
     /// Soft-deletes the purchase and all its installments.
     async fn delete_purchase(&self, id: PurchaseId, at: DateTime<Utc>) -> StoreResult<bool>;
 

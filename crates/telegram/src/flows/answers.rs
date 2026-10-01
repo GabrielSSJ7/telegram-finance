@@ -1,6 +1,6 @@
 use app::model::{
-    AccountId, CardId, CategoryId, CategoryKind, EntryId, GoalId, InvoiceId, RecurrenceId,
-    RecurrenceKind, RecurrenceMode,
+    AccountId, CardId, CategoryId, CategoryKind, EntryId, GoalId, InvoiceId, PurchaseId,
+    RecurrenceId, RecurrenceKind, RecurrenceMode,
 };
 use chrono::{NaiveDate, NaiveTime};
 use domain::{AccountKind, Cents};
@@ -46,6 +46,7 @@ pub enum Answer {
     RecordKind(RecordKind),
     RecordField(RecordField),
     Recurrence(RecurrenceId),
+    Purchase(PurchaseId),
 }
 
 /// Which kind of record `/editar` changes.
@@ -318,6 +319,13 @@ impl Answers {
     pub fn record_field(&self) -> Option<RecordField> {
         match self.get(Field::RecordFieldChoice) {
             Some(Answer::RecordField(field)) => Some(*field),
+            _ => None,
+        }
+    }
+
+    pub fn purchase(&self) -> Option<PurchaseId> {
+        match self.get(Field::PlanChoice) {
+            Some(Answer::Purchase(id)) => Some(*id),
             _ => None,
         }
     }

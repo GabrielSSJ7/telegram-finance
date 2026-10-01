@@ -65,6 +65,7 @@ fn fixed_or_catalog_choices(
         Field::RecordKindChoice => record_kind_choices(),
         Field::RecordFieldChoice => record_field_choices(answers),
         Field::RecordTarget => record_choices(answers, catalog),
+        Field::PlanChoice => plan_choices(catalog),
         other => catalog_choices(form, other, answers, catalog),
     }
 }
@@ -76,6 +77,7 @@ const fn skip_label(field: Field) -> Option<&'static str> {
         Field::Description | Field::CategoryEmoji => Some("Pular"),
         Field::RecurrenceInstallments => Some("Sem fim"),
         Field::RecurrencePaid => Some("Nenhuma"),
+        Field::AnticipatedCount => Some("Todas as que faltam"),
         Field::InitialBalance | Field::AlreadySaved | Field::ActualBalance => Some("Zero"),
         Field::BudgetLimit => Some("🗑️ Remover orçamento"),
         Field::GoalDeadline => Some("Sem prazo"),
@@ -218,6 +220,16 @@ fn record_choices(answers: &Answers, catalog: &Catalog) -> Choices {
             .collect(),
         None => Vec::new(),
     }
+}
+
+/// Card purchases still being paid; financings are not anticipated here.
+fn plan_choices(catalog: &Catalog) -> Choices {
+    catalog
+        .plans
+        .iter()
+        .filter_map(|plan| plan.purchase)
+        .map(|id| (ButtonValue::Purchase(id), catalog.plan_label(id)))
+        .collect()
 }
 
 fn essential_choices() -> Choices {

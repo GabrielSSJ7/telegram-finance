@@ -137,6 +137,33 @@ impl CardStore for PgStore {
         row.into_purchase()
     }
 
+    async fn anticipate_installments(
+        &self,
+        purchase: PurchaseId,
+        numbers: &[u32],
+        charge: NewCardPurchase,
+        slot: &InstallmentSlot,
+        at: DateTime<Utc>,
+    ) -> StoreResult<CardPurchase> {
+        let dropped: Vec<i16> =
+            numbers.iter().map(|number| i16::try_from(*number).unwrap_or(i16::MAX)).collect();
+        let mut transaction = self.pool().begin().await.map_err(store_error)?;
+        sqlx::query!(
+            "update ledger_entries set deleted_at = $3
+             where card_purchase_id = $1 and installment_no = any($2) and deleted_at is null",
+            purchase.0,
+            &dropped,
+            at,
+        )
+        .execute(&mut *transaction)
+        .await
+        .map_err(store_error)?;
+        let row = insert_purchase(&mut transaction, &charge).await?;
+        insert_installment(&mut transaction, &row, slot).await?;
+        transaction.commit().await.map_err(store_error)?;
+        row.into_purchase()
+    }
+
     async fn find_purchase(&self, id: PurchaseId) -> StoreResult<Option<CardPurchase>> {
         let row = sqlx::query_as!(
             PurchaseRow,

@@ -1,10 +1,12 @@
-//! Totals per category for a period, computed from its entries. Uses the
-//! same signs as the reports: refunds and card credits reduce spending,
-//! and only income counts in income categories.
+//! Totals of a period for `/extrato`, by category, by account or by card,
+//! computed from the entries. Categories use the same signs as the
+//! reports: refunds and card credits reduce spending, and only income
+//! counts in income categories.
 
 use domain::Cents;
+use domain::entry_kind::AccountRole;
 
-use crate::model::{Category, CategoryKind, LedgerEntry};
+use crate::model::{Account, AccountId, Category, CategoryKind, LedgerEntry};
 
 /// What one category moved in a period.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,6 +55,53 @@ fn activity_of(category: &Category, entries: &[LedgerEntry]) -> Option<CategoryA
     }
     let total = own.iter().map(|entry| category_effect(entry, category.kind)).sum();
     Some(CategoryActivity { category: category.clone(), total, entries: own.len() })
+}
+
+/// What one account moved in a period: money in minus money out.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccountActivity {
+    pub account: Account,
+    pub total: Cents,
+    pub entries: usize,
+}
+
+/// Signed effect of `entry` on `account`: a transfer leaves one and lands
+/// in the other, so each side is counted with its own role.
+pub fn account_effect(entry: &LedgerEntry, account: AccountId) -> Cents {
+    let role = if entry.account_id == Some(account) {
+        AccountRole::Primary
+    } else if entry.counter_account_id == Some(account) {
+        AccountRole::Counter
+    } else {
+        return Cents::ZERO;
+    };
+    entry.amount.times(entry.kind.account_effect(role))
+}
+
+/// Accounts that moved in `entries`, biggest movement first.
+pub fn account_activity(entries: &[LedgerEntry], accounts: &[Account]) -> Vec<AccountActivity> {
+    let mut activity: Vec<AccountActivity> = accounts
+        .iter()
+        .filter_map(|account| {
+            let touched: Vec<&LedgerEntry> = entries
+                .iter()
+                .filter(|entry| account_effect(entry, account.id) != Cents::ZERO)
+                .collect();
+            (!touched.is_empty()).then(|| AccountActivity {
+                account: account.clone(),
+                total: touched.iter().map(|entry| account_effect(entry, account.id)).sum(),
+                entries: touched.len(),
+            })
+        })
+        .collect();
+    activity.sort_by_key(|item| item.total.value().abs());
+    activity.reverse();
+    activity
+}
+
+/// What was charged to a card in a period: installments minus credits.
+pub fn card_charges(entries: &[LedgerEntry]) -> Cents {
+    entries.iter().map(|entry| entry.amount.times(entry.kind.spend_effect())).sum()
 }
 
 #[cfg(test)]
@@ -108,5 +157,48 @@ mod tests {
             ("salário".into(), 800_000, 1),
         ];
         assert_eq!(summary(&activity), expected);
+    }
+
+    fn account(name: &str) -> Account {
+        Account {
+            id: AccountId::generate(),
+            name: name.into(),
+            kind: domain::AccountKind::Checking,
+            initial_balance: Cents::ZERO,
+            opened_on: NaiveDate::MIN,
+            archived: false,
+        }
+    }
+
+    #[test]
+    fn accounts_count_both_sides_of_a_transfer() {
+        let (checking, savings) = (account("Nubank"), account("Poupança"));
+        let date = NaiveDate::from_ymd_opt(2026, 9, 10).unwrap();
+        let transfer = LedgerEntry {
+            account_id: Some(checking.id),
+            counter_account_id: Some(savings.id),
+            ..bare_entry(EntryKind::Transfer, 50_000, "", date)
+        };
+        let salary = LedgerEntry {
+            account_id: Some(checking.id),
+            ..bare_entry(EntryKind::Income, 800_000, "", date)
+        };
+        let activity = account_activity(&[transfer, salary], &[checking, savings]);
+        let totals: Vec<(String, i64, usize)> = activity
+            .iter()
+            .map(|item| (item.account.name.clone(), item.total.value(), item.entries))
+            .collect();
+        assert_eq!(totals, vec![("Nubank".into(), 750_000, 2), ("Poupança".into(), 50_000, 1)]);
+    }
+
+    #[test]
+    fn card_charges_subtract_credits() {
+        let date = NaiveDate::from_ymd_opt(2026, 9, 10).unwrap();
+        let entries = [
+            bare_entry(EntryKind::CardInstallment, 10_000, "", date),
+            bare_entry(EntryKind::CardCredit, 2_500, "", date),
+            bare_entry(EntryKind::InvoicePayment, 7_500, "", date),
+        ];
+        assert_eq!(card_charges(&entries), Cents::new(7_500));
     }
 }

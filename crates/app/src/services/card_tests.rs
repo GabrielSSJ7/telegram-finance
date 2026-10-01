@@ -68,6 +68,25 @@ impl CardFixture {
         }
     }
 
+    /// Buys `total` cents split into `installments` on the card.
+    async fn buy(&self, total: i64, installments: u32) -> crate::model::CardPurchase {
+        let request = self.purchase(total, installments);
+        self.cards().purchase(request, EntryOrigin::default()).await.unwrap()
+    }
+
+    /// The installment numbers still live for `purchase`, and what the
+    /// card was charged in total.
+    async fn installments_of(&self, purchase: crate::model::PurchaseId) -> (Vec<u32>, Cents) {
+        let entries = self.set.services.ledger.list(&EntryFilter::default()).await.unwrap();
+        let left = entries
+            .iter()
+            .filter(|entry| entry.card_purchase_id == Some(purchase))
+            .filter_map(|entry| entry.installment_no)
+            .collect();
+        let total = entries.iter().map(|entry| entry.amount.times(entry.kind.spend_effect())).sum();
+        (left, total)
+    }
+
     async fn invoices(&self) -> Vec<InvoiceView> {
         self.cards().invoices(self.card).await.unwrap()
     }
@@ -224,4 +243,42 @@ async fn update_changes_the_name_and_the_invoice_days() {
     cards.archive(fixture.card).await.unwrap();
     let gone = cards.update(fixture.card, crate::model::CardEdit::default()).await;
     assert!(matches!(gone, Err(AppError::NotFound { .. })), "{gone:?}");
+}
+
+#[tokio::test]
+async fn anticipating_drops_future_installments_and_charges_what_was_paid() {
+    let fixture = fixture().await;
+    let cards = &fixture.set.services.cards;
+    let purchase = fixture.buy(300_000, 3).await;
+    let request = crate::services::card_spending::AnticipateRequest {
+        purchase_id: purchase.id,
+        count: Some(2),
+        paid: Cents::new(190_000),
+        on: None,
+    };
+    let charge = cards.anticipate(request, EntryOrigin::default()).await.unwrap();
+    assert_eq!(charge.total, Cents::new(190_000));
+    assert!(charge.description.contains("Antecipação de 2x"), "{}", charge.description);
+    let (left, total) = fixture.installments_of(purchase.id).await;
+    assert_eq!(left, vec![1], "installments 2 and 3 were brought forward: {left:?}");
+    assert_eq!(total, Cents::new(290_000), "the first installment plus what was paid");
+}
+
+#[tokio::test]
+async fn anticipating_refuses_impossible_counts() {
+    let fixture = fixture().await;
+    let cards = &fixture.set.services.cards;
+    let purchase = fixture.buy(300_000, 3).await;
+    let request = |count| crate::services::card_spending::AnticipateRequest {
+        purchase_id: purchase.id,
+        count,
+        paid: Cents::new(10_000),
+        on: None,
+    };
+    let too_many = cards.anticipate(request(Some(9)), EntryOrigin::default()).await.unwrap_err();
+    assert!(too_many.to_string().contains("still to come"), "{too_many}");
+    assert!(cards.anticipate(request(Some(0)), EntryOrigin::default()).await.is_err());
+    let zero_paid =
+        crate::services::card_spending::AnticipateRequest { paid: Cents::ZERO, ..request(None) };
+    assert!(cards.anticipate(zero_paid, EntryOrigin::default()).await.is_err());
 }

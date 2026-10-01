@@ -31,8 +31,8 @@ pub async fn execute(
     origin: EntryOrigin,
 ) -> AppResult<Committed> {
     match command {
-        FormCommand::CardPurchase(request) => {
-            services.cards.purchase(request, origin).await.map(Committed::Purchase)
+        FormCommand::CardPurchase(_) | FormCommand::Anticipate(_) => {
+            charge_card(services, command, origin).await.map(Committed::Purchase)
         }
         FormCommand::EditEntry { entry, patch } => {
             services.ledger.update(entry, patch).await.map(Committed::Entry)
@@ -46,6 +46,19 @@ pub async fn execute(
             record_money(services, command, origin).await.map(Committed::Entry)
         }
         setup => configure(services, setup).await,
+    }
+}
+
+/// What lands on a card invoice: a purchase or an anticipation.
+async fn charge_card(
+    services: &ServiceSet,
+    command: FormCommand,
+    origin: EntryOrigin,
+) -> AppResult<app::model::CardPurchase> {
+    match command {
+        FormCommand::CardPurchase(request) => services.cards.purchase(request, origin).await,
+        FormCommand::Anticipate(request) => services.cards.anticipate(request, origin).await,
+        other => Err(app::AppError::invalid("form command", format!("{other:?}"), "a card charge")),
     }
 }
 
@@ -175,6 +188,7 @@ pub const fn headline(form: FormKind) -> &'static str {
         FormKind::SetBudget => "Orçamento salvo",
         FormKind::EditEntry => "Lançamento alterado",
         FormKind::EditRecord => "Cadastro alterado",
+        FormKind::Anticipate => "Antecipação registrada",
         FormKind::Adjust => "Saldo ajustado",
         FormKind::Settings => "Configuração salva",
         FormKind::NewCategory => "Categoria criada",

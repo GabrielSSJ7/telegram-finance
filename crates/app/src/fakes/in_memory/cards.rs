@@ -116,6 +116,29 @@ impl CardStore for InMemoryStore {
         Ok(created)
     }
 
+    async fn anticipate_installments(
+        &self,
+        purchase: PurchaseId,
+        numbers: &[u32],
+        charge: NewCardPurchase,
+        slot: &InstallmentSlot,
+        _at: DateTime<Utc>,
+    ) -> StoreResult<CardPurchase> {
+        let mut state = self.lock();
+        for entry in &mut state.entries {
+            let dropped = entry.card_purchase_id == Some(purchase)
+                && entry.installment_no.is_some_and(|number| numbers.contains(&number));
+            if dropped {
+                entry.deleted = true;
+            }
+        }
+        let created = purchase_from(charge);
+        let invoice = ensure_invoice_in(&mut state, created.card_id, slot.invoice);
+        state.entries.push(installment_entry(&created, slot, invoice.id));
+        state.purchases.push(created.clone());
+        Ok(created)
+    }
+
     async fn find_purchase(&self, id: PurchaseId) -> StoreResult<Option<CardPurchase>> {
         Ok(self.lock().purchases.iter().find(|row| row.id == id).cloned())
     }

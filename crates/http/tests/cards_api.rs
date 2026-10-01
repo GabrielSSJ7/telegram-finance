@@ -109,3 +109,25 @@ async fn card_validation_and_archive() {
     assert_eq!(scene.api.call(Method::DELETE, &uri, None).await.0, StatusCode::NO_CONTENT);
     assert_eq!(scene.buy(100, 1).await.0, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn anticipating_installments_replaces_them_with_one_charge() {
+    let api = ApiHarness::new().await;
+    let card = api
+        .post("/api/v1/cards", json!({"name": "Roxinho", "closing_day": 3, "due_day": 10}))
+        .await
+        .1;
+    let card_id = card["id"].as_str().unwrap().to_owned();
+    let category = api.category("mercado", "expense").await;
+    let purchase = json!({"category_id": category, "total_cents": 300_000, "installments": 3, "description": "geladeira"});
+    let (status, bought) = api.post(&format!("/api/v1/cards/{card_id}/purchases"), purchase).await;
+    assert_eq!(status, StatusCode::CREATED, "{bought}");
+    let uri = format!("/api/v1/card-purchases/{}/anticipations", bought["id"].as_str().unwrap());
+    let (status, charge) = api.post(&uri, json!({"count": 2, "paid_cents": 190_000})).await;
+    assert_eq!(status, StatusCode::CREATED, "{charge}");
+    assert_eq!(charge["total_cents"].as_i64(), Some(190_000));
+    let (_, entries) = api.get("/api/v1/entries?kind=card_installment").await;
+    assert_eq!(entries.as_array().map(Vec::len), Some(2), "{entries}");
+    let too_many = api.post(&uri, json!({"count": 9, "paid_cents": 1000})).await;
+    assert_eq!(too_many.0, StatusCode::UNPROCESSABLE_ENTITY);
+}

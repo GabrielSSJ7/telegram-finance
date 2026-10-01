@@ -1,13 +1,14 @@
 use app::model::{CardId, PurchaseId};
-use app::services::EntryOrigin;
+use app::services::{AnticipateRequest, EntryOrigin};
 use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
+use domain::Cents;
 use uuid::Uuid;
 
 use crate::dto::cards::{
-    CardResponse, CardSummaryResponse, CreditBody, InvoiceResponse, OpenCardBody, PaymentBody,
-    PurchaseBody, PurchaseResponse, UpdateCardBody,
+    AnticipateBody, CardResponse, CardSummaryResponse, CreditBody, InvoiceResponse, OpenCardBody,
+    PaymentBody, PurchaseBody, PurchaseResponse, UpdateCardBody,
 };
 use crate::dto::entries::EntryResponse;
 use crate::error::{ApiError, Problem};
@@ -127,4 +128,27 @@ pub async fn update_card(
 ) -> Result<Json<CardResponse>, ApiError> {
     let card = state.services.cards.update(CardId(id), body.try_into()?).await?;
     Ok(Json(card.into()))
+}
+
+#[utoipa::path(post, path = "/card-purchases/{id}/anticipations", tag = "cards",
+    params(("id" = Uuid, Path), ("Idempotency-Key" = Option<Uuid>, Header, description = "Retry-safe key; a repeat returns 409")),
+    request_body = AnticipateBody,
+    responses((status = 201, description = "The charge that replaced the installments", body = PurchaseResponse),
+        (status = 404, body = Problem), (status = 422, body = Problem)),
+    security(("api_key" = [])))]
+pub async fn anticipate_installments(
+    State(state): State<ApiState>,
+    ApiPath(id): ApiPath<Uuid>,
+    IdempotencyKey(draft): IdempotencyKey,
+    ApiJson(body): ApiJson<AnticipateBody>,
+) -> Result<(StatusCode, Json<PurchaseResponse>), ApiError> {
+    let request = AnticipateRequest {
+        purchase_id: PurchaseId(id),
+        count: body.count,
+        paid: Cents::new(body.paid_cents),
+        on: body.date,
+    };
+    let origin = EntryOrigin { created_by: None, draft };
+    let charge = state.services.cards.anticipate(request, origin).await?;
+    Ok((StatusCode::CREATED, Json(charge.into())))
 }

@@ -111,6 +111,7 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/saldo`, `/resumo`, `/ontem`, `/contas`, `/metas`, `/categorias` | Reports (`/resumo` and `/ontem` are today's and yesterday's summaries on demand; `/resumo 15/09` shows any earlier day) |
 | `/recorrente`, `/recorrentes` | Create a monthly entry (salary, rent, subscription), optionally with a number of installments (financing, loan) and how many are already paid; list and deactivate |
 | `/parcelas` | Card purchases and financings still being paid: paid so far, what is left, monthly installment and last month |
+| `/antecipar` | Register an anticipation: the last installments of a card purchase leave the future invoices and what the bank charged lands on the current one |
 | `/orcamento`, `/orcamentos` | Set (or remove) a category's limit per cycle; see how much of each is used. Alerts at 80% and 100% |
 | `/mes` | The current cycle so far |
 | `/projecao [mm/aaaa]` | How the cycle should end: income and spending recorded plus what is still coming, the result, and the cash left after the invoices and bills due before the last day |
@@ -120,7 +121,7 @@ Telegram setup: [docs/setup-telegram.md](docs/setup-telegram.md).
 | `/editar` | Change a registered record: account, card, category, goal or recurring entry (name, emoji, invoice days, goal target and deadline, recurring amount, day and mode) |
 | `/ultimos` | Last 10 entries with ✏️ edit (value, description, category or date) and 🗑️ delete; only the author (or anyone, for automatic entries) |
 | `/ajuste` | Make an account match the bank: type the real balance, the difference is recorded as an adjustment (not income or spending) |
-| `/extrato [mm/aaaa]` | Spending and income per category for the cycle; each category button lists its entries |
+| `/extrato [mm/aaaa]` | The cycle by category, by account or by card: buttons switch the grouping, and each total lists its entries |
 | `/exportar [mm/aaaa]` | The cycle's entries as a CSV spreadsheet (`;`, decimal comma) |
 | `/config` | Day the cycle starts; times of yesterday's summary (any hour) and today's (19:00 or later) |
 | `/cancelar`, `/ajuda` | Cancel the current form, list commands |
@@ -138,7 +139,7 @@ instead of saving twice. Amounts are integer cents; dates are ISO 8601.
 | Accounts | `GET/POST /accounts`, `PATCH /accounts/{id}` (`name`), `DELETE /accounts/{id}`, `GET /accounts/balances`, `POST /accounts/{id}/reconcile` |
 | Entries | `GET/POST /entries` (filters: dates, kind, category, account, card), `GET/PATCH/DELETE /entries/{id}` |
 | Categories | `GET/POST /categories`, `PATCH /categories/{id}` (`name`, `emoji`, `essential`), `DELETE /categories/{id}` |
-| Cards | `GET/POST /cards`, `PATCH /cards/{id}` (`name`, `closing_day`, `due_day`), `DELETE /cards/{id}`, `GET /cards/summaries`, `GET /cards/{id}/invoices`, `POST /cards/{id}/purchases`, `DELETE /card-purchases/{id}`, `POST /cards/{id}/credits`, `POST /invoices/{id}/payments` |
+| Cards | `GET/POST /cards`, `PATCH /cards/{id}` (`name`, `closing_day`, `due_day`), `DELETE /cards/{id}`, `GET /cards/summaries`, `GET /cards/{id}/invoices`, `POST /cards/{id}/purchases`, `DELETE /card-purchases/{id}`, `POST /cards/{id}/credits`, `POST /invoices/{id}/payments`, `POST /card-purchases/{id}/anticipations` |
 | Goals | `GET/POST /goals`, `PUT /goals/{id}/target`, `POST /goals/{id}/deposits`, `POST /goals/{id}/withdrawals` |
 | Installments | `GET /installments` |
 | Planning | `GET/POST /recurrences` (`installment_count`, `installments_paid`), `PATCH /recurrences/{id}` (`amount_cents`, `day_of_month`, `mode`), `DELETE /recurrences/{id}`, `GET /budgets`, `PUT/DELETE /budgets/{category_id}` |

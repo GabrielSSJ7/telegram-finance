@@ -139,6 +139,18 @@ impl From<CardSummary> for CardSummaryResponse {
     }
 }
 
+/// Pays installments of a purchase ahead of time.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct AnticipateBody {
+    /// How many of the installments still to come; all of them when absent.
+    #[schema(example = 2)]
+    pub count: Option<u32>,
+    /// What the bank charged, discount included.
+    #[schema(example = 190_000)]
+    pub paid_cents: i64,
+    pub date: Option<NaiveDate>,
+}
+
 /// Fields left out keep their value.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UpdateCardBody {

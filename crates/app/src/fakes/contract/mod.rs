@@ -77,6 +77,7 @@ macro_rules! store_contract_cases {
         $case!(card_invoice_ensure_keeps_first_dates);
         $case!(card_purchase_spreads_installments);
         $case!(card_purchase_delete_removes_installments);
+        $case!(card_anticipate_swaps_installments_for_one_charge);
         $case!(card_invoice_entries_count_as_credits_and_payments);
         $case!(recurrence_create_find_list_deactivate);
         $case!(recurrence_keeps_its_installment_plan);

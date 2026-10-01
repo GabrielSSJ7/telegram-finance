@@ -60,3 +60,41 @@ async fn parcelas_without_plans() {
     harness.say(ANA, "/parcelas").await;
     harness.expect_last("Nenhum parcelamento em andamento.");
 }
+
+#[tokio::test]
+async fn antecipar_moves_the_last_installments_to_this_invoice() {
+    let mut harness = BotHarness::bound().await.with_basics().await.with_card().await;
+    buy_in_installments(&mut harness, "300", "3").await;
+    harness.say(BIA, "/antecipar").await;
+    harness.tap(BIA, "geladeira").await;
+    harness.say(BIA, "2").await;
+    harness.say(BIA, "190").await;
+    harness.tap(BIA, "Confirmar").await;
+    harness.expect_last("Antecipação registrada");
+    let filter = EntryFilter { kind: Some(EntryKind::CardInstallment), ..EntryFilter::default() };
+    let rows = harness.set.services.ledger.list(&filter).await.unwrap();
+    let amounts: Vec<Cents> = rows.iter().map(|row| row.amount).collect();
+    assert_eq!(amounts.len(), 2, "one installment left plus the anticipation: {amounts:?}");
+    assert!(amounts.contains(&Cents::new(19_000)), "{amounts:?}");
+    harness.say(ANA, "/parcelas").await;
+    harness.expect_last("Nenhum parcelamento em andamento.");
+}
+
+#[tokio::test]
+async fn antecipar_without_plans_says_so() {
+    let mut harness = BotHarness::bound().await.with_basics().await.with_card().await;
+    harness.say(ANA, "/antecipar").await;
+    harness.expect_last("Nenhum parcelamento");
+}
+
+/// A card purchase of `amount` split into `installments`.
+async fn buy_in_installments(harness: &mut BotHarness, amount: &str, installments: &str) {
+    harness.say(ANA, "/gasto").await;
+    harness.say(ANA, amount).await;
+    harness.say(ANA, "geladeira").await;
+    harness.tap(ANA, "mercado").await;
+    harness.tap(ANA, "Roxinho").await;
+    harness.say(ANA, installments).await;
+    harness.tap(ANA, "Hoje").await;
+    harness.tap(ANA, "Confirmar").await;
+}

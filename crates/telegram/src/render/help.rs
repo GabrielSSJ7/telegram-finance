@@ -29,7 +29,10 @@ pub const SECTIONS: &[CommandSection] = &[
             ("ontem", "Resumo de ontem"),
             ("mes", "Como está o ciclo até agora"),
             ("projecao", "Como o ciclo deve terminar: entradas, gastos e caixa"),
-            ("extrato", "Gastos e entradas por categoria; /extrato 08/2026 para outro ciclo"),
+            (
+                "extrato",
+                "Extrato do ciclo por categoria, conta ou cartão; /extrato 08/2026 para outro",
+            ),
             ("custodevida", "Quanto custa a vida básica; /custodevida 08/2026 para outro ciclo"),
             ("metas", "Progresso das metas"),
             ("orcamentos", "Orçamentos do ciclo"),
@@ -41,6 +44,7 @@ pub const SECTIONS: &[CommandSection] = &[
         commands: &[
             ("fatura", "Faturas dos cartões"),
             ("parcelas", "Compras parceladas e financiamentos: quanto falta"),
+            ("antecipar", "Registrar a antecipação de parcelas de um cartão"),
             ("cartoes", "Listar cartões"),
             ("recorrentes", "Listar e desativar recorrentes"),
         ],

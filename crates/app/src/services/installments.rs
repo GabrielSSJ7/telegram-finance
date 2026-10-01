@@ -118,6 +118,7 @@ fn card_progress(
     let paid_count = purchase.first_installment_no - 1 + dated;
     let paid = amounts.iter().take(paid_count as usize).copied().sum();
     InstallmentProgress {
+        purchase: Some(purchase.id),
         description: purchase.description.clone(),
         source: PlanSource::Card(card),
         category_id: purchase.category_id,
@@ -138,6 +139,7 @@ fn recurring_progress(recurrence: &Recurrence, source: PlanSource) -> Option<Ins
         .last_generated_on
         .map_or(plan.first_number - 1, |last| plan.number_on(first_due, last).min(plan.count));
     Some(InstallmentProgress {
+        purchase: None,
         description: recurrence.description.clone(),
         source,
         category_id: recurrence.category_id,

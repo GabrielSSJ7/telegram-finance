@@ -4,7 +4,6 @@
 
 pub mod card;
 pub mod catalog;
-pub mod category_statement;
 pub mod entries;
 pub mod errors;
 pub mod help;
@@ -14,6 +13,7 @@ pub mod notices;
 pub mod outlook;
 pub mod report_text;
 pub mod reports;
+pub mod statement;
 
 pub use card::{CardContext, CardView, card_view, committed_card};
 pub use catalog::Catalog;
