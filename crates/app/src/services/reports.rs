@@ -17,7 +17,6 @@ use crate::model::{
     Member, PeriodFlow, PeriodTotals,
 };
 use crate::ports::ReportStore;
-use domain::Cents;
 
 /// Days of recurrences listed as "coming up" in the daily report.
 pub const UPCOMING_DAYS: u64 = 3;
@@ -147,15 +146,15 @@ impl DailyParts {
     }
 }
 
-/// What the cards still take, split at `last_day` of the cycle. Each card
-/// contributes its closed unpaid invoice, its open one and the installments
-/// already committed to invoices that do not exist yet.
+/// What the invoices that already exist will take, split at `last_day` of
+/// the cycle: each card's closed unpaid invoice and its open one. The
+/// installments committed to invoices that do not exist yet stay out — the
+/// cards section lists those per card.
 fn due_on_cards(cards: &[CardSummary], last_day: NaiveDate) -> InvoicesDue {
-    let committed: Cents = cards.iter().map(|card| card.future_committed).sum();
     let invoices = cards.iter().flat_map(|card| [card.unpaid.as_ref(), card.current.as_ref()]);
     let owed =
         invoices.flatten().map(|view| (view.statement.period.due_date, view.statement.outstanding));
-    invoices_due(owed, last_day, committed)
+    invoices_due(owed, last_day)
 }
 
 /// Income, spending and savings, plus spending per category and person.

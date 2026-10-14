@@ -162,10 +162,10 @@ async fn cycle_shows_cash_out_and_what_is_still_due() {
     // Do caixa saíram a despesa em conta e o pagamento da fatura, nada mais.
     assert_eq!(report.cycle_to_date.cash.out, Cents::new(35_000));
     assert_eq!(report.cycle_to_date.cash.invoice_payments, paid);
-    // A fatura vence 10/04, fora deste ciclo, com 15.000 em aberto e 60.000
-    // em parcelas já comprometidas com faturas seguintes.
+    // A fatura vence 10/04, fora deste ciclo, com 15.000 em aberto. As
+    // parcelas 2 e 3 estão em faturas que ainda nem existem e ficam fora.
     assert_eq!(report.invoices_due.in_cycle, Cents::ZERO);
-    assert_eq!(report.invoices_due.later, Cents::new(75_000));
+    assert_eq!(report.invoices_due.later, Cents::new(15_000));
     let position = report.balances.position;
     assert_eq!(position.invoices_owed, paid);
     assert_eq!(position.free_after_invoices, position.available - paid);
