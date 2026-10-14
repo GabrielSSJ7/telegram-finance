@@ -54,7 +54,7 @@ async fn delete_is_limited_to_the_author() {
     harness.press(ANA, message_id, &delete).await;
     assert_eq!(harness.last_toast().as_deref(), Some("Apagado"));
     harness.expect_last("Nenhum lançamento ainda.");
-    assert!(entries(&harness).await.is_empty());
+    assert_eq!(entries(&harness).await, vec![]);
     harness.press(ANA, message_id, &delete).await;
     assert_eq!(harness.last_toast().as_deref(), Some("Esse lançamento já foi apagado."));
 }

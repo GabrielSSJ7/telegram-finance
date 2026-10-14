@@ -147,7 +147,7 @@ mod tests {
         let service = service();
         let account = service.open(checking("Itaú", 0)).await.unwrap();
         service.archive(account.id).await.unwrap();
-        assert!(service.list(false).await.unwrap().is_empty());
+        assert_eq!(service.list(false).await.unwrap(), vec![]);
         assert!(matches!(service.archive(account.id).await, Err(AppError::NotFound { .. })));
         assert!(service.require_active(account.id).await.is_err());
     }

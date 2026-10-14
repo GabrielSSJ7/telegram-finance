@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use chrono::{Days, NaiveDate};
 use domain::cycle::Cycle;
-use domain::spend::{CategoryFlow, spending_by_category, summarize_period};
+use domain::due::{InvoicesDue, invoices_due};
+use domain::spend::{CategoryFlow, cash_flow, spending_by_category, summarize_period};
 
 use super::{
     CardService, CategoryService, GoalService, LedgerService, MemberService, PositionService,
@@ -16,6 +17,7 @@ use crate::model::{
     Member, PeriodFlow, PeriodTotals,
 };
 use crate::ports::ReportStore;
+use domain::Cents;
 
 /// Days of recurrences listed as "coming up" in the daily report.
 pub const UPCOMING_DAYS: u64 = 3;
@@ -70,7 +72,9 @@ impl ReportService {
             upcoming: self.sources.recurrences.upcoming(date, UPCOMING_DAYS).await?,
             budgets: self.sources.budgets.statuses(cycle).await?,
         };
-        Ok(today.into_report(self.snapshot().await?))
+        let snapshot = self.snapshot().await?;
+        let invoices_due = due_on_cards(&snapshot.cards, cycle.last_day());
+        Ok(today.into_report(snapshot, invoices_due))
     }
 
     pub async fn cycle(&self, cycle: Cycle) -> AppResult<CycleReport> {
@@ -81,6 +85,7 @@ impl ReportService {
             cycle,
             totals: self.totals(cycle.start, cycle.end_exclusive).await?,
             previous: self.totals(previous.start, previous.end_exclusive).await?.summary,
+            invoices_due: due_on_cards(&snapshot.cards, cycle.last_day()),
             saved_in_pots: self.store.pot_net_inflow(cycle.start, cycle.end_exclusive).await?,
             budgets: self.sources.budgets.statuses(cycle).await?,
             balances: snapshot.balances,
@@ -123,8 +128,9 @@ struct DailyParts {
 }
 
 impl DailyParts {
-    fn into_report(self, snapshot: Snapshot) -> DailyReport {
+    fn into_report(self, snapshot: Snapshot, invoices_due: InvoicesDue) -> DailyReport {
         DailyReport {
+            invoices_due,
             date: self.date,
             cycle: self.cycle,
             entries_today: self.entries_today,
@@ -141,6 +147,17 @@ impl DailyParts {
     }
 }
 
+/// What the cards still take, split at `last_day` of the cycle. Each card
+/// contributes its closed unpaid invoice, its open one and the installments
+/// already committed to invoices that do not exist yet.
+fn due_on_cards(cards: &[CardSummary], last_day: NaiveDate) -> InvoicesDue {
+    let committed: Cents = cards.iter().map(|card| card.future_committed).sum();
+    let invoices = cards.iter().flat_map(|card| [card.unpaid.as_ref(), card.current.as_ref()]);
+    let owed =
+        invoices.flatten().map(|view| (view.statement.period.due_date, view.statement.outstanding));
+    invoices_due(owed, last_day, committed)
+}
+
 /// Income, spending and savings, plus spending per category and person.
 pub fn period_totals(flows: &[PeriodFlow]) -> PeriodTotals {
     let by_category: Vec<_> = flows
@@ -153,6 +170,7 @@ pub fn period_totals(flows: &[PeriodFlow]) -> PeriodTotals {
         .collect();
     PeriodTotals {
         summary: summarize_period(&by_category),
+        cash: cash_flow(&by_category),
         by_category: spending_by_category(&by_category),
         by_member: spending_by_category(&by_member),
     }

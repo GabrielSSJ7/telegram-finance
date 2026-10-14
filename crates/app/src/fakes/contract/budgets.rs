@@ -12,7 +12,7 @@ pub async fn budget_set_replace_list_remove(stores: StorePorts) {
     assert_eq!(stores.budgets.list_budgets().await.unwrap(), vec![replaced]);
     assert!(stores.budgets.remove_budget(category).await.unwrap());
     assert!(!stores.budgets.remove_budget(category).await.unwrap());
-    assert!(stores.budgets.list_budgets().await.unwrap().is_empty());
+    assert_eq!(stores.budgets.list_budgets().await.unwrap(), vec![]);
 }
 
 pub async fn budget_alert_claimed_once_per_cycle_and_threshold(stores: StorePorts) {

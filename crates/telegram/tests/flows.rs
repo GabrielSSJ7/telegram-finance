@@ -53,7 +53,7 @@ async fn undo_button_only_works_for_author() {
     assert_eq!(harness.last_toast().as_deref(), Some("Só quem registrou pode desfazer."));
     harness.tap(ANA, "Desfazer").await;
     harness.expect_last("Desfeito por Ana");
-    assert!(harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap().is_empty());
+    assert_eq!(harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap(), vec![]);
 }
 
 #[tokio::test]

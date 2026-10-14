@@ -93,13 +93,13 @@ mod tests {
 
     #[test]
     fn nothing_due_before_the_day() {
-        assert!(due_dates(day(10), date(3, 1), None, date(3, 9)).is_empty());
+        assert_eq!(due_dates(day(10), date(3, 1), None, date(3, 9)), vec![]);
         assert_eq!(due_dates(day(10), date(3, 1), None, date(3, 10)), vec![date(3, 10)]);
     }
 
     #[test]
     fn already_generated_is_not_due_again() {
-        assert!(due_dates(day(10), date(1, 1), Some(date(3, 10)), date(3, 31)).is_empty());
+        assert_eq!(due_dates(day(10), date(1, 1), Some(date(3, 10)), date(3, 31)), vec![]);
     }
 
     #[test]
@@ -112,7 +112,7 @@ mod tests {
 
     #[test]
     fn start_date_is_respected() {
-        assert!(due_dates(day(5), date(3, 6), None, date(3, 31)).is_empty());
+        assert_eq!(due_dates(day(5), date(3, 6), None, date(3, 31)), vec![]);
         assert_eq!(due_dates(day(5), date(3, 5), None, date(3, 31)), vec![date(3, 5)]);
     }
 

@@ -106,7 +106,7 @@ async fn membership_greets_household_and_leaves_strangers() {
 async fn foreign_group_stays_silent_after_binding() {
     let mut harness = BotHarness::bound().await;
     harness.say_in(-999, ChatKind::Group, ANA, "/start").await;
-    assert!(harness.gateway.messages(-999).is_empty());
+    assert_eq!(harness.gateway.messages(-999), vec![]);
     let settings = harness.set.services.settings.get().await.unwrap();
     assert_eq!(settings.telegram_chat_id, Some(GROUP));
 }

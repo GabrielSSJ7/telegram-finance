@@ -3,7 +3,8 @@
 
 use chrono::NaiveDate;
 use domain::cycle::Cycle;
-use domain::spend::PeriodSummary;
+use domain::due::InvoicesDue;
+use domain::spend::{CashFlow, PeriodSummary};
 use domain::{Cents, EntryKind};
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +25,10 @@ pub struct PeriodFlow {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PeriodTotals {
     pub summary: PeriodSummary,
+    /// What left the accounts in the period, which spending alone misses:
+    /// a card purchase is spending today and cash only when the invoice is
+    /// paid.
+    pub cash: CashFlow,
     /// Net spending per category, largest first.
     pub by_category: Vec<(Option<CategoryId>, Cents)>,
     /// Net spending per person who recorded it, largest first.
@@ -66,6 +71,8 @@ pub struct DailyReport {
     pub entries_today: Vec<LedgerEntry>,
     pub today: PeriodTotals,
     pub cycle_to_date: PeriodTotals,
+    /// Card money still owed, split at the end of the cycle.
+    pub invoices_due: InvoicesDue,
     pub balances: BalanceSheet,
     pub cards: Vec<CardSummary>,
     pub goals: Vec<GoalProgress>,
@@ -81,6 +88,8 @@ pub struct CycleReport {
     pub cycle: Cycle,
     pub totals: PeriodTotals,
     pub previous: PeriodSummary,
+    /// Card money still owed, split at the end of the cycle.
+    pub invoices_due: InvoicesDue,
     /// Net money moved into goal pots during the cycle.
     pub saved_in_pots: Cents,
     pub balances: BalanceSheet,

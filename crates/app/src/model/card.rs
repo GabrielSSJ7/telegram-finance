@@ -75,6 +75,15 @@ pub struct InvoiceView {
     pub statement: InvoiceStatement,
 }
 
+/// What the cards take from the couple's money, across every card.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct InvoiceDebt {
+    /// Closed invoices not yet paid; this is what lowers "Disponível".
+    pub closed_unpaid: Cents,
+    /// Everything owed on invoices that exist, the open ones included.
+    pub all_invoices: Cents,
+}
+
 /// What `/fatura` and the daily report show per card.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardSummary {

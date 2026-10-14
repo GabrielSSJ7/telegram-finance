@@ -29,8 +29,9 @@ impl PositionService {
     /// Balances as of today plus the money position.
     pub async fn balance_sheet(&self) -> AppResult<BalanceSheet> {
         let accounts = self.accounts.balances().await?;
-        let unpaid = self.cards.unpaid_closed_total().await?;
-        let position = money_position(&kind_balances(&accounts), unpaid);
+        let owed = self.cards.owed().await?;
+        let position =
+            money_position(&kind_balances(&accounts), owed.closed_unpaid, owed.all_invoices);
         Ok(BalanceSheet { as_of: self.clock.today(), accounts, position })
     }
 }

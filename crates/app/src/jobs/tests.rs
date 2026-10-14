@@ -69,7 +69,7 @@ impl JobFixture {
 async fn nothing_runs_before_its_time() {
     let fixture = fixture().await;
     at_local(&fixture.set, date(3, 2), 5);
-    assert!(fixture.scheduler.tick().await.unwrap().is_empty());
+    assert_eq!(fixture.scheduler.tick().await.unwrap(), vec![]);
 }
 
 #[tokio::test]
@@ -88,7 +88,7 @@ async fn each_job_runs_once_per_day() {
             JobKind::BackupWatch
         ]
     );
-    assert!(fixture.scheduler.tick().await.unwrap().is_empty());
+    assert_eq!(fixture.scheduler.tick().await.unwrap(), vec![]);
     assert_eq!(fixture.count(|notice| matches!(notice, Notice::Daily(..))), 2);
 }
 

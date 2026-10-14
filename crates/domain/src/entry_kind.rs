@@ -98,6 +98,19 @@ impl EntryKind {
         }
     }
 
+    /// Sign on money leaving the couple's accounts: what they paid from an
+    /// account, card invoices settled, and manual corrections. A card
+    /// purchase is not here — it only becomes cash when its invoice is
+    /// paid. Transfers move money between their own accounts, so they net
+    /// to zero and count as nothing.
+    pub const fn cash_effect(self) -> i64 {
+        match self {
+            EntryKind::Expense | EntryKind::InvoicePayment | EntryKind::AdjustOut => 1,
+            EntryKind::Refund | EntryKind::AdjustIn => -1,
+            _ => 0,
+        }
+    }
+
     /// Sign applied to what the couple owes on a card invoice.
     pub const fn invoice_effect(self) -> i64 {
         match self {

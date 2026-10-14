@@ -31,7 +31,7 @@ mod tests {
     #[test]
     fn thresholds_follow_spending() {
         let limit = Cents::new(1000);
-        assert!(thresholds_reached(Cents::new(799), limit).is_empty());
+        assert_eq!(thresholds_reached(Cents::new(799), limit), vec![]);
         assert_eq!(thresholds_reached(Cents::new(800), limit), vec![80]);
         assert_eq!(thresholds_reached(Cents::new(1000), limit), vec![80, 100]);
         assert_eq!(thresholds_reached(Cents::new(5000), limit), vec![80, 100]);
@@ -41,6 +41,6 @@ mod tests {
     fn zero_limit_and_refunds_are_safe() {
         assert_eq!(used_bp(Cents::new(10), Cents::ZERO), 0);
         assert_eq!(used_bp(Cents::new(-10), Cents::new(100)), 0);
-        assert!(thresholds_reached(Cents::new(10), Cents::ZERO).is_empty());
+        assert_eq!(thresholds_reached(Cents::new(10), Cents::ZERO), vec![]);
     }
 }

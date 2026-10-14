@@ -4,6 +4,7 @@ use app::model::{
     BalanceSheet, CardSummary, Category, CategoryKind, CreditCard, GoalProgress, InvoiceView,
     Recurrence, RecurrenceKind, RecurrenceMode,
 };
+use domain::balance::MoneyPosition;
 use domain::invoice_settlement::InvoiceStatus;
 use domain::money_format::format_brl;
 use domain::{AccountKind, Cents};
@@ -27,10 +28,27 @@ pub fn balance_text(sheet: &BalanceSheet) -> String {
     }
     let date = short_date(sheet.as_of, sheet.as_of);
     let available = format_brl(sheet.position.available);
+    let committed = committed_line(&sheet.position);
     let reserved = reserved_line(sheet.position.reserved_in_pots);
     format!(
-        "<b>💰 Saldo</b> · {date}\n{}\n\n<b>Disponível: {available}</b>{reserved}",
+        "<b>💰 Saldo</b> · {date}\n{}\n\n<b>Disponível: {available}</b>{committed}{reserved}",
         lines.join("\n")
+    )
+}
+
+/// What the open invoices will still take. "Disponível" only discounts the
+/// invoices already closed, so mid-cycle it looks richer than it is.
+fn committed_line(position: &MoneyPosition) -> String {
+    // "Disponível" já desconta as faturas fechadas, então a diferença entre
+    // ele e o livre é exatamente o que as faturas abertas vão levar.
+    let open = position.available - position.free_after_invoices;
+    if !open.is_positive() {
+        return String::new();
+    }
+    format!(
+        "\n💳 Comprometido em faturas: {} · livre depois delas: {}",
+        format_brl(position.invoices_owed),
+        format_brl(position.free_after_invoices)
     )
 }
 
@@ -236,8 +254,30 @@ mod tests {
             position: MoneyPosition {
                 available: Cents::new(available),
                 reserved_in_pots: Cents::new(reserved),
+                invoices_owed: Cents::ZERO,
+                free_after_invoices: Cents::new(available),
             },
         }
+    }
+
+    #[test]
+    fn open_invoices_show_what_is_left_after_them() {
+        let mut sheet = sheet(vec![(account("Itaú", AccountKind::Checking), 947_671)], 947_671, 0);
+        sheet.position.invoices_owed = Cents::new(1_435_582);
+        sheet.position.free_after_invoices = Cents::new(-487_911);
+        let text = balance_text(&sheet);
+        assert!(
+            text.contains(
+                "💳 Comprometido em faturas: R$ 14.355,82 · livre depois delas: -R$ 4.879,11"
+            ),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn no_open_invoice_keeps_the_balance_block_short() {
+        let sheet = sheet(vec![(account("Itaú", AccountKind::Checking), 100)], 100, 0);
+        assert!(!balance_text(&sheet).contains("Comprometido"));
     }
 
     #[test]

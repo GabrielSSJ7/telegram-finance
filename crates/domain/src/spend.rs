@@ -19,6 +19,9 @@ pub struct CategoryFlow<C> {
 pub struct PeriodSummary {
     pub income: Cents,
     pub spending: Cents,
+    /// Part of `spending` charged to a card, net of card refunds. The rest
+    /// came straight out of an account.
+    pub on_cards: Cents,
     /// Income minus spending; negative when the couple spent more.
     pub saved: Cents,
     /// `saved / income` in basis points (1% = 100); `None` without income.
@@ -38,9 +41,50 @@ pub struct PeriodSummary {
 pub fn summarize_period<C>(flows: &[CategoryFlow<C>]) -> PeriodSummary {
     let income: Cents = flows.iter().map(|flow| flow.total.times(flow.kind.income_effect())).sum();
     let spending: Cents = flows.iter().map(|flow| flow.total.times(flow.kind.spend_effect())).sum();
+    let on_cards: Cents = flows.iter().map(|flow| flow.total.times(card_effect(flow.kind))).sum();
     let saved = income - spending;
     let savings_rate_bp = income.is_positive().then(|| saved.value() * 10_000 / income.value());
-    PeriodSummary { income, spending, saved, savings_rate_bp }
+    PeriodSummary { income, spending, on_cards, saved, savings_rate_bp }
+}
+
+/// Sign of a flow inside `PeriodSummary::on_cards`.
+const fn card_effect(kind: EntryKind) -> i64 {
+    match kind {
+        EntryKind::CardInstallment => 1,
+        EntryKind::CardCredit => -1,
+        _ => 0,
+    }
+}
+
+/// Money that actually left the accounts in a period.
+///
+/// Spending counts a card purchase on the day it was made; this counts it
+/// when its invoice was paid. `income - out` is how much the balances moved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct CashFlow {
+    pub out: Cents,
+    /// The part of `out` that settled card invoices.
+    pub invoice_payments: Cents,
+}
+
+/// Cash that left the accounts in the period.
+///
+/// ```
+/// use domain::{Cents, EntryKind, spend::{CategoryFlow, cash_flow}};
+/// let flows: [CategoryFlow<u8>; 2] = [
+///     CategoryFlow { category: None, kind: EntryKind::Expense, total: Cents::new(300) },
+///     CategoryFlow { category: None, kind: EntryKind::InvoicePayment, total: Cents::new(1000) },
+/// ];
+/// assert_eq!(cash_flow(&flows).out, Cents::new(1300));
+/// ```
+pub fn cash_flow<C>(flows: &[CategoryFlow<C>]) -> CashFlow {
+    let out: Cents = flows.iter().map(|flow| flow.total.times(flow.kind.cash_effect())).sum();
+    let invoice_payments: Cents = flows
+        .iter()
+        .filter(|flow| flow.kind == EntryKind::InvoicePayment)
+        .map(|flow| flow.total)
+        .sum();
+    CashFlow { out, invoice_payments }
 }
 
 /// Net spending per category, largest first. Categories whose refunds
@@ -88,6 +132,8 @@ mod tests {
         let summary = summarize_period(&sample());
         assert_eq!(summary.income, Cents::new(1_000_000));
         assert_eq!(summary.spending, Cents::new(245_000));
+        // 20.000 + 150.000 de cartão menos 5.000 de estorno no cartão.
+        assert_eq!(summary.on_cards, Cents::new(165_000));
         assert_eq!(summary.saved, Cents::new(755_000));
         assert_eq!(summary.savings_rate_bp, Some(7_550));
     }
@@ -97,6 +143,22 @@ mod tests {
         let summary = summarize_period(&[flow(Some("lazer"), EntryKind::Expense, 100)]);
         assert_eq!(summary.savings_rate_bp, None);
         assert_eq!(summary.saved, Cents::new(-100));
+    }
+
+    #[test]
+    fn cash_counts_invoice_payments_and_ignores_card_purchases() {
+        let cash = cash_flow(&sample());
+        // 83.000 de despesas + 170.000 de fatura - 3.000 de estorno; as compras
+        // no cartão e a transferência entre contas próprias não saíram do caixa.
+        assert_eq!(cash.out, Cents::new(250_000));
+        assert_eq!(cash.invoice_payments, Cents::new(170_000));
+    }
+
+    #[test]
+    fn manual_corrections_move_cash_both_ways() {
+        let flows = [flow(None, EntryKind::AdjustOut, 1_000), flow(None, EntryKind::AdjustIn, 400)];
+        assert_eq!(cash_flow(&flows).out, Cents::new(600));
+        assert_eq!(cash_flow(&flows).invoice_payments, Cents::ZERO);
     }
 
     #[test]

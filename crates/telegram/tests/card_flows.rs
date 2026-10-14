@@ -83,7 +83,7 @@ async fn typed_installments_and_purchase_undo() {
     assert_eq!(harness.last_toast().as_deref(), Some("Só quem registrou pode desfazer."));
     harness.tap(ANA, "Desfazer").await;
     harness.expect_last("R$ 1.800,00 em 18x no cartão");
-    assert!(harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap().is_empty());
+    assert_eq!(harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap(), vec![]);
 }
 
 #[tokio::test]

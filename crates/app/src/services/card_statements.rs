@@ -8,7 +8,7 @@ use domain::invoice_settlement::{
 
 use super::CardService;
 use crate::AppResult;
-use crate::model::{CardId, CardSummary, CreditCard, InvoiceView};
+use crate::model::{CardId, CardSummary, CreditCard, InvoiceDebt, InvoiceView};
 
 impl CardService {
     /// Every invoice of the card, oldest first, with derived status.
@@ -27,15 +27,19 @@ impl CardService {
         Ok(summaries)
     }
 
-    /// Owed on closed, unpaid invoices of every card, archived included.
-    pub async fn unpaid_closed_total(&self) -> AppResult<Cents> {
-        let mut total = Cents::ZERO;
+    /// What every card takes, archived cards included: the closed invoices
+    /// that lower "Disponível" and everything owed on existing invoices.
+    pub async fn owed(&self) -> AppResult<InvoiceDebt> {
+        let mut debt = InvoiceDebt::default();
         for card in self.cards.list_cards(true).await? {
             let views = self.views_of(&card).await?;
             let statements: Vec<_> = views.iter().map(|view| view.statement).collect();
-            total += unpaid_closed(&statements);
+            let closed = unpaid_closed(&statements);
+            let open = current_open(&statements).map_or(Cents::ZERO, |open| open.outstanding);
+            debt.closed_unpaid += closed;
+            debt.all_invoices += closed + open;
         }
-        Ok(total)
+        Ok(debt)
     }
 
     async fn views_of(&self, card: &CreditCard) -> AppResult<Vec<InvoiceView>> {

@@ -48,7 +48,7 @@ async fn forwards_setup_and_polling_calls() {
     assert!(fake.webhook_deleted() && fake.commands() == vec!["saldo".to_owned()]);
     assert_eq!(fake.left_chats(), vec![1]);
     fake.push_poll(Ok(vec![]));
-    assert!(gateway.get_updates(None, Duration::from_secs(1)).await.unwrap().is_empty());
+    assert_eq!(gateway.get_updates(None, Duration::from_secs(1)).await.unwrap(), vec![]);
 }
 
 #[tokio::test]

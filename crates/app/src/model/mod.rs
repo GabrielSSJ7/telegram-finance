@@ -21,7 +21,8 @@ pub use account::{Account, AccountBalance, BalanceSheet, NewAccount};
 pub use api_key::{ApiKey, IssuedApiKey};
 pub use budget::{Budget, BudgetAlert, BudgetStatus};
 pub use card::{
-    CardEdit, CardPurchase, CardSummary, CreditCard, Invoice, InvoiceView, NewCard, NewCardPurchase,
+    CardEdit, CardPurchase, CardSummary, CreditCard, Invoice, InvoiceDebt, InvoiceView, NewCard,
+    NewCardPurchase,
 };
 pub use category::{Category, CategoryEdit, CategoryKind, EmojiChange, NewCategory};
 pub use entry::{EntryFilter, EntryPatch, LedgerEntry, NewEntry};

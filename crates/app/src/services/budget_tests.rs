@@ -58,10 +58,10 @@ async fn alerts_fire_once_per_threshold() {
     let scene = scene().await;
     scene.set.services.budgets.set(scene.groceries, Cents::new(10_000)).await.unwrap();
     scene.spend(7_000).await;
-    assert!(scene.thresholds().await.is_empty());
+    assert_eq!(scene.thresholds().await, [] as [u8; 0]);
     scene.spend(1_000).await;
     assert_eq!(scene.thresholds().await, vec![80]);
-    assert!(scene.thresholds().await.is_empty());
+    assert_eq!(scene.thresholds().await, [] as [u8; 0]);
     scene.spend(5_000).await;
     assert_eq!(scene.thresholds().await, vec![100]);
 }

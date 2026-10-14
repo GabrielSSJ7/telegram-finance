@@ -91,7 +91,7 @@ async fn due_upcoming_and_deactivate() {
     let created = recurrences.create(salary(&setup)).await.unwrap();
     assert_eq!(recurrences.due(date(3, 6)).await.unwrap()[0].1, vec![date(3, 5)]);
     recurrences.mark_generated(created.id, date(3, 5)).await.unwrap();
-    assert!(recurrences.due(date(3, 6)).await.unwrap().is_empty());
+    assert_eq!(recurrences.due(date(3, 6)).await.unwrap(), vec![]);
     let upcoming = recurrences.upcoming(date(4, 3), 3).await.unwrap();
     assert_eq!(upcoming.iter().map(|(_, day)| *day).collect::<Vec<_>>(), vec![date(4, 5)]);
     recurrences.deactivate(created.id).await.unwrap();

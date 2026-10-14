@@ -87,7 +87,7 @@ async fn confirm_recurrence_can_be_skipped() {
     harness.job_runner().run(JobKind::Recurrences, date(3, 10)).await.unwrap();
     harness.tap(ANA, "Pular").await;
     assert!(harness.last_html().starts_with("⏭️ Pulado por Ana"), "{}", harness.last_html());
-    assert!(harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap().is_empty());
+    assert_eq!(harness.set.services.ledger.list(&EntryFilter::default()).await.unwrap(), vec![]);
 }
 
 #[tokio::test]

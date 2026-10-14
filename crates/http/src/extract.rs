@@ -29,6 +29,8 @@ pub const IDEMPOTENCY_HEADER: &str = "idempotency-key";
 impl<S: Send + Sync> FromRequestParts<S> for IdempotencyKey {
     type Rejection = ApiError;
 
+    // A assinatura é do trait do axum; não há await a fazer aqui.
+    #[allow(clippy::unused_async_trait_impl, reason = "assinatura exigida por FromRequestParts")]
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let Some(raw) = parts.headers.get(IDEMPOTENCY_HEADER) else {
             return Ok(IdempotencyKey(None));
