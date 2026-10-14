@@ -70,9 +70,9 @@ a message:
 |---|---|---|
 | recurrences | 06:00 | Records due recurring entries (backfills up to 3 months); bills set to "ask first" get [Registrar] [Pular] buttons |
 | invoice_events | 09:00 | Invoice closed today; unpaid invoice due in 3 days or today |
-| yesterday_report | yesterday's summary time, any hour (default 09:00) | All of yesterday's entries, the cycle so far, balances, cards, goals, what is coming |
+| yesterday_report | yesterday's summary time, any hour (default 09:00) | All of yesterday's entries, the cycle so far (spending by purchase date, cash that left the accounts, invoices still to fall due), balances, cards, goals, what is coming |
 | today_report | today's summary time, 19:00 or later (default 21:00) | The same for the day that is ending, once most of it is recorded |
-| cycle_report | yesterday's summary time, first day of a cycle | Closing of the financial month: income, spending, savings rate, categories, essential vs other vs saved, per person |
+| cycle_report | yesterday's summary time, first day of a cycle | Closing of the financial month: income, spending, cash out, invoices still due, savings rate, categories, essential vs other vs saved, per person |
 | backup_watch | 10:00 | Private-chat warning when no backup succeeded in 26 hours |
 
 `finbot run-job today-report --date 2026-10-05` runs one job immediately.
