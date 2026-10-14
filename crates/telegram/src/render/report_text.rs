@@ -101,7 +101,7 @@ fn cycle_body(report: &CycleReport, header: String) -> String {
     let names = Names { categories: &report.categories, members: &report.members };
     let summary = &report.totals.summary;
     let mut sections = vec![header];
-    sections.push(cycle_totals(summary, &report.previous, report.saved_in_pots));
+    sections.push(totals_block(report, summary));
     sections.push(category_breakdown(&report.totals, &names));
     sections.extend(needs_split(report));
     sections.push(member_line(&report.totals, &names));
@@ -255,6 +255,14 @@ fn due_line(due: InvoicesDue, last_day: NaiveDate) -> String {
         return in_cycle;
     }
     format!("{in_cycle} · {} depois", format_brl(due.later))
+}
+
+/// The cycle's totals followed by the same cash lines the daily report
+/// shows, so `/mes` and the daily summary tell one story.
+fn totals_block(report: &CycleReport, summary: &PeriodSummary) -> String {
+    let totals = cycle_totals(summary, &report.previous, report.saved_in_pots);
+    let cash = cash_lines(&report.totals, report.invoices_due, report.cycle.last_day());
+    format!("{totals}\n{cash}")
 }
 
 fn cycle_totals(summary: &PeriodSummary, previous: &PeriodSummary, saved_in_pots: Cents) -> String {
